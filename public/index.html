@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>หมุนตังค์</title>
+  <meta name="description" content="หมุนตังค์ ผู้ช่วยจดรายรับรายจ่ายใน LINE แค่แชทหรือส่งสลิป">
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/theme.css">
+  <style>
+    html, body { height: auto; }
+    .wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 48px; }
+    .hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: center; }
+    .hero h1 { font-family: var(--font-display); font-size: clamp(44px, 9vw, 76px); line-height: 0.95; margin: 0 0 14px; }
+    .hero h1 b { color: var(--gold); }
+    .hero p { color: var(--muted); font-size: 17px; max-width: 46ch; margin: 0 0 24px; }
+    .cta { display: flex; flex-wrap: wrap; gap: 10px; }
+    .cta a { text-decoration: none; padding: 12px 20px; border-radius: 999px; font-weight: 700; }
+    .cta .primary { background: var(--gold); color: var(--on-gold); }
+    .cta .ghost { border: 1px solid var(--gold-dim); color: var(--gold); }
+    .mascot { position: relative; justify-self: center; width: min(320px, 70vw); aspect-ratio: 1; max-width: 100%; }
+    .mascot img { width: 100%; border-radius: 50%; box-shadow: 0 0 0 3px var(--gold), 0 0 80px rgba(255, 196, 0, 0.25); }
+    .mascot::before { content: ''; position: absolute; inset: 18% -22%; border: 2px solid rgba(255, 196, 0, 0.4); border-radius: 50%; transform: rotate(-16deg); }
+    .feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .feat { background: var(--carbon); border-radius: var(--r-md); padding: 18px; }
+    .feat h3 { margin: 0 0 6px; font-family: var(--font-display); font-size: 17px; color: var(--gold); }
+    .feat p { margin: 0; color: var(--muted); font-size: 14px; }
+    .feat code { color: var(--moon); font-family: var(--font-display); }
+    h2 { font-family: var(--font-display); font-size: 24px; margin: 0 0 14px; }
+    @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } .mascot { order: -1; width: 200px; } .feats { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div>
+        <h1>หมุน<b>ตังค์</b></h1>
+        <p>จดรายรับรายจ่ายแค่แชทใน LINE พิมพ์ "ข้าว 50" หรือส่งรูปสลิป แล้วระบบจัดหมวด สรุปยอด และเตือนงบให้เอง ไม่ต้องโหลดแอปเพิ่ม</p>
+        <div class="cta">
+          <a class="primary" id="add-friend" href="/simulator/">ลองแชทจำลอง</a>
+          <a class="ghost" href="/app/">ดูแดชบอร์ดตัวอย่าง</a>
+        </div>
+      </div>
+      <div class="mascot"><img src="/assets/logo.png" alt="นายหัวหมุน มาสคอตหมุนตังค์"></div>
+    </section>
+    <section>
+      <h2>ทำอะไรได้บ้าง</h2>
+      <div class="feats">
+        <div class="feat"><h3>จดด้วยแชท</h3><p><code>กาแฟ 45 ขนม 30</code> หลายรายการในข้อความเดียว รองรับ "เมื่อวาน" วันที่ และช่องทางจ่าย</p></div>
+        <div class="feat"><h3>AI อ่านสลิป</h3><p>ส่งรูปสลิปโอนเงินหรือใบเสร็จ อ่านยอด วันที่ ผู้รับ และกันสลิปซ้ำให้อัตโนมัติ</p></div>
+        <div class="feat"><h3>จัดหมวดอัตโนมัติ</h3><p>16 หมวดรายรับรายจ่าย แก้หมวดได้ด้วยปุ่มเดียว และระบบจำคำนั้นไว้ใช้ครั้งหน้า</p></div>
+        <div class="feat"><h3>สรุปทันที</h3><p><code>สรุป</code> <code>สรุปเดือนนี้</code> ดูยอดรายวัน สัปดาห์ เดือน พร้อมกราฟตามหมวด</p></div>
+        <div class="feat"><h3>งบ &amp; แจ้งเตือน</h3><p><code>งบ 15000</code> หรือรายหมวด เตือนเมื่อใช้ถึง 80% และ 100% พร้อมบอกว่าเหลือใช้วันละเท่าไร</p></div>
+        <div class="feat"><h3>เป้าหมายการออม</h3><p><code>เป้า เที่ยวญี่ปุ่น 50000</code> แล้วหยอดกระปุกด้วย <code>ออม เที่ยวญี่ปุ่น 1000</code></p></div>
+        <div class="feat"><h3>รายการประจำ</h3><p><code>ประจำ ค่าเน็ต 599 ทุกวันที่ 5</code> บันทึกให้เองทุกเดือน</p></div>
+        <div class="feat"><h3>เตือนจดทุกวัน</h3><p><code>เตือน 21:00</code> ถ้าวันไหนลืมจด นายหัวหมุนจะทักไปเตือน</p></div>
+        <div class="feat"><h3>แดชบอร์ด &amp; Excel</h3><p>เปิดดูกราฟ แก้ไขรายการผ่าน LIFF และส่งออกเป็นไฟล์ CSV เปิดด้วย Excel ได้</p></div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

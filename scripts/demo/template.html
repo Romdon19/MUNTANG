@@ -1,0 +1,84 @@
+<title>หมุนตังค์</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<style>
+/*__CSS__*/
+
+/* ---- demo shell: แถบแบรนด์ด้านบน + โทรศัพท์ 2 เครื่อง (แชท LINE | แดชบอร์ด) ---- */
+html, body { height: auto; }
+body { background: var(--space); }
+.demo {
+  max-width: 1080px; margin: 0 auto;
+  padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px;
+}
+.demo-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.demo-logo { width: 64px; height: 64px; border-radius: 50%; box-shadow: 0 0 0 2px var(--gold), 0 0 28px rgba(255, 196, 0, 0.25); }
+.demo-title { flex: 1; min-width: 220px; }
+.demo-title h1 { margin: 0; font-family: var(--font-display); font-size: clamp(30px, 6vw, 42px); line-height: 1; color: var(--moon); letter-spacing: 0.01em; }
+.demo-title h1 b { color: var(--gold); }
+.demo-title p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; text-wrap: pretty; }
+.demo-try { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.demo-try span { font-size: 13px; color: var(--faint); }
+.demo-try button {
+  border: 1px solid var(--gold-dim); background: transparent; color: var(--gold);
+  border-radius: 999px; padding: 6px 14px; font-size: 14px;
+}
+.demo-try button:hover { background: var(--gold); color: var(--on-gold); }
+.demo-tabs { display: none; gap: 6px; background: var(--carbon); padding: 4px; border-radius: 999px; }
+.demo-tabs button { flex: 1; border: 0; background: none; color: var(--muted); padding: 9px; border-radius: 999px; font-weight: 600; }
+.demo-tabs button[aria-selected='true'] { background: var(--gold); color: var(--on-gold); }
+.demo-stage { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 400px); justify-content: center; gap: 36px; }
+.demo-pane { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.demo-pane h2 { margin: 0; font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; color: var(--muted); text-align: center; }
+.demo-phone {
+  height: 760px; border-radius: 34px; overflow: hidden; position: relative;
+  border: 1px solid #3a3220; background: var(--space);
+  box-shadow: 0 0 0 6px #121212, 0 0 0 7px #2c2a24, 0 30px 60px rgba(0, 0, 0, 0.5);
+}
+.demo-phone > div { height: 100%; }
+.demo-note { margin: 0; text-align: center; font-size: 12.5px; color: var(--faint); max-width: 70ch; align-self: center; text-wrap: pretty; }
+
+@media (max-width: 900px) {
+  .demo-tabs { display: flex; }
+  .demo-stage { grid-template-columns: minmax(0, 440px); }
+  .demo[data-pane='chat'] .demo-pane.is-dash, .demo[data-pane='dash'] .demo-pane.is-chat { display: none; }
+  .demo-pane h2 { display: none; }
+  .demo-phone { height: min(760px, calc(100dvh - 120px)); min-height: 520px; border-radius: 22px; box-shadow: none; }
+}
+</style>
+
+<img id="mt-logo-src" src="__LOGO__" alt="" hidden>
+<div class="demo" data-pane="chat">
+  <header class="demo-head">
+    <img class="demo-logo" src="__LOGO__" alt="โลโก้หมุนตังค์">
+    <div class="demo-title">
+      <h1>หมุน<b>ตังค์</b></h1>
+      <p>ผู้ช่วยจดรายรับรายจ่ายใน LINE แค่พิมพ์ "ข้าว 50" หรือส่งรูปสลิป ระบบจัดหมวด สรุปยอด เตือนงบให้เอง แล้วดูกราฟทั้งหมดในแดชบอร์ด</p>
+    </div>
+  </header>
+  <div class="demo-try">
+    <span>ลองพิมพ์:</span>
+    <button type="button" data-try="ข้าวมันไก่ 50">ข้าวมันไก่ 50</button>
+    <button type="button" data-try="กาแฟ 45 ขนม 30">กาแฟ 45 ขนม 30</button>
+    <button type="button" data-try="+เงินเดือน 25,000">+เงินเดือน 25,000</button>
+    <button type="button" data-try="เมื่อวาน แท็กซี่ 120">เมื่อวาน แท็กซี่ 120</button>
+    <button type="button" data-try="สรุปเดือนนี้">สรุปเดือนนี้</button>
+    <button type="button" data-try="งบ">งบ</button>
+  </div>
+  <div class="demo-tabs" role="tablist">
+    <button type="button" role="tab" data-pane-btn="chat" aria-selected="true">แชท LINE</button>
+    <button type="button" role="tab" data-pane-btn="dash" aria-selected="false">แดชบอร์ด</button>
+  </div>
+  <div class="demo-stage">
+    <section class="demo-pane is-chat"><h2>แชท LINE OA</h2><div class="demo-phone"><div id="demo-chat"></div></div></section>
+    <section class="demo-pane is-dash"><h2>แดชบอร์ด LIFF</h2><div class="demo-phone"><div id="demo-dash"></div></div></section>
+  </div>
+  <p class="demo-note">เดโมนี้รันในเบราว์เซอร์ทั้งหมดด้วยข้อมูลตัวอย่าง 2 เดือน รายการที่พิมพ์จะขึ้นในแดชบอร์ดทันที การอ่านสลิปด้วย AI และการแจ้งเตือนรายวันจะทำงานเมื่อเชื่อมกับ LINE จริงบนเซิร์ฟเวอร์</p>
+</div>
+<script>
+/*__JS__*/
+</script>

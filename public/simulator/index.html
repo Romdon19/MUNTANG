@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>หมุนตังค์ แชทจำลอง</title>
+  <link rel="icon" href="/assets/favicon.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/sim.css">
+  <script src="/config.js"></script>
+  <style>
+    .phone { height: 100%; max-width: 440px; margin: 0 auto; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); }
+  </style>
+</head>
+<body>
+  <div class="phone" id="sim"></div>
+  <script type="module">
+    import { remoteBackend } from '/js/backend.js';
+    import { mountSimulator } from '/js/simulator.js';
+    mountSimulator(document.getElementById('sim'), remoteBackend(), {
+      logoUrl: '/assets/logo-192.jpg',
+      onUri: (uri) => window.open(uri, '_blank', 'noopener'),
+    });
+  </script>
+</body>
+</html>
