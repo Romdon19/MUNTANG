@@ -58,7 +58,7 @@ npm run build:demo   # -> dist/muntang-demo.html
 4. **LIFF แดชบอร์ด**: สร้าง *LINE Login channel* → แท็บ LIFF → Add
    - Endpoint URL: `https://<โดเมน>/app/` · Size: Full · Scope: `openid`, `profile`
    - ใส่ `LIFF_ID` และ `LINE_LOGIN_CHANNEL_ID` (Channel ID ของ LINE Login channel)
-5. **Rich Menu**: `npm run richmenu:setup` (ถ้าแก้หน้าตาเมนูใน `scripts/richmenu.html` ให้รัน `npm run richmenu:image` ก่อน)
+5. **Rich Menu**: เปิด `https://<โดเมน>/admin/setup-richmenu?key=<APP_SECRET>` ในเบราว์เซอร์ หรือรัน `npm run richmenu:setup` (ถ้าแก้หน้าตาเมนูใน `scripts/richmenu.html` ให้รัน `npm run richmenu:image` ก่อน)
 6. **AI อ่านสลิป**: ใส่ `ANTHROPIC_API_KEY` (ใช้ Claude อ่านรูปและแปลประโยคยาว ถ้าไม่ใส่ บอทยังจดจากข้อความได้ตามปกติ)
 
 ## โครงสร้างโปรเจกต์

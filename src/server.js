@@ -7,6 +7,7 @@ import { line, verifySignature } from './line.js';
 import { createAI } from './ai.js';
 import { makeToken, readToken } from './auth.js';
 import { startScheduler } from './scheduler.js';
+import { setupRichMenu } from './richmenu.js';
 import { createBot } from './core/bot.js';
 import * as ops from './core/ops.js';
 import { seedDemo } from './core/demo.js';
@@ -157,6 +158,17 @@ app.post('/api/sim/event', async (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ตั้ง Rich Menu จากเบราว์เซอร์: /admin/setup-richmenu?key=<APP_SECRET>
+app.get('/admin/setup-richmenu', async (req, res) => {
+  if (!process.env.APP_SECRET || req.query.key !== process.env.APP_SECRET) return res.status(403).send('ต้องใส่ ?key= ให้ตรงกับ APP_SECRET');
+  try {
+    const r = await setupRichMenu();
+    res.type('text/plain; charset=utf-8').send(`✅ ตั้ง Rich Menu เรียบร้อย (${r.richMenuId})\nปุ่มแดชบอร์ดเปิดด้วย ${r.dashboard}\nปิดแอป LINE แล้วเปิดใหม่เพื่อดูเมนู`);
+  } catch (e) {
+    res.status(500).type('text/plain; charset=utf-8').send(`❌ ${e.message}`);
   }
 });
 
