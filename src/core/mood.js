@@ -1,6 +1,13 @@
 // "หัวหมุนมิเตอร์": อารมณ์ของนายหัวหมุนตามสถานะงบ ใช้ทั้งในแชทและแดชบอร์ด
 import { money } from './format.js';
 
+export const MOOD_LEVELS = ['idle', 'calm', 'ok', 'dizzy', 'spin'];
+
+/** ลิงก์รูปนายหัวหมุนทุกอารมณ์ จากโฟลเดอร์ assets (ไฟล์ mood-<level>.png) */
+export function moodPics(assetsBase) {
+  return Object.fromEntries(MOOD_LEVELS.map((l) => [l, `${assetsBase}/mood-${l}.png`]));
+}
+
 /** budget: ผลจาก ops.budgetStatus() */
 export function moodFor(budget) {
   if (!budget?.total) {

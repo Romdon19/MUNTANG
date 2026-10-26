@@ -28,7 +28,7 @@ const SUMMARY_WORDS = {
  *   getGroupName?: (groupId) -> string
  *   getProfile?: (userId) -> { name, pictureUrl }
  *   links: { dashboard(userId), export(userId), view?(name), edit?(txId) }  (view/edit = หน้าเฉพาะใน LIFF)
- *   spinUrl?: string  รูปนายหัวหมุนท่าหัวหมุนติ้ว (ตอนเกินงบ)
+ *   moods?: {idle,calm,ok,dizzy,spin}  รูปนายหัวหมุนตามอารมณ์งบ
  *   logoUrl?: string
  *   now?: () => Date
  */
@@ -55,7 +55,7 @@ export function createBot(deps) {
   function ctxFor(user) {
     return {
       logoUrl: deps.logoUrl,
-      spinUrl: deps.spinUrl,
+      moods: deps.moods,
       links: {
         dashboard: deps.links?.dashboard?.(user.id),
         export: deps.links?.export?.(user.id),

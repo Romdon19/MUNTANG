@@ -4,8 +4,8 @@ import { mountSimulator } from '../../public/js/simulator.js';
 import { mountDashboard } from '../../public/js/dashboard.js';
 
 const logo = document.getElementById('mt-logo-src').getAttribute('src');
-const spin = document.getElementById('mt-spin-src').getAttribute('src');
-const backend = localBackend({ logoUrl: logo, spinUrl: spin });
+const moods = JSON.parse(document.getElementById('mt-moods').textContent);
+const backend = localBackend({ logoUrl: logo, moods });
 const shell = document.querySelector('.demo');
 
 function showPane(name) {
@@ -14,7 +14,7 @@ function showPane(name) {
 }
 
 backend.authenticate().then(() => {
-  const dash = mountDashboard(document.getElementById('demo-dash'), backend, { logoUrl: logo, spinUrl: spin });
+  const dash = mountDashboard(document.getElementById('demo-dash'), backend, { logoUrl: logo, moods });
   const openDash = async (view, editId) => {
     await dash.refresh();
     if (view) dash.show(view, editId);
@@ -22,7 +22,7 @@ backend.authenticate().then(() => {
   };
   mountSimulator(document.getElementById('demo-chat'), backend, {
     logoUrl: logo,
-    spinUrl: spin,
+    moods,
     onChange: () => dash.refresh(),
     onRichUri: (view) => openDash(view),
     onUri: (uri) => {

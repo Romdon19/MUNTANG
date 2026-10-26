@@ -377,9 +377,9 @@ export function editMenuMessage(tx) {
   );
 }
 
-/** รูปนายหัวหมุนตามอารมณ์ (ท่าไหนยังไม่มีรูป ใช้โลโก้แทน) */
+/** รูปนายหัวหมุนตามอารมณ์ (ถ้าไม่มีรูป ใช้โลโก้แทน) */
 function moodPic(level, ctx) {
-  return (level === 'spin' && ctx?.spinUrl) || ctx?.logoUrl || '';
+  return ctx?.moods?.[level] || ctx?.logoUrl || '';
 }
 
 /** บรรทัดคำพูดนายหัวหมุนตามสถานะงบ */

@@ -1,5 +1,5 @@
 // แดชบอร์ดหมุนตังค์ (LIFF) — โครงแบบป้านวล: สรุป · วิเคราะห์ · หมวด/งบ · รายการ · ตั้งค่า
-// mountDashboard(root, backend, { logoUrl, spinUrl, view, edit })
+// mountDashboard(root, backend, { logoUrl, moods, view, edit })
 import { money } from '../core/format.js';
 import { todayStr, thaiDate, TH_DAYS, weekday, cycleOf, shiftCycle, diffDays, addDays } from '../core/dates.js';
 import { summarize } from '../core/ops.js';
@@ -41,8 +41,8 @@ export function mountDashboard(root, backend, opts = {}) {
   root.classList.add('mt-app');
   root.innerHTML = `<div class="mt-loading"><img src="${esc(opts.logoUrl || '')}" alt=""><span>กำลังหมุน...</span></div>`;
 
-  // รูปนายหัวหมุนตามอารมณ์ (ท่าไหนยังไม่มีรูป ใช้โลโก้แทน)
-  const moodImg = (level) => (level === 'spin' && opts.spinUrl) || opts.logoUrl || '';
+  // รูปนายหัวหมุนตามอารมณ์ (ถ้าไม่มีรูป ใช้โลโก้แทน)
+  const moodImg = (level) => opts.moods?.[level] || opts.logoUrl || '';
   const cat = (id) => st.data.categories.find((c) => c.id === id) || st.data.categories.find((c) => c.id === 'other');
   const wallet = (id) => st.data.wallets.find((w) => w.id === id) || st.data.wallets[0];
   const isCurrentCycle = () => st.cycle.from === st.data.budget.from;

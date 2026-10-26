@@ -93,7 +93,7 @@ export function remoteBackend() {
 const LS_KEY = 'muntang-local-v1';
 const LOCAL_USER = 'local-user';
 
-export function localBackend({ logoUrl, spinUrl, onOpenDashboard } = {}) {
+export function localBackend({ logoUrl, moods, onOpenDashboard } = {}) {
   let mem = null;
   const load = () => {
     if (mem) return mem;
@@ -128,7 +128,7 @@ export function localBackend({ logoUrl, spinUrl, onOpenDashboard } = {}) {
     store,
     ai: null,
     logoUrl,
-    spinUrl,
+    moods,
     links: { dashboard: () => '#dashboard', export: () => '#export', view: (name) => `#view-${name}`, edit: (id) => `#edit-${id}` },
   });
 

@@ -19,9 +19,10 @@
   <script type="module">
     import { remoteBackend } from '/js/backend.js';
     import { mountSimulator } from '/js/simulator.js';
+    import { moodPics } from '/core/mood.js';
     mountSimulator(document.getElementById('sim'), remoteBackend(), {
       logoUrl: '/assets/logo-256.png',
-      spinUrl: '/assets/mood-spin.png',
+      moods: moodPics('/assets'),
       onUri: (uri) => window.open(uri, '_blank', 'noopener'),
     });
   </script>

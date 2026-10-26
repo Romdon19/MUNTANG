@@ -19,6 +19,7 @@
   <script type="module">
     import { remoteBackend } from '/js/backend.js';
     import { mountDashboard } from '/js/dashboard.js';
+    import { moodPics } from '/core/mood.js';
 
     const root = document.getElementById('app');
     // หน้าที่ขอเปิด เช่น ?view=analysis หรือ ?view=list&edit=<id> (มาจากริชเมนู/ปุ่มแก้ไขในแชท)
@@ -27,7 +28,7 @@
     const view = params.get('view') || liffState.get('view');
     const edit = params.get('edit') || liffState.get('edit');
     const backend = remoteBackend();
-    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-256.png', spinUrl: '/assets/mood-spin.png', view, edit });
+    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-256.png', moods: moodPics('/assets'), view, edit });
     backend
       .authenticate()
       .then(() => dash.refresh())
