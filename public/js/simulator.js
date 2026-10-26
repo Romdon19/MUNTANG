@@ -3,16 +3,29 @@ import { renderFlex } from './flex-render.js';
 
 const HISTORY_KEY = 'muntang-sim-history-v1';
 
+// ไอคอนเส้นชุดเดียวกับแอป (ใช้ทั้งในเดโมและรูปริชเมนู scripts/richmenu.html)
+export const MENU_ICONS = {
+  home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+  analysis: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M8 13v-2M10.5 13V8M13 13v-3.5"/>',
+  budget: '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4M12 17.5h.01"/>',
+  // กองเหรียญ (ออมเงิน)
+  goal: '<ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v4c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-4M5 9.5v4.5c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V9.5M5 14v4.5c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V14"/>',
+};
+const menuIcon = (id) => `<svg class="sim-ic" viewBox="0 0 24 24" aria-hidden="true">${MENU_ICONS[id]}</svg>`;
+
 // ริชเมนูแบบป้านวล: ช่องใหญ่ "จด" + ช่องเล็กที่เปิดหน้าต่างๆ ใน LIFF (view) หรือส่งข้อความ (text)
 export const RICH_MENU = [
   { id: 'rec', text: 'จด' },
-  { id: 'home', icon: '🏠', label: 'สรุป', view: 'home', text: 'สรุปเดือนนี้' },
-  { id: 'analysis', icon: '🔍', label: 'วิเคราะห์', view: 'analysis', text: 'วิเคราะห์' },
-  { id: 'budget', icon: '🥧', label: 'หมวด/งบ', view: 'budget', text: 'งบ' },
-  { id: 'list', icon: '☰', label: 'รายการ', view: 'list', text: 'รายการ' },
-  { id: 'goal', icon: '🐷', label: 'ออมเงิน', text: 'เป้า' },
-  { id: 'settings', icon: '⚙️', label: 'ตั้งค่า', view: 'settings', text: 'ตั้งค่า' },
-  { id: 'help', icon: '❓', label: 'Help', text: 'วิธีใช้' },
+  { id: 'home', label: 'สรุป', view: 'home', text: 'สรุปเดือนนี้' },
+  { id: 'analysis', label: 'วิเคราะห์', view: 'analysis', text: 'วิเคราะห์' },
+  { id: 'budget', label: 'หมวด/งบ', view: 'budget', text: 'งบ' },
+  { id: 'list', label: 'รายการ', view: 'list', text: 'รายการ' },
+  { id: 'goal', label: 'ออมเงิน', text: 'เป้า' },
+  { id: 'settings', label: 'ตั้งค่า', view: 'settings', text: 'ตั้งค่า' },
+  { id: 'help', label: 'Help', text: 'วิธีใช้' },
 ];
 
 export function mountSimulator(root, backend, opts = {}) {
@@ -37,8 +50,10 @@ export function mountSimulator(root, backend, opts = {}) {
     <button class="sim-menu-toggle" type="button" aria-expanded="true">เมนู ▾</button>
     <nav class="sim-rich">${RICH_MENU.map((m, i) =>
       m.id === 'rec'
-        ? `<button type="button" class="is-rec" data-rich="${i}"><b>จด</b><em>รายรับ/รายจ่าย</em><small>ง่ายๆ แค่ไลน์บอก<br>นายหัวหมุน</small>${opts.peekUrl ? `<img src="${opts.peekUrl}" alt="">` : ''}</button>`
-        : `<button type="button" class="${m.id === 'goal' ? 'is-goal' : ''}" style="grid-area:${m.id}" data-rich="${i}"><span>${m.icon}</span>${m.label}</button>`
+        ? `<button type="button" class="is-rec" data-rich="${i}"><b>จด</b><em>รายรับ/รายจ่าย</em><small>ง่ายๆ แค่ไลน์บอก<br>นายหัวหมุน</small>${logo ? `<img src="${logo}" alt="">` : ''}</button>`
+        : m.id === 'goal'
+          ? `<button type="button" class="is-goal" data-rich="${i}"><span class="sim-ic-wrap">${menuIcon(m.id)}</span><span class="sim-goal-t"><b>ออมเงิน</b><small>กระปุกเป้าหมาย</small></span></button>`
+          : `<button type="button" style="grid-area:${m.id}" data-rich="${i}"><span class="sim-ic-wrap">${menuIcon(m.id)}</span>${m.label}</button>`
     ).join('')}</nav>`;
 
   const log = root.querySelector('.sim-log');

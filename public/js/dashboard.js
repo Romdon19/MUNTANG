@@ -1,5 +1,5 @@
 // แดชบอร์ดหมุนตังค์ (LIFF) — โครงแบบป้านวล: สรุป · วิเคราะห์ · หมวด/งบ · รายการ · ตั้งค่า
-// mountDashboard(root, backend, { logoUrl, peekUrl })
+// mountDashboard(root, backend, { logoUrl, logoUrl })
 import { money } from '../core/format.js';
 import { todayStr, thaiDate, TH_DAYS, weekday, cycleOf, shiftCycle, diffDays, addDays } from '../core/dates.js';
 import { summarize } from '../core/ops.js';
@@ -220,7 +220,7 @@ export function mountDashboard(root, backend, opts = {}) {
       ${
         cur
           ? `<section class="mt-says" data-level="${m.level}">
-              ${opts.peekUrl ? `<img src="${esc(opts.peekUrl)}" alt="">` : ''}
+              ${opts.logoUrl ? `<img src="${esc(opts.logoUrl)}" alt="">` : ''}
               <div><b>${esc(m.title)} ${m.face}</b><span>${esc(m.line)}</span></div>
             </section>`
           : ''

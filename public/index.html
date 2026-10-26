@@ -14,14 +14,15 @@
     .wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 36px; }
     .hero { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: end; background: var(--head); border-radius: 28px; padding: 28px 28px 0; overflow: hidden; }
     .hero > div { padding-bottom: 28px; }
+    .hero { align-items: center; }
     .hero h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(44px, 9vw, 72px); line-height: 1; margin: 0 0 12px; }
     .hero p { color: #3b3000; font-size: 17px; max-width: 46ch; margin: 0 0 22px; }
     .cta { display: flex; flex-wrap: wrap; gap: 10px; }
     .cta a { text-decoration: none; padding: 12px 20px; border-radius: 12px; font-family: var(--font-display); font-weight: 500; color: var(--ink); }
     .cta .primary { background: var(--ink); color: var(--gold); }
     .cta .ghost { background: var(--card); }
-    .mascot { justify-self: end; width: min(320px, 100%); }
-    .mascot img { width: 100%; display: block; }
+    .mascot { justify-self: end; width: min(240px, 100%); margin-bottom: 28px; }
+    .mascot img { width: 100%; display: block; border-radius: 36px; }
     .feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
     .feat { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md); padding: 18px; box-shadow: var(--shadow); }
     .feat h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 600; font-size: 18px; }
@@ -42,7 +43,7 @@
           <a class="ghost" href="/app/">ดูแดชบอร์ดตัวอย่าง</a>
         </div>
       </div>
-      <div class="mascot"><img src="/assets/peek.jpg" alt="นายหัวหมุน มาสคอตหมุนตังค์"></div>
+      <div class="mascot"><img src="/assets/logo.png" alt="นายหัวหมุน มาสคอตหมุนตังค์"></div>
     </section>
     <section>
       <h2>ทำอะไรได้บ้าง</h2>

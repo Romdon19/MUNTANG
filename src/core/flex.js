@@ -73,24 +73,25 @@ function iconBtn(icon, action, bg = C.chip, color = C.ink) {
   });
 }
 
-/** หัวการ์ดสีเหลืองโลโก้ มีนายหัวหมุนแอบมองที่มุมขวาล่าง */
+/** หัวการ์ดสีเหลืองโลโก้ มีโลโก้นายหัวหมุนเต็มรูปอยู่ด้านขวา */
 function header(title, subtitle, ctx) {
   const contents = [
     box('vertical', [text(title, { weight: 'bold', size: 'lg' }), ...(subtitle ? [text(subtitle, { color: '#5A4A00', size: 'xxs', margin: 'xs' })] : [])], {
-      paddingEnd: ctx?.peekUrl ? '96px' : 'none',
+      flex: 1,
+      justifyContent: 'center',
     }),
   ];
-  if (ctx?.peekUrl) {
+  if (ctx?.logoUrl) {
     contents.push(
-      box('vertical', [{ type: 'image', url: ctx.peekUrl, size: 'full', aspectRatio: '20:9', aspectMode: 'cover' }], {
-        position: 'absolute',
-        offsetBottom: '0px',
-        offsetEnd: '8px',
-        width: '100px',
+      box('vertical', [{ type: 'image', url: ctx.logoUrl, size: 'full', aspectRatio: '1:1', aspectMode: 'cover' }], {
+        flex: 0,
+        width: '56px',
+        height: '56px',
+        cornerRadius: '14px',
       })
     );
   }
-  return box('vertical', contents, { backgroundColor: C.head, paddingAll: 'lg', paddingBottom: 'xl' });
+  return box('horizontal', contents, { backgroundColor: C.head, paddingAll: 'lg', alignItems: 'center', spacing: 'md' });
 }
 
 function bubble({ title, subtitle, body, footer, ctx, size = 'mega' }) {

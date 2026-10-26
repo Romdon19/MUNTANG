@@ -6,30 +6,34 @@
      ตำแหน่งช่องต้องตรงกับ areas ใน src/richmenu.js */
   html, body { margin: 0; width: 2500px; height: 1686px; font-family: 'Kanit', sans-serif; color: #1f1d1a; background: #1f1d1a; }
   .t { position: absolute; box-sizing: border-box; border-radius: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; overflow: hidden; }
-  .s { background: #fff6d6; }
-  .s svg { width: 190px; height: 190px; fill: none; stroke: #1f1d1a; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .s { background: #fff6d6; gap: 34px; }
+  .ic { width: 230px; height: 230px; border-radius: 50%; background: #ffc400; display: grid; place-items: center; }
+  .ic svg { width: 130px; height: 130px; fill: none; stroke: #1f1d1a; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
   .s b { font-size: 92px; font-weight: 600; line-height: 1; }
   .rec { background: #fbde0a; align-items: flex-start; justify-content: flex-start; padding: 70px 80px; }
   .rec .big { font-size: 330px; font-weight: 700; line-height: 0.85; }
   .rec .mid { font-size: 120px; font-weight: 600; line-height: 1.1; margin-top: 10px; }
   .rec .sm { font-size: 66px; font-weight: 500; line-height: 1.25; margin-top: 30px; color: #3b3000; }
-  .rec img { position: absolute; right: 0; bottom: 0; width: 520px; }
-  .goal { background: #ffc400; flex-direction: row; gap: 40px; }
-  .goal span { font-size: 150px; }
-  .goal b { font-size: 120px; font-weight: 600; }
+  .rec img { position: absolute; right: 60px; bottom: 60px; width: 300px; height: 300px; border-radius: 64px; }
+  .goal { background: #ffc400; flex-direction: row; justify-content: flex-start; gap: 56px; padding-left: 90px; }
+  .goal .ic { background: #1f1d1a; width: 270px; height: 270px; }
+  .goal .ic svg { stroke: #ffc400; width: 160px; height: 160px; }
+  .goal .gt { display: flex; flex-direction: column; }
+  .goal b { font-size: 130px; font-weight: 600; line-height: 1.05; }
+  .goal small { font-size: 62px; font-weight: 500; color: #3b3000; }
 </style></head>
 <body>
   <!-- areas: rec 0,0,1000x1124 · goal 0,1124,1000x562 · ช่องเล็ก 750x562 -->
   <div class="t rec" style="left:28px;top:28px;width:958px;height:1082px">
     <div class="big">จด</div><div class="mid">รายรับ/รายจ่าย</div><div class="sm">ง่ายๆ แค่ไลน์บอก<br>นายหัวหมุน</div>
-    <img src="../public/assets/peek.jpg" alt="">
+    <img src="../public/assets/logo.png" alt="">
   </div>
-  <div class="t goal" style="left:28px;top:1138px;width:958px;height:520px"><span>🐷</span><b>ออมเงิน</b></div>
+  <div class="t goal" style="left:28px;top:1138px;width:958px;height:520px"><div class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v4c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-4M5 9.5v4.5c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V9.5M5 14v4.5c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V14"/></svg></div><div class="gt"><b>ออมเงิน</b><small>กระปุกเป้าหมาย</small></div></div>
 
-  <div class="t s" style="left:1014px;top:28px;width:722px;height:520px"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><b>สรุป</b></div>
-  <div class="t s" style="left:1764px;top:28px;width:708px;height:520px"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M8 13v-2M10.5 13V8M13 13v-3.5"/></svg><b>วิเคราะห์</b></div>
-  <div class="t s" style="left:1014px;top:576px;width:722px;height:534px"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/></svg><b>หมวด/งบ</b></div>
-  <div class="t s" style="left:1764px;top:576px;width:708px;height:534px"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><b>รายการ</b></div>
-  <div class="t s" style="left:1014px;top:1138px;width:722px;height:520px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><b>ตั้งค่า</b></div>
-  <div class="t s" style="left:1764px;top:1138px;width:708px;height:520px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4M12 17.5h.01"/></svg><b>Help</b></div>
+  <div class="t s" style="left:1014px;top:28px;width:722px;height:520px"><div class="ic"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></div><b>สรุป</b></div>
+  <div class="t s" style="left:1764px;top:28px;width:708px;height:520px"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M8 13v-2M10.5 13V8M13 13v-3.5"/></svg></div><b>วิเคราะห์</b></div>
+  <div class="t s" style="left:1014px;top:576px;width:722px;height:534px"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/></svg></div><b>หมวด/งบ</b></div>
+  <div class="t s" style="left:1764px;top:576px;width:708px;height:534px"><div class="ic"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg></div><b>รายการ</b></div>
+  <div class="t s" style="left:1014px;top:1138px;width:722px;height:520px"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></div><b>ตั้งค่า</b></div>
+  <div class="t s" style="left:1764px;top:1138px;width:708px;height:520px"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4M12 17.5h.01"/></svg></div><b>Help</b></div>
 </body></html>
