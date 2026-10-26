@@ -105,6 +105,8 @@ export function createApp({ cfg, store, loadAsset, files, speechToText }) {
     ['POST', /^\/api\/recurring$/, api((u, b) => ({ recurring: ops.addRecurring(u, b) }))],
     ['DELETE', /^\/api\/recurring\/([\w-]+)$/, api((u, _b, id) => ({ recurring: ops.deleteRecurring(u, id) }))],
     ['GET', /^\/api\/export\.csv$/, exportCsv],
+    ['POST', /^\/api\/me\/clear$/, api((u) => (deleteFiles(u.id), { cleared: ops.clearData(u) }))],
+    ['DELETE', /^\/api\/me$/, deleteMe],
     ['GET', /^\/api\/file\/([\w-]+\/[\w-]+\.(?:jpg|png))$/, getFile],
   ];
 
@@ -189,6 +191,19 @@ export function createApp({ cfg, store, loadAsset, files, speechToText }) {
     } catch (e) {
       return json({ error: e.message }, 500);
     }
+  }
+
+  function deleteFiles(userId) {
+    return files?.deletePrefix?.(ops.filesPrefix(userId)).catch((e) => console.error('delete files failed', e.message));
+  }
+
+  /** ผู้ใช้ลบบัญชีตัวเอง: ลบแถวในฐานข้อมูล + รูปหลักฐานทั้งหมด */
+  async function deleteMe(req, url) {
+    const userId = await userFromRequest(req, url);
+    if (!userId) return json({ error: 'unauthorized' }, 401);
+    await deleteFiles(userId);
+    await store.delete(userId);
+    return json({ deleted: true });
   }
 
   /** รูปหลักฐาน: ดูได้เฉพาะเจ้าของสมุดบัญชี */

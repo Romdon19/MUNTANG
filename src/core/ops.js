@@ -333,6 +333,21 @@ export function toCSV(user) {
   return '﻿' + [head, ...rows].map((r) => r.map(esc).join(',')).join('\r\n');
 }
 
+/** ล้างรายการทั้งหมด แต่เก็บการตั้งค่า (งบ รอบบัญชี เวลาเตือน คำที่สอนไว้) */
+export function clearData(user) {
+  const n = user.txs.length;
+  user.txs = [];
+  user.goals = [];
+  user.recurring = [];
+  user.slipRefs = [];
+  user.alerts = {};
+  user.settings.lastStreakCard = null;
+  return n;
+}
+
+/** โฟลเดอร์รูปหลักฐานของสมุดบัญชี */
+export const filesPrefix = (userId) => `${String(userId).replace(/[^\w-]/g, '_')}/`;
+
 /** ข้อมูลที่ส่งให้แดชบอร์ด */
 export function publicState(user, { aiEnabled = false, now = new Date() } = {}) {
   return {

@@ -22,7 +22,8 @@ const SUMMARY_WORDS = {
  *   ai?: { readSlip(img, today), parseText(text, today), readStatement(pdf, today) }  (ใช้ Claude ถ้ามี API key)
  *   getImage?: (event) -> { data: base64, bytes?: Uint8Array, mediaType }  (รูป/ไฟล์/เสียงจาก LINE)
  *   transcribe?: (event) -> string  แปลงข้อความเสียงเป็นตัวอักษร
- *   files?: { put(key, bytes, contentType) }  เก็บรูปสลิป/ใบเสร็จเป็นหลักฐาน
+ *   files?: { put(key, bytes, contentType), deletePrefix?(prefix) }  เก็บรูปสลิป/ใบเสร็จเป็นหลักฐาน
+ *   store.delete?(id)  ใช้ตอนผู้ใช้สั่งลบบัญชี
  *   getMemberName?: (source) -> string  ชื่อสมาชิกในกลุ่ม
  *   getGroupName?: (groupId) -> string
  *   getProfile?: (userId) -> { name, pictureUrl }
@@ -101,6 +102,10 @@ export function createBot(deps) {
 
     if (['ตั้งค่า', 'ตั้งค่าเริ่มต้น', 'setup'].includes(t)) return [ui.setupMessage('cycle', user)];
     if (['จด', 'จดรายการ', 'จดรายรับรายจ่าย', 'บันทึก'].includes(t)) return [ui.recordPromptMessage()];
+    if (['ลบข้อมูล', 'ลบข้อมูลทั้งหมด', 'ล้างข้อมูล', 'ลบบัญชี', 'ลบทั้งหมด', 'delete my data'].includes(t)) {
+      if (sess.isGroup) return [ui.textMsg('การลบข้อมูลของกลุ่มทำได้จากแดชบอร์ดของกลุ่ม (หน้า ตั้งค่า) เพื่อกันการกดพลาดในแชทกลุ่มนะ')];
+      return [ui.wipeConfirmMessage(user.txs.length, Date.now())];
+    }
     if (['วิเคราะห์', 'analysis'].includes(t)) {
       const link = ctx.links.view ? ctx.links.view('analysis') : ctx.links.dashboard;
       return [ui.textMsg(link ? `🔍 ดูการวิเคราะห์การใช้เงินของคุณ\n${link}` : 'ยังไม่ได้ตั้งค่าแดชบอร์ด')];
@@ -449,6 +454,17 @@ export function createBot(deps) {
         if (tx.source !== 'slip') ops.learnKeyword(user, tx.note, cat.id);
         return [ui.textMsg(`ย้าย "${tx.note}" ไปหมวด ${cat.emoji} ${cat.name} แล้ว${tx.source !== 'slip' ? '\n(จำไว้แล้ว ครั้งหน้าจัดหมวดให้อัตโนมัติ)' : ''}`)];
       }
+      case 'wipe': {
+        // ยืนยันได้ภายใน 10 นาทีหลังขอ กันกดปุ่มเก่าย้อนหลัง
+        if (!p.t || Date.now() - Number(p.t) > 10 * 60 * 1000) return [ui.textMsg('ปุ่มนี้หมดอายุแล้ว พิมพ์ "ลบข้อมูล" ใหม่อีกครั้งนะ')];
+        if (p.mode === 'all') {
+          user._wipe = 'all';
+          return [ui.textMsg('🗑 ลบบัญชีและข้อมูลทั้งหมดแล้ว รวมรูปสลิปที่แนบไว้\nถ้าพิมพ์จดอะไรอีก ระบบจะเริ่มสมุดบัญชีเล่มใหม่ให้ หรือบล็อกบัญชีนี้ได้เลยถ้าไม่ใช้แล้ว')];
+        }
+        const n = ops.clearData(user);
+        user._wipe = 'files';
+        return [ui.textMsg(`🧹 ล้างรายการแล้ว ${n} รายการ (รวมเป้าหมายและรายการประจำ)\nการตั้งค่า งบ รอบบัญชี และเวลาเตือนยังอยู่เหมือนเดิม`)];
+      }
       case 'wallet': {
         const tx = user.txs.find((x) => x.id === p.id);
         if (!tx) return [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
@@ -535,6 +551,15 @@ export function createBot(deps) {
     } catch (e) {
       console.error('handleEvent error', e);
       messages = [ui.textMsg('ขอโทษที เกิดข้อผิดพลาดนิดหน่อย ลองใหม่อีกครั้งนะ 🙏')];
+    }
+    if (user._wipe) {
+      const mode = user._wipe;
+      delete user._wipe;
+      await deps.files?.deletePrefix?.(ops.filesPrefix(user.id)).catch((e) => console.error('delete files failed', e.message));
+      if (mode === 'all' && deps.store.delete) {
+        await deps.store.delete(user.id);
+        return { userId: ledgerId, messages };
+      }
     }
     await deps.store.save(user);
     return { userId: ledgerId, messages: messages.slice(0, 5) };

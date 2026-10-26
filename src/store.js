@@ -34,6 +34,12 @@ export function createFileStore(dir) {
       writing.set(user.id, next.catch(() => {}));
       return next;
     },
+    async delete(id) {
+      await ready;
+      await (writing.get(id) || Promise.resolve());
+      cache.delete(id);
+      await fs.rm(file(id), { force: true });
+    },
     async list() {
       await ready;
       const names = await fs.readdir(dir);

@@ -16,6 +16,15 @@ function r2Files(bucket) {
       const obj = await bucket.get(key);
       return obj ? { body: obj.body, contentType: obj.httpMetadata?.contentType } : null;
     },
+    /** ลบรูปทั้งหมดของสมุดบัญชีหนึ่งเล่ม */
+    async deletePrefix(prefix) {
+      let cursor;
+      do {
+        const page = await bucket.list({ prefix, cursor });
+        if (page.objects.length) await bucket.delete(page.objects.map((o) => o.key));
+        cursor = page.truncated ? page.cursor : undefined;
+      } while (cursor);
+    },
   };
 }
 

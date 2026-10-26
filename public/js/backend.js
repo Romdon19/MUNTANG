@@ -81,6 +81,11 @@ export function remoteBackend() {
     deleteRecurring: (id) => req('DELETE', `/api/recurring/${id}`),
     exportUrl: () => `/api/export.csv?t=${encodeURIComponent(token)}`,
     fileUrl: (key) => `/api/file/${key}?t=${encodeURIComponent(token)}`,
+    clearData: () => post('/api/me/clear', {}),
+    async deleteAccount() {
+      await req('DELETE', '/api/me');
+      try { sessionStorage.removeItem('muntang-token'); } catch {}
+    },
   };
 }
 
@@ -158,6 +163,11 @@ export function localBackend({ logoUrl, peekUrl, onOpenDashboard } = {}) {
     addRecurring: (b) => mutate((u) => ({ recurring: ops.addRecurring(u, b) })),
     deleteRecurring: (id) => mutate((u) => ({ recurring: ops.deleteRecurring(u, id) })),
     exportCSV: async () => ops.toCSV(await getUser()),
+    clearData: () => mutate((u) => ({ cleared: ops.clearData(u) })),
+    async deleteAccount() {
+      delete load().users[LOCAL_USER];
+      persist();
+    },
     async reset() {
       mem = { users: {} };
       persist();

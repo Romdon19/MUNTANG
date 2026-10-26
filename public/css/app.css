@@ -276,3 +276,7 @@ button.mt-tx:hover { background: var(--bg); }
   0% { transform: translate(0, 0) rotateY(0); opacity: 1; }
   100% { transform: translate(var(--x), var(--y)) rotateY(720deg); opacity: 0; }
 }
+
+/* โซนลบข้อมูล */
+.mt-danger { border-color: #f6c3c4; }
+.mt-btn.is-danger-text { color: var(--red); }

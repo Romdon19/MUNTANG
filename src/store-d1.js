@@ -33,6 +33,10 @@ export function createD1Store(db) {
         .bind(user.id, JSON.stringify(user), user.settings?.reminder || null, user.recurring?.length ? 1 : 0, new Date().toISOString())
         .run();
     },
+    async delete(id) {
+      await init();
+      await db.prepare('DELETE FROM users WHERE id = ?1').bind(id).run();
+    },
     async allIds() {
       await init();
       const { results } = await db.prepare('SELECT id FROM users').all();

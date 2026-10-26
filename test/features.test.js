@@ -108,3 +108,47 @@ test('monthly report is due on the first day of the cycle after 09:00, once', ()
   u.settings.lastReport = '2026-10-25';
   assert.equal(monthlyReportDue(u, new Date('2026-10-25T04:00:00Z')), null);
 });
+
+test('users can wipe their own data from chat', async () => {
+  const db = {};
+  const deleted = [];
+  const store = {
+    get: async (id) => (db[id] ? structuredClone(db[id]) : null),
+    save: async (u) => void (db[u.id] = structuredClone(u)),
+    delete: async (id) => void (deleted.push(id), delete db[id]),
+  };
+  const removedPrefixes = [];
+  const files = { put: async () => {}, deletePrefix: async (p) => void removedPrefixes.push(p) };
+  const bot = createBot({ store, files, links: {} });
+  const U = { type: 'user', userId: 'U7' };
+  const say = (text) => bot.handleEvent({ type: 'message', source: U, message: { type: 'text', text } });
+  const pb = (data) => bot.handleEvent({ type: 'postback', source: U, postback: { data } });
+
+  await say('งบ 9000');
+  await say('ข้าว 50');
+  const ask = await say('ลบข้อมูล');
+  const items = ask.messages[0].quickReply.items.map((i) => i.action.data).filter(Boolean);
+  assert.equal(items.length, 2);
+
+  // ปุ่มเก่าเกิน 10 นาทีใช้ไม่ได้
+  const old = await pb(`action=wipe&mode=tx&t=${Date.now() - 11 * 60 * 1000}`);
+  assert.match(old.messages[0].text, /หมดอายุ/);
+  assert.equal(db.U7.txs.length, 1);
+
+  await pb(items[0]); // ล้างรายการ
+  assert.equal(db.U7.txs.length, 0);
+  assert.equal(db.U7.settings.monthlyBudget, 9000);
+  assert.deepEqual(removedPrefixes, ['U7/']);
+
+  await say('กาแฟ 45');
+  await pb(items[1]); // ลบบัญชี
+  assert.equal(db.U7, undefined);
+  assert.deepEqual(deleted, ['U7']);
+});
+
+test('group chat cannot wipe from chat', async () => {
+  const store = memStore();
+  const bot = createBot({ store, links: {} });
+  const r = await bot.handleEvent(textEvent({ type: 'group', groupId: 'Cx', userId: 'Ua' }, 'ลบข้อมูล'));
+  assert.match(r.messages[0].text, /แดชบอร์ดของกลุ่ม/);
+});

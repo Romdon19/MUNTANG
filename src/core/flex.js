@@ -692,4 +692,17 @@ export function importedMessage(txs, batch, fileName, ctx) {
   return flex(`นำเข้า ${txs.length} รายการจาก ${fileName}`, bubble({ title: 'หมุนตังค์ · PDF', subtitle: truncate(fileName, 40), body, footer, ctx }));
 }
 
+/** ขอยืนยันก่อนลบข้อมูล (ปุ่มใช้ได้ 10 นาที) */
+export function wipeConfirmMessage(count, now) {
+  return textMsg(
+    `⚠️ ลบข้อมูลแล้วกู้คืนไม่ได้นะ (ตอนนี้มี ${count} รายการ)\nแนะนำให้พิมพ์ "ส่งออก" เก็บไฟล์ไว้ก่อน\n\nเลือกได้ 2 แบบ:\n🧹 ล้างรายการ = ลบรายรับรายจ่าย เป้าหมาย รายการประจำ แต่เก็บการตั้งค่าไว้\n🗑 ลบบัญชี = ลบทุกอย่าง รวมรูปสลิป เหมือนเริ่มใหม่`,
+    quickReplies([
+      { label: '🧹 ยืนยันล้างรายการ', data: `action=wipe&mode=tx&t=${now}`, displayText: 'ยืนยันล้างรายการทั้งหมด' },
+      { label: '🗑 ยืนยันลบบัญชี', data: `action=wipe&mode=all&t=${now}`, displayText: 'ยืนยันลบบัญชีและข้อมูลทั้งหมด' },
+      { label: '📥 ส่งออกก่อน', text: 'ส่งออก' },
+      { label: '❌ ไม่ลบแล้ว', text: 'สรุป' },
+    ])
+  );
+}
+
 export { CATEGORY_MAP };

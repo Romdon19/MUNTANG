@@ -515,6 +515,7 @@ export function mountDashboard(root, backend, opts = {}) {
       ['หาร 900 3', 'หารบิล'],
       ['ลบ', 'ลบรายการล่าสุด'],
       ['ส่งออก', 'ดาวน์โหลด CSV'],
+      ['ลบข้อมูล', 'ล้างรายการ / ลบบัญชี'],
     ];
     return `
       <div class="mt-row-h"><h2>ตั้งค่า</h2></div>
@@ -539,6 +540,16 @@ export function mountDashboard(root, backend, opts = {}) {
         <button class="mt-btn is-ghost" data-act="export">ส่งออก CSV (เปิดด้วย Excel ได้)</button>
         ${backend.reset ? '<button class="mt-btn is-ghost" data-act="reset">รีเซ็ตข้อมูลเดโม</button>' : ''}
       </section>
+      ${
+        backend.clearData
+          ? `<section class="mt-card mt-danger">
+        <div class="mt-card-h"><h3>ลบข้อมูล</h3></div>
+        <p class="mt-sub">ลบแล้วกู้คืนไม่ได้ แนะนำให้ส่งออก CSV เก็บไว้ก่อน</p>
+        <button class="mt-btn is-ghost" data-act="wipe" data-v="tx">🧹 ล้างรายการทั้งหมด (เก็บการตั้งค่าไว้)</button>
+        <button class="mt-btn is-ghost is-danger-text" data-act="wipe" data-v="all">🗑 ลบบัญชีและข้อมูลทั้งหมด</button>
+      </section>`
+          : ''
+      }
       <section class="mt-card">
         <h3>คำสั่งในแชท LINE</h3>
         <dl class="mt-cmds">${cmd.map(([c, d]) => `<div><dt>${esc(c)}</dt><dd>${esc(d)}</dd></div>`).join('')}</dl>
@@ -621,6 +632,18 @@ export function mountDashboard(root, backend, opts = {}) {
         <div><label for="mt-rec-day">ทุกวันที่</label><input id="mt-rec-day" name="day" type="number" min="1" max="31" required value="1"></div></div>
         <label for="mt-rec-cat">หมวด</label><select id="mt-rec-cat" name="categoryId">${st.data.categories.map((c) => `<option value="${c.id}">${c.emoji} ${esc(c.name)} (${c.type === 'income' ? 'รับ' : 'จ่าย'})</option>`).join('')}</select>
         <button class="mt-btn" type="submit">เพิ่มรายการประจำ</button></form>`;
+    } else if (sh.kind === 'wipe') {
+      const all = sh.mode === 'all';
+      inner = `<form class="mt-form" data-form="wipe">
+        <p class="mt-sub">${
+          all
+            ? 'จะลบทุกอย่างของบัญชีนี้: รายรับรายจ่าย เป้าหมาย รายการประจำ การตั้งค่า และรูปสลิปที่แนบไว้'
+            : `จะลบรายรับรายจ่าย ${st.data.txs.length} รายการ เป้าหมาย และรายการประจำ แต่เก็บงบ รอบบัญชี และเวลาเตือนไว้`
+        }</p>
+        <label for="mt-wipe">พิมพ์คำว่า <b>ลบ</b> เพื่อยืนยัน</label>
+        <input id="mt-wipe" name="confirm" autocomplete="off" placeholder="ลบ" required>
+        <button class="mt-btn is-danger" type="submit">${all ? 'ลบบัญชีถาวร' : 'ล้างรายการทั้งหมด'}</button>
+        <button class="mt-btn is-ghost" type="button" data-act="close">ยกเลิก</button></form>`;
     } else if (sh.kind === 'csv') {
       inner = `<p class="mt-sub">ในเดโมนี้ดาวน์โหลดไฟล์ไม่ได้ คัดลอกข้อความด้านล่างไปวางใน Excel หรือ Google Sheets แทนได้ (ตัวจริงบนเซิร์ฟเวอร์ดาวน์โหลดเป็นไฟล์ .csv)</p>
         <textarea id="mt-csv" class="mt-csv" readonly rows="10">${esc(sh.csv.replace(/^﻿/, ''))}</textarea>
@@ -628,6 +651,7 @@ export function mountDashboard(root, backend, opts = {}) {
     }
     const titles = {
       csv: 'ส่งออกข้อมูล (CSV)',
+      wipe: sh.mode === 'all' ? 'ลบบัญชีและข้อมูลทั้งหมด' : 'ล้างรายการทั้งหมด',
       tx: sh.tx ? 'แก้ไขรายการ' : 'จดรายการ',
       catbudget: sh.id ? `งบหมวด${cat(sh.id).name}` : '',
       total: 'งบรวมต่อเดือน',
@@ -801,6 +825,10 @@ export function mountDashboard(root, backend, opts = {}) {
         toast('เริ่มดาวน์โหลดไฟล์แล้ว');
         break;
       }
+      case 'wipe':
+        st.sheet = { kind: 'wipe', mode: b.dataset.v };
+        render();
+        break;
       case 'copycsv': {
         const ta = root.querySelector('#mt-csv');
         try {
@@ -853,6 +881,22 @@ export function mountDashboard(root, backend, opts = {}) {
       }
       case 'total':
         act(() => backend.saveSettings({ monthlyBudget: Number(fd.total) || 0 }), 'บันทึกงบรวมแล้ว');
+        break;
+      case 'wipe':
+        if (fd.confirm.trim() !== 'ลบ') {
+          toast('พิมพ์คำว่า "ลบ" ให้ตรงก่อนนะ');
+          break;
+        }
+        if (st.sheet.mode === 'all') {
+          backend
+            .deleteAccount()
+            .then(() => {
+              if (backend.reset) return act(() => Promise.resolve(), 'ลบบัญชีแล้ว (เดโมเริ่มข้อมูลตัวอย่างใหม่)');
+              st.data = null;
+              root.innerHTML = `<div class="mt-loading">${opts.logoUrl ? `<img src="${esc(opts.logoUrl)}" alt="">` : ''}<p>ลบบัญชีและข้อมูลทั้งหมดแล้ว<br>ขอบคุณที่ใช้หมุนตังค์ 🙏</p></div>`;
+            })
+            .catch((e) => toast(`ลบไม่สำเร็จ: ${e.message}`));
+        } else act(() => backend.clearData(), '🧹 ล้างรายการทั้งหมดแล้ว');
         break;
       case 'cycle':
         act(() => backend.saveSettings({ cycleStartDay: Number(fd.day) }), 'บันทึกรอบงบแล้ว');

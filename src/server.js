@@ -30,6 +30,7 @@ const app = createApp({
         return null;
       }
     },
+    deletePrefix: (prefix) => fs.rm(path.join(filesDir, prefix), { recursive: true, force: true }),
   },
 });
 
