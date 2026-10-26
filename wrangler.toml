@@ -16,7 +16,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "muntang"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "b307af37-f8d3-42ee-be73-544c11c06572"
 
 # งานตามเวลา (เตือนรายวัน + รายการประจำ)
 [triggers]
