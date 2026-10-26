@@ -1,6 +1,6 @@
 // การจัดการข้อมูลผู้ใช้ (ทำงานกับ user document ตรงๆ — ใช้ร่วมกันทั้งเซิร์ฟเวอร์และโหมดเดโมในเบราว์เซอร์)
 import { CATEGORIES, CATEGORY_MAP, WALLETS, WALLET_MAP } from './categories.js';
-import { todayStr, monthKey, rangeFor, daysInMonth, addDays } from './dates.js';
+import { todayStr, monthKey, rangeFor, daysInMonth, addDays, diffDays } from './dates.js';
 
 export function newId(prefix = '') {
   return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -19,6 +19,11 @@ export function newUser(id, profile = {}) {
       catBudgets: {},
       customKeywords: {},
       lastReminded: null,
+      // วันเริ่มรอบบัญชี (1 = ต้นเดือน, 25 = วันเงินเดือนออก ฯลฯ)
+      cycleStartDay: 1,
+      monthlyReport: true,
+      lastReport: null,
+      onboarded: false,
     },
     txs: [],
     goals: [],
@@ -59,6 +64,8 @@ export function addTx(user, input, source = 'chat') {
     createdAt: new Date().toISOString(),
   };
   if (input.ref) tx.ref = String(input.ref);
+  if (input.by) tx.by = String(input.by).slice(0, 40);
+  if (input.batch) tx.batch = String(input.batch);
   if (input.meta) tx.meta = input.meta;
   user.txs.push(tx);
   return tx;
@@ -120,23 +127,23 @@ export function summarize(txs) {
 }
 
 export function summaryFor(user, rangeName, now = new Date()) {
-  const range = rangeFor(rangeName, now);
+  const range = rangeFor(rangeName, now, user.settings.cycleStartDay);
   const txs = txInRange(user, range.from, range.to);
   return { range, txs, ...summarize(txs) };
 }
 
-/** สถานะงบประมาณเดือนปัจจุบัน */
+/** สถานะงบประมาณของรอบบัญชีปัจจุบัน */
 export function budgetStatus(user, now = new Date()) {
   const today = todayStr(now);
-  const month = monthKey(today);
-  const { from, to } = rangeFor('month', now);
-  const s = summarize(txInRange(user, from, to));
-  const dim = daysInMonth(month);
-  const day = Number(today.slice(8, 10));
-  const daysLeft = dim - day + 1;
+  const cycle = rangeFor('month', now, user.settings.cycleStartDay);
+  const s = summarize(txInRange(user, cycle.from, cycle.to));
+  const daysLeft = diffDays(today, cycle.to) + 1;
   const total = user.settings.monthlyBudget || 0;
   const result = {
-    month,
+    month: cycle.key,
+    from: cycle.from,
+    to: cycle.to,
+    label: cycle.label,
     spent: s.expense,
     total,
     remaining: total ? total - s.expense : null,
@@ -324,5 +331,7 @@ export function applySettings(user, b = {}) {
   if (b.reminder !== undefined) user.settings.reminder = /^\d{2}:\d{2}$/.test(b.reminder || '') ? b.reminder : null;
   if (b.defaultWallet && WALLET_MAP[b.defaultWallet]) user.settings.defaultWallet = b.defaultWallet;
   if (b.name) user.name = String(b.name).slice(0, 40);
+  if (b.cycleStartDay !== undefined) user.settings.cycleStartDay = Math.min(31, Math.max(1, Number(b.cycleStartDay) || 1));
+  if (b.monthlyReport !== undefined) user.settings.monthlyReport = !!b.monthlyReport;
   user.alerts = {};
 }

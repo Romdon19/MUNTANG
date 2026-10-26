@@ -1,8 +1,8 @@
 // งานตามเวลา: เตือนจดรายจ่ายตามเวลาที่ผู้ใช้ตั้ง + บันทึกรายการประจำที่ถึงกำหนด
 // Node เรียกทุก 1 นาทีด้วย setInterval, Cloudflare เรียกผ่าน Cron Trigger
-import { timeStr, todayStr } from './core/dates.js';
+import { timeStr, todayStr, rangeFor } from './core/dates.js';
 import * as ops from './core/ops.js';
-import { reminderMessage } from './core/bot.js';
+import { reminderMessage, monthlyReportDue, monthlyReportMessages } from './core/bot.js';
 import { textMsg } from './core/flex.js';
 import { money } from './core/format.js';
 
@@ -19,9 +19,10 @@ export function windowStart(hhmm, n = 30) {
 
 /**
  * store: { get, save }, ids: รายชื่อผู้ใช้ที่ต้องตรวจ, push(userId, messages)
+ * ctxFor(userId): ลิงก์/โลโก้สำหรับรายงานประจำเดือน
  * คืนจำนวนผู้ใช้ที่ได้รับข้อความ
  */
-export async function runJobs({ store, ids, push, now = new Date() }) {
+export async function runJobs({ store, ids, push, ctxFor, now = new Date() }) {
   const hhmm = timeStr(now);
   const today = todayStr(now);
   let sent = 0;
@@ -36,6 +37,12 @@ export async function runJobs({ store, ids, push, now = new Date() }) {
     if (created.length) {
       changed = true;
       messages.push(textMsg(`🔁 บันทึกรายการประจำให้แล้ว\n${created.map((t) => `• ${t.note} ${money(t.amount)}`).join('\n')}`));
+    }
+    const cycle = monthlyReportDue(user, now);
+    if (cycle) {
+      messages.push(...monthlyReportMessages(user, cycle, ctxFor ? await ctxFor(user.id) : {}));
+      user.settings.lastReport = rangeForCurrent(user, now);
+      changed = true;
     }
     const r = user.settings.reminder;
     if (r && r <= hhmm && user.settings.lastReminded !== today) {
@@ -56,3 +63,5 @@ export async function runJobs({ store, ids, push, now = new Date() }) {
   }
   return sent;
 }
+
+const rangeForCurrent = (user, now) => rangeFor('month', now, user.settings.cycleStartDay).from;

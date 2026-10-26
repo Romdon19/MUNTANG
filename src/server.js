@@ -12,10 +12,25 @@ import { runJobs } from './jobs.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const store = createFileStore(config.dataDir);
+const filesDir = path.join(config.dataDir, 'files');
 const app = createApp({
   cfg: config,
   store,
   loadAsset: (p) => fs.readFile(path.join(ROOT, 'public', p)),
+  // รูปหลักฐานเก็บเป็นไฟล์ใน DATA_DIR/files
+  files: {
+    async put(key, bytes) {
+      await fs.mkdir(path.dirname(path.join(filesDir, key)), { recursive: true });
+      await fs.writeFile(path.join(filesDir, key), bytes);
+    },
+    async get(key) {
+      try {
+        return { body: await fs.readFile(path.join(filesDir, key)), contentType: key.endsWith('.png') ? 'image/png' : 'image/jpeg' };
+      } catch {
+        return null;
+      }
+    },
+  },
 });
 
 const server = express();
@@ -56,7 +71,7 @@ if (app.hasLine) {
     if (running) return;
     running = true;
     try {
-      await runJobs({ store, ids: await store.list(), push: app.push });
+      await runJobs({ store, ids: await store.list(), push: app.push, ctxFor: (id) => app.ctxFor(id) });
     } catch (e) {
       console.error('jobs error', e);
     } finally {

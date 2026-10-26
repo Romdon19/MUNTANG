@@ -80,6 +80,7 @@ export function remoteBackend() {
     addRecurring: (b) => post('/api/recurring', b),
     deleteRecurring: (id) => req('DELETE', `/api/recurring/${id}`),
     exportUrl: () => `/api/export.csv?t=${encodeURIComponent(token)}`,
+    fileUrl: (key) => `/api/file/${key}?t=${encodeURIComponent(token)}`,
   };
 }
 

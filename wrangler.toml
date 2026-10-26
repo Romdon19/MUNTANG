@@ -12,6 +12,8 @@ preview_urls = false
 [vars]
 LIFF_ID = "2012218154-yRrXmkTD"
 LINE_LOGIN_CHANNEL_ID = "2012218154"
+# ใช้สร้างลิงก์ในข้อความที่ส่งตามเวลา (รายงานประจำเดือน)
+BASE_URL = "https://muntang.67017078.workers.dev"
 
 [build]
 command = "node scripts/copy-core.js"
@@ -25,6 +27,15 @@ binding = "ASSETS"
 binding = "DB"
 database_name = "muntang"
 database_id = "b307af37-f8d3-42ee-be73-544c11c06572"
+
+# Workers AI: แปลงข้อความเสียงเป็นตัวอักษร (Whisper) — มีโควตาฟรีรายวัน
+[ai]
+binding = "AI"
+
+# ที่เก็บรูปสลิป/ใบเสร็จเป็นหลักฐาน (Cloudflare R2) — สร้าง bucket ชื่อ muntang-slips แล้วเอา # ออก 3 บรรทัดล่าง
+# [[r2_buckets]]
+# binding = "SLIPS"
+# bucket_name = "muntang-slips"
 
 # งานตามเวลา (เตือนรายวัน + รายการประจำ)
 [triggers]

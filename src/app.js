@@ -19,28 +19,46 @@ const text = (body, status = 200, type = 'text/plain; charset=utf-8') => new Res
  *   cfg        ค่าตั้งค่าจาก makeConfig()
  *   store      { get, save }
  *   loadAsset  (path) -> Promise<ArrayBuffer|Uint8Array>  ใช้อ่านรูป rich menu
+ *   files?     { put(key, bytes, type), get(key) -> { body, contentType } | null }  เก็บรูปหลักฐาน
+ *   speechToText?  (base64Audio) -> Promise<string>  แปลงเสียงเป็นข้อความ
  */
-export function createApp({ cfg, store, loadAsset }) {
+export function createApp({ cfg, store, loadAsset, files, speechToText }) {
   const line = createLine(cfg);
   const ai = createAI(cfg);
   const auth = createAuth(cfg.appSecret);
   const hasLine = !!(cfg.lineChannelSecret && cfg.lineAccessToken);
 
-  /** สร้างบอทสำหรับผู้ใช้หนึ่งคน (ลิงก์ในข้อความต้องมีโทเคนของคนนั้น) */
-  async function botFor(userId, origin) {
-    const base = cfg.baseUrl || origin;
-    const dashToken = userId ? await auth.makeToken(userId) : '';
-    const exportToken = userId ? await auth.makeToken(userId, 1) : '';
+  /** ลิงก์และโลโก้ในข้อความ สำหรับสมุดบัญชีหนึ่งเล่ม (ผู้ใช้ หรือกลุ่ม) */
+  async function ctxFor(ledgerId, origin) {
+    const base = cfg.baseUrl || origin || '';
+    const isGroup = /^[CR]/.test(ledgerId || '');
+    const dashToken = ledgerId ? await auth.makeToken(ledgerId) : '';
+    const exportToken = ledgerId ? await auth.makeToken(ledgerId, 1) : '';
+    return {
+      logoUrl: `${base}/assets/logo-192.jpg`,
+      links: {
+        // กลุ่มใช้ลิงก์โทเคน เพราะ LIFF จะล็อกอินเป็นบัญชีส่วนตัวของคนที่กด
+        dashboard: cfg.liffId && !isGroup ? `https://liff.line.me/${cfg.liffId}` : `${base}/app/?t=${dashToken}`,
+        export: `${base}/api/export.csv?t=${exportToken}`,
+      },
+    };
+  }
+
+  /** สร้างบอทสำหรับสมุดบัญชีหนึ่งเล่ม (ลิงก์ในข้อความต้องมีโทเคนของเล่มนั้น) */
+  async function botFor(ledgerId, origin) {
+    const ctx = await ctxFor(ledgerId, origin);
+    const getMedia = (event) => (event.message.imageData ? event.message.imageData : line.content(event.message.id));
     return createBot({
       store,
       ai,
-      logoUrl: `${base}/assets/logo-192.jpg`,
-      links: {
-        dashboard: () => (cfg.liffId ? `https://liff.line.me/${cfg.liffId}` : `${base}/app/?t=${dashToken}`),
-        export: () => `${base}/api/export.csv?t=${exportToken}`,
-      },
+      logoUrl: ctx.logoUrl,
+      links: { dashboard: () => ctx.links.dashboard, export: () => ctx.links.export },
       getProfile: hasLine ? (id) => (id.startsWith('U') ? line.profile(id) : null) : undefined,
-      getImage: (event) => (event.message.imageData ? event.message.imageData : line.content(event.message.id)),
+      getGroupName: hasLine ? (id) => line.groupName(id) : undefined,
+      getMemberName: hasLine ? (src) => line.memberName(src) : undefined,
+      getImage: getMedia,
+      files,
+      transcribe: speechToText ? async (event) => speechToText((await getMedia(event)).data) : undefined,
     });
   }
 
@@ -81,6 +99,7 @@ export function createApp({ cfg, store, loadAsset }) {
     ['POST', /^\/api\/recurring$/, api((u, b) => ({ recurring: ops.addRecurring(u, b) }))],
     ['DELETE', /^\/api\/recurring\/([\w-]+)$/, api((u, _b, id) => ({ recurring: ops.deleteRecurring(u, id) }))],
     ['GET', /^\/api\/export\.csv$/, exportCsv],
+    ['GET', /^\/api\/file\/([\w-]+\/[\w-]+\.(?:jpg|png))$/, getFile],
   ];
 
   function api(fn) {
@@ -109,9 +128,13 @@ export function createApp({ cfg, store, loadAsset }) {
     for (const event of body.events || []) {
       waitUntil(
         (async () => {
-          const userId = event.source?.userId;
-          if (event.type === 'message' && event.message.type === 'image' && userId) await line.loading(userId, 30);
-          const bot = await botFor(userId, url.origin);
+          const src = event.source || {};
+          const ledgerId = src.groupId || src.roomId || src.userId;
+          // ไอคอนกำลังพิมพ์ใช้ได้เฉพาะแชทส่วนตัว
+          if (src.type === 'user' && event.type === 'message' && ['image', 'audio', 'file'].includes(event.message.type)) {
+            await line.loading(src.userId, 40);
+          }
+          const bot = await botFor(ledgerId, url.origin);
           const { messages } = await bot.handleEvent(event);
           if (messages.length && event.replyToken) await line.reply(event.replyToken, messages);
         })().catch((e) => console.error('webhook event failed:', e.message))
@@ -162,6 +185,16 @@ export function createApp({ cfg, store, loadAsset }) {
     }
   }
 
+  /** รูปหลักฐาน: ดูได้เฉพาะเจ้าของสมุดบัญชี */
+  async function getFile(req, url, [key]) {
+    const userId = await userFromRequest(req, url);
+    if (!userId) return json({ error: 'unauthorized' }, 401);
+    if (!files || !key.startsWith(`${userId.replace(/[^\w-]/g, '_')}/`)) return json({ error: 'not found' }, 404);
+    const f = await files.get(key);
+    if (!f) return json({ error: 'not found' }, 404);
+    return new Response(f.body, { headers: { 'Content-Type': f.contentType || 'image/jpeg', 'Cache-Control': 'private, max-age=86400' } });
+  }
+
   async function exportCsv(req, url) {
     const userId = await userFromRequest(req, url);
     if (!userId) return json({ error: 'unauthorized' }, 401);
@@ -178,6 +211,7 @@ export function createApp({ cfg, store, loadAsset }) {
   return {
     hasLine,
     push: (to, messages) => line.push(to, messages),
+    ctxFor,
     /** คืน Response หรือ null (ให้ platform เสิร์ฟไฟล์ static แทน) */
     async handle(req, waitUntil = (p) => p) {
       const url = new URL(req.url);

@@ -1,16 +1,16 @@
 // แดชบอร์ดหมุนตังค์ (LIFF) — mountDashboard(root, backend, { logoUrl })
 import { money } from '../core/format.js';
-import { todayStr, monthKey, addMonths, thaiMonth, thaiDate, daysInMonth, TH_DAYS, weekday } from '../core/dates.js';
+import { todayStr, thaiDate, TH_DAYS, weekday, cycleOf, shiftCycle, diffDays, addDays } from '../core/dates.js';
 import { summarize } from '../core/ops.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const SOURCE_LABEL = { chat: 'แชท', slip: 'สลิป', app: 'แอป', ai: 'AI', recurring: 'ประจำ' };
+const SOURCE_LABEL = { chat: 'แชท', slip: 'สลิป', app: 'แอป', ai: 'AI', recurring: 'ประจำ', pdf: 'PDF' };
 
 export function mountDashboard(root, backend, opts = {}) {
   const st = {
     data: null,
     tab: 'home',
-    month: monthKey(todayStr()),
+    cycle: null, // รอบบัญชีที่กำลังดู { from, to, label }
     q: '',
     type: 'all',
     cat: '',
@@ -29,6 +29,8 @@ export function mountDashboard(root, backend, opts = {}) {
     try {
       st.data = await backend.state();
       st.error = '';
+      const startDay = st.data.settings.cycleStartDay || 1;
+      if (!st.cycle || st.cycle.startDay !== startDay) st.cycle = { ...cycleOf(todayStr(), startDay), startDay };
     } catch (e) {
       st.error = e.message;
     }
@@ -58,7 +60,7 @@ export function mountDashboard(root, backend, opts = {}) {
 
   // ---------------- views ----------------
   function monthTxs() {
-    return st.data.txs.filter((t) => monthKey(t.date) === st.month);
+    return st.data.txs.filter((t) => t.date >= st.cycle.from && t.date <= st.cycle.to);
   }
 
   function header() {
@@ -67,27 +69,28 @@ export function mountDashboard(root, backend, opts = {}) {
       <header class="mt-top">
         <div class="mt-brand">
           ${opts.logoUrl ? `<img src="${esc(opts.logoUrl)}" alt="">` : ''}
-          <div><strong>หมุนตังค์</strong><span>สวัสดี ${esc(u.name)}</span></div>
+          <div><strong>หมุนตังค์</strong><span>${/^[CR]/.test(u.id) ? '👥 สมุดบัญชีกลุ่ม' : 'สวัสดี'} ${esc(u.name)}</span></div>
         </div>
         ${st.data.streak >= 1 ? `<div class="mt-streak" title="จดต่อเนื่อง">🔥 <b class="num">${st.data.streak}</b> วัน</div>` : ''}
       </header>`;
   }
 
   function monthSwitch() {
-    const cur = monthKey(todayStr());
+    const cur = cycleOf(todayStr(), st.cycle.startDay);
     return `
       <div class="mt-month">
-        <button data-act="month" data-d="-1" aria-label="เดือนก่อน">‹</button>
-        <span>${thaiMonth(st.month)}</span>
-        <button data-act="month" data-d="1" aria-label="เดือนถัดไป" ${st.month >= cur ? 'disabled' : ''}>›</button>
+        <button data-act="month" data-d="-1" aria-label="รอบก่อน">‹</button>
+        <span>${st.cycle.label}</span>
+        <button data-act="month" data-d="1" aria-label="รอบถัดไป" ${st.cycle.from >= cur.from ? 'disabled' : ''}>›</button>
       </div>`;
   }
 
   function dailyChart(s) {
-    const dim = daysInMonth(st.month);
+    const dim = diffDays(st.cycle.from, st.cycle.to) + 1;
     const today = todayStr();
-    const lastDay = monthKey(today) === st.month ? Number(today.slice(8, 10)) : dim;
-    const vals = Array.from({ length: dim }, (_, i) => s.byDay[`${st.month}-${String(i + 1).padStart(2, '0')}`] || 0);
+    const dates = Array.from({ length: dim }, (_, i) => addDays(st.cycle.from, i));
+    const lastDay = today >= st.cycle.from && today <= st.cycle.to ? diffDays(st.cycle.from, today) + 1 : dim;
+    const vals = dates.map((d) => s.byDay[d] || 0);
     const max = Math.max(...vals, 1);
     const nice = niceMax(max);
     const avg = vals.slice(0, lastDay).reduce((a, b) => a + b, 0) / Math.max(1, lastDay);
@@ -99,7 +102,7 @@ export function mountDashboard(root, backend, opts = {}) {
         const x = L + i * bw + 1;
         const w = Math.max(2, bw - 2);
         const h = (H - T - B) * (v / nice);
-        const date = `${st.month}-${String(i + 1).padStart(2, '0')}`;
+        const date = dates[i];
         const future = i + 1 > lastDay;
         return `<g class="mt-bar${future ? ' is-future' : ''}" data-tip="${thaiDate(date, { year: false })} (${TH_DAYS[weekday(date)]}) · ${money(v)}">
           <rect x="${x - 1}" y="${T}" width="${bw}" height="${H - T - B}" fill="transparent"></rect>
@@ -110,15 +113,15 @@ export function mountDashboard(root, backend, opts = {}) {
     const ticks = [0, nice / 2, nice]
       .map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" class="mt-grid"></line><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" class="mt-axis">${short(v)}</text>`)
       .join('');
-    const xl = [1, 8, 15, 22, dim]
-      .map((d) => `<text x="${L + (d - 0.5) * bw}" y="${H - 5}" text-anchor="middle" class="mt-axis">${d}</text>`)
+    const xl = [0, 7, 14, 21, dim - 1]
+      .map((i) => `<text x="${L + (i + 0.5) * bw}" y="${H - 5}" text-anchor="middle" class="mt-axis">${Number(dates[i].slice(8, 10))}</text>`)
       .join('');
     const avgLine = avg > 0 ? `<line x1="${L}" x2="${W - R}" y1="${y(avg)}" y2="${y(avg)}" class="mt-avg"></line>` : '';
     return `
       <section class="mt-card">
         <div class="mt-card-h"><h3>รายจ่ายรายวัน</h3><span class="mt-sub">เฉลี่ย <b class="num">${money(Math.round(avg))}</b>/วัน</span></div>
         <div class="mt-chart">
-          <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="กราฟรายจ่ายรายวัน ${thaiMonth(st.month)}">${ticks}${avgLine}${bars}${xl}</svg>
+          <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="กราฟรายจ่ายรายวัน ${st.cycle.label}">${ticks}${avgLine}${bars}${xl}</svg>
           <div class="mt-tip" hidden></div>
         </div>
       </section>`;
@@ -143,7 +146,7 @@ export function mountDashboard(root, backend, opts = {}) {
 
   function budgetCard() {
     const b = st.data.budget;
-    if (st.month !== b.month) return '';
+    if (st.cycle.from !== b.from) return '';
     if (!b.total)
       return `<section class="mt-card mt-cta"><div><h3>ยังไม่ได้ตั้งงบเดือนนี้</h3><p class="mt-sub">ตั้งงบแล้วบอทจะเตือนเมื่อใช้ถึง 80% และ 100%</p></div><button class="mt-btn" data-act="tab" data-tab="plan">ตั้งงบ</button></section>`;
     const state = b.pct >= 1 ? 'bad' : b.pct >= 0.8 ? 'warn' : 'good';
@@ -162,7 +165,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const inc = t.type === 'income';
     return `<li><button class="mt-tx" data-act="edit" data-id="${t.id}">
       <span class="mt-emoji">${k.emoji}</span>
-      <span class="mt-tx-main"><span class="mt-tx-note">${esc(t.note)}</span><span class="mt-sub">${esc(k.name)} · ${esc(wallet(t.wallet).name)} · ${SOURCE_LABEL[t.source] || ''}</span></span>
+      <span class="mt-tx-main"><span class="mt-tx-note">${esc(t.note)}</span><span class="mt-sub">${esc(k.name)} · ${t.by ? `โดย ${esc(t.by)}` : esc(wallet(t.wallet).name)} · ${SOURCE_LABEL[t.source] || ''}${t.attachment ? ' · 📎' : ''}</span></span>
       <span class="num mt-amt ${inc ? 'is-inc' : ''}">${inc ? '+' : '-'}${money(t.amount)}</span>
     </button></li>`;
   }
@@ -304,6 +307,12 @@ export function mountDashboard(root, backend, opts = {}) {
       ['+เงินเดือน 25000', 'จดรายรับ'],
       ['เมื่อวาน แท็กซี่ 120', 'จดย้อนหลัง'],
       ['ส่งรูปสลิป', 'AI อ่านยอดให้'],
+      ['ส่งข้อความเสียง', 'พูดแทนพิมพ์'],
+      ['ส่งไฟล์ PDF Statement', 'นำเข้าทั้งเดือน'],
+      ['ส่งรูปตามหลังรายการ', 'แนบเป็นหลักฐาน'],
+      ['รอบบัญชี 25', 'เริ่มรอบวันเงินเดือนออก'],
+      ['ตั้งค่า', 'ตั้งค่าเริ่มต้นใหม่'],
+      ['เชิญบอทเข้ากลุ่ม', 'จดบัญชีร่วมกับครอบครัว'],
       ['สรุป / สรุปเดือนนี้', 'ดูสรุป'],
       ['งบ 15000', 'ตั้งงบทั้งเดือน'],
       ['งบ อาหาร 5000', 'ตั้งงบรายหมวด'],
@@ -323,6 +332,11 @@ export function mountDashboard(root, backend, opts = {}) {
           <input id="mt-name" name="name" value="${esc(st.data.user.name)}" maxlength="40">
           <label for="mt-reminder">เตือนจดรายจ่ายทุกวัน</label>
           <div class="mt-row"><input id="mt-reminder" name="reminder" type="time" value="${s.reminder || ''}"><span class="mt-sub">${s.reminder ? 'เปิดอยู่' : 'ปิดอยู่ (เว้นว่าง = ไม่เตือน)'}</span></div>
+          <label for="mt-cycle">รอบเดือนเริ่มวันที่ (เช่น วันเงินเดือนออก)</label>
+          <select id="mt-cycle" name="cycleStartDay">${Array.from({ length: 31 }, (_, i) => i + 1)
+            .map((d) => `<option value="${d}" ${(s.cycleStartDay || 1) === d ? 'selected' : ''}>วันที่ ${d}${d === 1 ? ' (ต้นเดือน)' : ''}</option>`)
+            .join('')}</select>
+          <label class="mt-check"><input type="checkbox" id="mt-report" name="monthlyReport" ${s.monthlyReport !== false ? 'checked' : ''}> ส่งรายงานสรุปให้ทุกวันแรกของรอบ 09:00 น.</label>
           <label for="mt-wallet">ช่องทางจ่ายเริ่มต้น</label>
           <select id="mt-wallet" name="defaultWallet">${st.data.wallets.map((w) => `<option value="${w.id}" ${s.defaultWallet === w.id ? 'selected' : ''}>${w.emoji} ${esc(w.name)}</option>`).join('')}</select>
           <button class="mt-btn" type="submit">บันทึกการตั้งค่า</button>
@@ -366,6 +380,8 @@ export function mountDashboard(root, backend, opts = {}) {
             <div><label for="mt-date">วันที่</label><input id="mt-date" name="date" type="date" value="${sh.date ?? t.date}" max="${todayStr()}"></div>
             <div><label for="mt-txwallet">ช่องทาง</label><select id="mt-txwallet" name="wallet">${st.data.wallets.map((w) => `<option value="${w.id}" ${(sh.wallet ?? t.wallet) === w.id ? 'selected' : ''}>${w.emoji} ${esc(w.name)}</option>`).join('')}</select></div>
           </div>
+          ${sh.tx?.by ? `<p class="mt-sub">จดโดย ${esc(sh.tx.by)}</p>` : ''}
+          ${sh.tx?.attachment && backend.fileUrl ? `<a class="mt-attach" href="${esc(backend.fileUrl(sh.tx.attachment))}" target="_blank" rel="noopener"><img src="${esc(backend.fileUrl(sh.tx.attachment))}" alt="รูปหลักฐานของรายการนี้" loading="lazy"><span>📎 หลักฐาน · แตะเพื่อดูเต็ม</span></a>` : ''}
           <button class="mt-btn" type="submit">${sh.tx ? 'บันทึกการแก้ไข' : 'บันทึก'}</button>
           ${sh.tx ? (sh.confirmDel ? `<button class="mt-btn is-danger" type="button" data-act="deltx" data-id="${sh.tx.id}">ยืนยันลบรายการนี้</button>` : `<button class="mt-btn is-ghost" type="button" data-act="askdel">ลบรายการ</button>`) : ''}
         </form>`;
@@ -450,7 +466,7 @@ export function mountDashboard(root, backend, opts = {}) {
         root.querySelector('.mt-main')?.scrollTo(0, 0);
         break;
       case 'month':
-        st.month = addMonths(st.month, Number(b.dataset.d));
+        st.cycle = { ...shiftCycle(st.cycle, Number(b.dataset.d), st.cycle.startDay), startDay: st.cycle.startDay };
         render();
         break;
       case 'filtercat':
@@ -584,7 +600,17 @@ export function mountDashboard(root, backend, opts = {}) {
         break;
       }
       case 'settings':
-        act(() => backend.saveSettings({ name: fd.name, reminder: fd.reminder || null, defaultWallet: fd.defaultWallet }), 'บันทึกการตั้งค่าแล้ว');
+        act(
+          () =>
+            backend.saveSettings({
+              name: fd.name,
+              reminder: fd.reminder || null,
+              defaultWallet: fd.defaultWallet,
+              cycleStartDay: Number(fd.cycleStartDay),
+              monthlyReport: fd.monthlyReport === 'on',
+            }),
+          'บันทึกการตั้งค่าแล้ว'
+        );
         break;
       case 'goal':
         act(() => backend.addGoal({ name: fd.name, target: Number(fd.target), emoji: fd.emoji }), 'สร้างเป้าหมายแล้ว');

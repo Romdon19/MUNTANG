@@ -44,9 +44,25 @@ export function createLine(cfg) {
       const res = await fetch(`${DATA_API}/message/${messageId}/content`, { headers: auth() });
       if (!res.ok) throw new Error(`LINE content ${res.status}`);
       const buf = await res.arrayBuffer();
-      // base64 มาตรฐาน (ไม่ใช่ url-safe) สำหรับส่งให้ Claude
+      // base64 มาตรฐาน (ไม่ใช่ url-safe) สำหรับส่งให้ Claude / Whisper
       const data = b64url(buf).replace(/-/g, '+').replace(/_/g, '/');
-      return { data: data + '='.repeat((4 - (data.length % 4)) % 4), mediaType: res.headers.get('content-type') || 'image/jpeg' };
+      return {
+        data: data + '='.repeat((4 - (data.length % 4)) % 4),
+        bytes: new Uint8Array(buf),
+        mediaType: res.headers.get('content-type') || 'application/octet-stream',
+      };
+    },
+    /** ชื่อสมาชิกในกลุ่ม/ห้อง */
+    async memberName(source) {
+      const kind = source.groupId ? 'group' : 'room';
+      const id = source.groupId || source.roomId;
+      const p = await call(`${API}/${kind}/${id}/member/${source.userId}`, null, 'GET');
+      return p.displayName;
+    },
+    async groupName(groupId) {
+      if (!groupId.startsWith('C')) return 'ห้องแชทหมุนตังค์';
+      const g = await call(`${API}/group/${groupId}/summary`, null, 'GET');
+      return g.groupName;
     },
     /** ตรวจ ID token จาก LIFF แล้วคืน userId */
     async verifyIdToken(idToken) {

@@ -107,7 +107,7 @@ function txRow(t, { withDate = false, deletable = false } = {}) {
       'vertical',
       [
         text(truncate(t.note, 28), { size: 'sm', weight: 'bold' }),
-        text(`${cat.name}${withDate ? ` · ${thaiDate(t.date, { year: false })}` : ''} · ${WALLET_MAP[t.wallet]?.name || ''}`, { size: 'xxs', color: C.muted }),
+        text(`${cat.name}${withDate ? ` · ${thaiDate(t.date, { year: false })}` : ''} · ${t.by ? `โดย ${t.by}` : WALLET_MAP[t.wallet]?.name || ''}${t.attachment ? ' · 📎' : ''}`, { size: 'xxs', color: C.muted }),
       ],
       { flex: 5, paddingStart: 'md' }
     ),
@@ -323,7 +323,7 @@ export function welcomeMessage(name, ctx) {
     sep({ margin: 'lg' }),
     ...[
       ['💬', 'พิมพ์ "ข้าว 50" หรือ "กาแฟ 45 ขนม 30"'],
-      ['🧾', 'ส่งรูปสลิปโอนเงิน อ่านให้อัตโนมัติ'],
+      ['🧾', 'ส่งรูปสลิป หรือข้อความเสียง 🎤 ก็ได้'],
       ['💰', 'รายรับ ใส่ + นำหน้า "+เงินเดือน 25000"'],
       ['📊', 'พิมพ์ "สรุป" ดูยอดวันนี้ / "สรุปเดือนนี้"'],
       ['🎯', 'ตั้งงบ "งบ 15000" แจ้งเตือนเมื่อใกล้เกิน'],
@@ -349,7 +349,9 @@ export function helpMessage(ctx) {
       contents: [
         card('💬 จดด้วยแชท', ['• ข้าวมันไก่ 50', '• กาแฟ 45 ขนม 30 (หลายรายการ)', '• เมื่อวาน แท็กซี่ 120', '• 12/10 ค่าไฟ 850', '• ชาบู 459 บัตร (ระบุช่องทาง)', '• พิมพ์หลายบรรทัดได้'], 'ข้าวมันไก่ 50'),
         card('💰 รายรับ', ['• +เงินเดือน 25000', '• รับ ขายของ 1.2k', '• ถูกหวย 2000', 'ใส่ + หรือ "รับ" นำหน้า', 'หรือใช้คำอย่าง เงินเดือน/โบนัส'], '+เงินเดือน 25000'),
-        card('🧾 สลิป & AI', ['• ส่งรูปสลิปโอนเงิน/ใบเสร็จ', '• AI อ่านยอด วันที่ ผู้รับ', '• กันสลิปซ้ำอัตโนมัติ', '• พิมพ์ประโยคยาวๆ ก็เข้าใจ'], 'วันนี้กินข้าวกับแฟน 350 แล้วเติมน้ำมัน 500'),
+        card('🧾 สลิป & AI', ['• ส่งรูปสลิปโอนเงิน/ใบเสร็จ', '• AI อ่านยอด วันที่ ผู้รับ', '• กันสลิปซ้ำอัตโนมัติ', '• พิมพ์ประโยคยาวๆ ก็เข้าใจ', '• ส่งรูปตามหลังรายการ = แนบหลักฐาน'], 'วันนี้กินข้าวกับแฟน 350 แล้วเติมน้ำมัน 500'),
+        card('🎤 เสียง & PDF', ['• กดไมค์ พูด "ข้าวมันไก่ห้าสิบบาท"', '• ส่งไฟล์ PDF Statement ธนาคาร', '  นำเข้าทั้งเดือนในครั้งเดียว', '• ยกเลิกทั้งชุดได้ปุ่มเดียว', '• PDF ที่มีรหัสผ่าน ปลดล็อกก่อนส่ง'], 'รายการ'),
+        card('👥 กลุ่ม & รอบบัญชี', ['• เชิญบอทเข้ากลุ่ม LINE', '  = สมุดบัญชีร่วมของครอบครัว', '• ระบบจำว่าใครจด', '• รอบบัญชี 25 (เริ่มวันเงินเดือนออก)', '• รายงานสรุปส่งให้ทุกต้นรอบ'], 'รอบบัญชี'),
         card('📊 สรุป', ['• สรุป / สรุปวันนี้', '• สรุปสัปดาห์ / สรุปเดือนนี้', '• สรุปเดือนที่แล้ว', '• รายการ (ดู/ลบรายการล่าสุด)', '• ลบ (ลบรายการล่าสุด)', '• ส่งออก (ไฟล์ Excel/CSV)'], 'สรุปเดือนนี้'),
         card('🎯 งบ & เป้าหมาย', ['• งบ 15000 (งบทั้งเดือน)', '• งบ อาหาร 5000 (รายหมวด)', '• เป้า เที่ยวญี่ปุ่น 50000', '• ออม เที่ยวญี่ปุ่น 1000', '• เป้า (ดูความคืบหน้า)'], 'งบ'),
         card('⏰ อัตโนมัติ', ['• เตือน 21:00 (เตือนจดทุกวัน)', '• ปิดเตือน', '• ประจำ ค่าเน็ต 599 ทุกวันที่ 5', '• หาร 900 3 (หารบิล)', '• หมวด (ดูหมวดทั้งหมด)'], 'เตือน 21:00'),
@@ -376,6 +378,87 @@ export function categoriesMessage(ctx) {
       bubble({ title: 'หมวดรายรับ', ctx, body: [...list('income'), sep({ margin: 'lg' }), text('จัดหมวดผิด? แตะปุ่มหมวดใต้ข้อความ ระบบจะจำคำนั้นไว้ให้ครั้งหน้า', { size: 'xs', color: C.muted, margin: 'md' })] }),
     ],
   });
+}
+
+// ---------- ตั้งค่าครั้งแรก ----------
+export function setupMessage(step, user) {
+  const pb = (label, v, displayText) => ({ label, data: `action=setup&step=${step}&v=${v}`, displayText: displayText || label });
+  if (step === 'cycle') {
+    return textMsg(
+      '⚙️ ตั้งค่าเริ่มต้น (1/3)\nรอบเดือนของคุณเริ่มวันที่เท่าไร?\nแนะนำให้ตั้งเป็นวันที่เงินเดือนออก สรุปและงบจะนับตามรอบนี้',
+      quickReplies([
+        pb('📅 วันที่ 1', 1, 'เริ่มรอบวันที่ 1'),
+        pb('วันที่ 15', 15, 'เริ่มรอบวันที่ 15'),
+        pb('วันที่ 25', 25, 'เริ่มรอบวันที่ 25'),
+        pb('วันที่ 26', 26, 'เริ่มรอบวันที่ 26'),
+        pb('วันที่ 28', 28, 'เริ่มรอบวันที่ 28'),
+        pb('สิ้นเดือน (30)', 30, 'เริ่มรอบวันที่ 30'),
+      ])
+    );
+  }
+  if (step === 'budget') {
+    return textMsg(
+      `👍 รอบเดือนเริ่มวันที่ ${user.settings.cycleStartDay}\n\n⚙️ ตั้งค่าเริ่มต้น (2/3)\nอยากตั้งงบใช้จ่ายต่อเดือนเท่าไร? ใช้ใกล้หมดจะเตือนให้\n(หรือพิมพ์เองทีหลัง เช่น "งบ 12000")`,
+      quickReplies([
+        pb('฿5,000', 5000),
+        pb('฿10,000', 10000),
+        pb('฿15,000', 15000),
+        pb('฿20,000', 20000),
+        pb('฿30,000', 30000),
+        pb('ยังไม่ตั้งงบ', 0),
+      ])
+    );
+  }
+  if (step === 'reminder') {
+    return textMsg(
+      `${user.settings.monthlyBudget ? `👍 งบเดือนละ ${money(user.settings.monthlyBudget)}\n\n` : ''}⚙️ ตั้งค่าเริ่มต้น (3/3)\nให้นายหัวหมุนเตือนจดรายจ่ายทุกวันกี่โมง?`,
+      quickReplies([pb('⏰ 20:00', '20:00'), pb('⏰ 21:00', '21:00'), pb('⏰ 22:00', '22:00'), pb('🔕 ไม่ต้องเตือน', 'off')])
+    );
+  }
+  return textMsg(
+    `✅ ตั้งค่าเสร็จแล้ว!\n• รอบเดือนเริ่มวันที่ ${user.settings.cycleStartDay}\n• งบ ${user.settings.monthlyBudget ? money(user.settings.monthlyBudget) : 'ยังไม่ตั้ง'}\n• เตือน ${user.settings.reminder ? `${user.settings.reminder} น.` : 'ปิด'}\n• รายงานประจำเดือน ส่งทุกวันแรกของรอบ 09:00 น.\n\nลองจดรายการแรกเลย พิมพ์ "ข้าว 50" หรือส่งรูปสลิป/ข้อความเสียงมาก็ได้ 🌀\n(แก้ทีหลังได้ พิมพ์ "ตั้งค่า")`,
+    quickReplies([
+      { label: '☕ กาแฟ 45', text: 'กาแฟ 45' },
+      { label: '📖 วิธีใช้', text: 'วิธีใช้' },
+    ])
+  );
+}
+
+export function groupWelcomeMessage(ctx) {
+  const body = [
+    text('สวัสดีทุกคน 👋', { weight: 'bold', size: 'lg' }),
+    text('กลุ่มนี้มีสมุดบัญชีร่วมแล้ว ใครจ่ายอะไรพิมพ์บอกได้เลย ระบบจะจำว่าใครจด', { color: C.muted, size: 'sm', margin: 'md' }),
+    sep({ margin: 'lg' }),
+    ...[
+      ['💬', 'ค่าข้าวเย็น 450 (ชื่อ + ยอด)'],
+      ['📝', 'จด วันนี้ซื้อของเข้าบ้าน 820 (ประโยคยาวใส่ "จด" นำหน้า)'],
+      ['🧾', 'ส่งรูปสลิปมาในกลุ่ม'],
+      ['📊', 'สรุปเดือนนี้ / งบ 20000 / หาร 900 3'],
+    ].map(([e, t]) => box('horizontal', [text(e, { flex: 0 }), text(t, { size: 'sm', margin: 'md' })], { margin: 'md' })),
+    text('ข้อความคุยกันทั่วไปจะไม่ถูกจดนะ', { size: 'xxs', color: C.muted, margin: 'lg' }),
+  ];
+  const footer = ctx?.links?.dashboard ? [btn('แดชบอร์ดของกลุ่ม', uri(ctx.links.dashboard))] : [];
+  return flex('หมุนตังค์พร้อมจดให้กลุ่มนี้แล้ว', bubble({ title: 'หมุนตังค์ · กลุ่ม', subtitle: 'สมุดบัญชีร่วม', body, footer, ctx }));
+}
+
+export function importedMessage(txs, batch, fileName, ctx) {
+  const exp = txs.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
+  const inc = txs.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0);
+  const dates = txs.map((t) => t.date).sort();
+  const body = [
+    text('นำเข้า Statement แล้ว ✓', { color: C.green, size: 'xs', weight: 'bold' }),
+    text(`${txs.length} รายการ`, { size: 'xxl', weight: 'bold', color: C.gold, margin: 'sm' }),
+    text(`${thaiDate(dates[0])} - ${thaiDate(dates[dates.length - 1])}`, { size: 'xs', color: C.muted }),
+    sep(),
+    row('รายจ่าย', money(exp)),
+    row('รายรับ', money(inc), { rightStyle: { color: C.green } }),
+    sep(),
+    ...txs.slice(0, 5).map((t) => txRow(t, { withDate: true })),
+    ...(txs.length > 5 ? [text(`และอีก ${txs.length - 5} รายการ`, { size: 'xxs', color: C.muted, margin: 'md', align: 'end' })] : []),
+  ];
+  const footer = [btn('ยกเลิกการนำเข้าทั้งหมด', postback(`action=undobatch&b=${batch}`, 'ยกเลิกการนำเข้า'), { style: 'secondary', color: '#333333' })];
+  if (ctx?.links?.dashboard) footer.unshift(btn('ตรวจในแดชบอร์ด', uri(ctx.links.dashboard)));
+  return flex(`นำเข้า ${txs.length} รายการจาก ${fileName}`, bubble({ title: 'หมุนตังค์ · PDF', subtitle: truncate(fileName, 40), body, footer, ctx }));
 }
 
 export { CATEGORY_MAP };

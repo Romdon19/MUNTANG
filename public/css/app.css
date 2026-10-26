@@ -210,3 +210,7 @@ button.mt-tx:hover { background: var(--carbon-2); }
   background: var(--moon); color: var(--space); padding: 8px 16px; border-radius: 999px; font-size: 14px; font-weight: 600;
   max-width: calc(100% - 32px); text-align: center; animation: mt-up 0.2s ease-out;
 }
+.mt-check { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--moon); }
+.mt-check input { width: 18px; height: 18px; accent-color: var(--gold); }
+.mt-attach { display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: var(--muted); font-size: 12.5px; }
+.mt-attach img { max-height: 220px; width: auto; max-width: 100%; align-self: flex-start; border-radius: var(--r-sm); border: 1px solid var(--rule); }

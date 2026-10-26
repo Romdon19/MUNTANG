@@ -59,10 +59,10 @@ export function createAI(config) {
   if (!config.anthropicApiKey) return null;
   const client = new Anthropic({ apiKey: config.anthropicApiKey });
 
-  async function ask(content, schema) {
+  async function ask(content, schema, maxTokens = 4000) {
     const res = await client.beta.messages.create({
       model: config.claudeModel,
-      max_tokens: 4000,
+      max_tokens: maxTokens,
       system: SYSTEM,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
@@ -70,6 +70,7 @@ export function createAI(config) {
       messages: [{ role: 'user', content }],
     });
     if (res.stop_reason === 'refusal') throw new Error('model refused');
+    if (res.stop_reason === 'max_tokens') throw new Error('response too long');
     const textBlock = res.content.find((b) => b.type === 'text');
     if (!textBlock) throw new Error('no text in response');
     return JSON.parse(textBlock.text);
@@ -100,6 +101,26 @@ Extract every income/expense item from this LINE message. Return an empty list i
 Message:
 """${text.slice(0, 1000)}"""`,
         TEXT_SCHEMA
+      );
+      return (out.items || []).filter((i) => i.amount > 0);
+    },
+
+    /** pdf: { data: base64 } — Statement ธนาคาร/บัตรเครดิต */
+    async readStatement(pdf, today) {
+      const out = await ask(
+        [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdf.data } },
+          {
+            type: 'text',
+            text: `Today is ${today} (Asia/Bangkok). This is a Thai bank account or credit card statement owned by the user.
+Extract every transaction row. Money leaving the account is "expense", money coming in is "income".
+Skip balance-only rows, opening/closing balance lines and totals. Use the description/memo for "note" (short Thai, e.g. "โอนให้ สมชาย", "ชำระ 7-Eleven").
+Use wallet "card" for credit card statements, otherwise "bank". Dates must be YYYY-MM-DD in the Gregorian calendar.
+Return an empty list if this is not a statement.`,
+          },
+        ],
+        TEXT_SCHEMA,
+        16000
       );
       return (out.items || []).filter((i) => i.amount > 0);
     },

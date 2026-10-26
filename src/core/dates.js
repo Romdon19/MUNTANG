@@ -65,9 +65,42 @@ export function thaiMonth(month) {
   return `${TH_MONTHS_FULL[m - 1]} ${y + 543}`;
 }
 
-export function rangeFor(name, now = new Date()) {
+/** จำนวนวันระหว่างสองวันที่ (to - from) */
+export function diffDays(from, to) {
+  return Math.round((parseDate(to) - parseDate(from)) / 86400000);
+}
+
+/**
+ * รอบบัญชีที่ "วันที่" นี้อยู่ เมื่อรอบเริ่มทุกวันที่ startDay (เช่น 25 = วันเงินเดือนออก)
+ * ถ้าเดือนไหนไม่มีวันนั้น (เช่น 31) จะใช้วันสุดท้ายของเดือนแทน
+ */
+export function cycleOf(dateStr, startDay = 1) {
+  const s = Math.min(31, Math.max(1, Number(startDay) || 1));
+  const startIn = (month) => `${month}-${String(Math.min(s, daysInMonth(month))).padStart(2, '0')}`;
+  const month = monthKey(dateStr);
+  let from = startIn(month);
+  if (dateStr < from) from = startIn(addMonths(month, -1));
+  return cycleFrom(from, s);
+}
+
+/** รอบที่เริ่มวันที่ from */
+export function cycleFrom(from, startDay = 1) {
+  const s = Math.max(1, Number(startDay) || 1);
+  const next = addMonths(monthKey(from), 1);
+  const to = addDays(`${next}-${String(Math.min(s, daysInMonth(next))).padStart(2, '0')}`, -1);
+  const label = s === 1 ? thaiMonth(monthKey(from)) : `${thaiDate(from, { year: false })} - ${thaiDate(to)}`;
+  return { from, to, label, key: from };
+}
+
+/** เลื่อนรอบไป n รอบ (ลบ = ย้อนหลัง) */
+export function shiftCycle(cycle, n, startDay = 1) {
+  const month = addMonths(monthKey(cycle.from), n);
+  return cycleOf(`${month}-${String(Math.min(Math.max(1, startDay), daysInMonth(month))).padStart(2, '0')}`, startDay);
+}
+
+/** startDay: วันเริ่มรอบบัญชี (ใช้กับ month / lastmonth) */
+export function rangeFor(name, now = new Date(), startDay = 1) {
   const today = todayStr(now);
-  const month = monthKey(today);
   switch (name) {
     case 'today':
       return { from: today, to: today, label: `วันนี้ · ${thaiDate(today)}` };
@@ -81,16 +114,10 @@ export function rangeFor(name, now = new Date()) {
       const from = addDays(today, -offset);
       return { from, to: today, label: `สัปดาห์นี้ · ${thaiDate(from, { year: false })} - ${thaiDate(today)}` };
     }
-    case 'lastmonth': {
-      const lm = addMonths(month, -1);
-      return { from: `${lm}-01`, to: `${lm}-${daysInMonth(lm)}`, label: thaiMonth(lm) };
-    }
+    case 'lastmonth':
+      return shiftCycle(cycleOf(today, startDay), -1, startDay);
     case 'month':
     default:
-      return { from: `${month}-01`, to: `${month}-${daysInMonth(month)}`, label: thaiMonth(month) };
+      return cycleOf(today, startDay);
   }
-}
-
-export function monthRange(month) {
-  return { from: `${month}-01`, to: `${month}-${daysInMonth(month)}`, label: thaiMonth(month) };
 }

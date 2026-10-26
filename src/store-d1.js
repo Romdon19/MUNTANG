@@ -33,6 +33,11 @@ export function createD1Store(db) {
         .bind(user.id, JSON.stringify(user), user.settings?.reminder || null, user.recurring?.length ? 1 : 0, new Date().toISOString())
         .run();
     },
+    async allIds() {
+      await init();
+      const { results } = await db.prepare('SELECT id FROM users').all();
+      return results.map((r) => r.id);
+    },
     /** ผู้ใช้ที่อาจต้องได้รับการเตือนตอนนี้ (+ ผู้มีรายการประจำ เมื่อ includeRecurring) */
     async dueIds(hhmm, fromHhmm, includeRecurring) {
       await init();
