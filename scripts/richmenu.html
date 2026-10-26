@@ -1,27 +1,35 @@
 <!doctype html>
 <html lang="th"><head><meta charset="utf-8">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&display=swap">
 <style>
-  /* Rich menu 2500x1686 สไตล์ 2D: พื้นเหลืองทองลายจุด ปุ่มสติกเกอร์ขาวขอบดำเงาแข็ง */
-  html, body { margin: 0; width: 2500px; height: 1686px; font-family: 'Mitr', sans-serif; color: #0d0d0d; }
-  body { background: #ffc400; background-image: radial-gradient(rgba(13,13,13,.12) 6px, transparent 7px); background-size: 90px 90px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 44px; padding: 52px; height: 100%; box-sizing: border-box; }
-  .cell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
-    background: #fff; border: 10px solid #0d0d0d; border-radius: 70px; box-shadow: 22px 22px 0 #0d0d0d; }
-  .icon { width: 270px; height: 270px; border-radius: 50%; display: grid; place-items: center; font-size: 150px;
-    background: #fff1bf; border: 9px solid #0d0d0d; }
-  .label { font-size: 104px; font-weight: 600; line-height: 1; }
-  .cell.hero { background: #0d0d0d; color: #ffc400; box-shadow: 22px 22px 0 #fff1bf; }
-  .cell.hero .icon { background: #ffc400; border-color: #ffc400; overflow: visible; position: relative; }
-  .cell.hero .icon img { width: 100%; height: 100%; border-radius: 50%; }
-  .cell.hero .icon::before { content: ''; position: absolute; inset: 32% -30%; border: 8px dashed #ffc400; border-radius: 50%; transform: rotate(-16deg); }
-  .tag { position: absolute; top: -38px; right: 60px; background: #ffc400; border: 8px solid #0d0d0d; border-radius: 999px; font-size: 52px; padding: 0 34px; transform: rotate(6deg); color: #0d0d0d; }
+  /* Rich menu 2500x1686 แบบป้านวล: ช่องใหญ่ "จด" ซ้าย + ช่องเล็ก 6 ช่องขวา บนพื้นดำ
+     ตำแหน่งช่องต้องตรงกับ areas ใน src/richmenu.js */
+  html, body { margin: 0; width: 2500px; height: 1686px; font-family: 'Kanit', sans-serif; color: #1f1d1a; background: #1f1d1a; }
+  .t { position: absolute; box-sizing: border-box; border-radius: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; overflow: hidden; }
+  .s { background: #fff6d6; }
+  .s svg { width: 190px; height: 190px; fill: none; stroke: #1f1d1a; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .s b { font-size: 92px; font-weight: 600; line-height: 1; }
+  .rec { background: #fbde0a; align-items: flex-start; justify-content: flex-start; padding: 70px 80px; }
+  .rec .big { font-size: 330px; font-weight: 700; line-height: 0.85; }
+  .rec .mid { font-size: 120px; font-weight: 600; line-height: 1.1; margin-top: 10px; }
+  .rec .sm { font-size: 66px; font-weight: 500; line-height: 1.25; margin-top: 30px; color: #3b3000; }
+  .rec img { position: absolute; right: 0; bottom: 0; width: 520px; }
+  .goal { background: #ffc400; flex-direction: row; gap: 40px; }
+  .goal span { font-size: 150px; }
+  .goal b { font-size: 120px; font-weight: 600; }
 </style></head>
-<body><div class="grid">
-  <div class="cell"><div class="icon">☀️</div><div class="label">สรุปวันนี้</div></div>
-  <div class="cell hero"><span class="tag">กดเลย!</span><div class="icon"><img src="../public/assets/logo.png" alt=""></div><div class="label">แดชบอร์ด</div></div>
-  <div class="cell"><div class="icon">🗓️</div><div class="label">สรุปเดือนนี้</div></div>
-  <div class="cell"><div class="icon">🎯</div><div class="label">งบประมาณ</div></div>
-  <div class="cell"><div class="icon">🧾</div><div class="label">รายการล่าสุด</div></div>
-  <div class="cell"><div class="icon">📖</div><div class="label">วิธีใช้</div></div>
-</div></body></html>
+<body>
+  <!-- areas: rec 0,0,1000x1124 · goal 0,1124,1000x562 · ช่องเล็ก 750x562 -->
+  <div class="t rec" style="left:28px;top:28px;width:958px;height:1082px">
+    <div class="big">จด</div><div class="mid">รายรับ/รายจ่าย</div><div class="sm">ง่ายๆ แค่ไลน์บอก<br>นายหัวหมุน</div>
+    <img src="../public/assets/peek.jpg" alt="">
+  </div>
+  <div class="t goal" style="left:28px;top:1138px;width:958px;height:520px"><span>🐷</span><b>ออมเงิน</b></div>
+
+  <div class="t s" style="left:1014px;top:28px;width:722px;height:520px"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><b>สรุป</b></div>
+  <div class="t s" style="left:1764px;top:28px;width:708px;height:520px"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M8 13v-2M10.5 13V8M13 13v-3.5"/></svg><b>วิเคราะห์</b></div>
+  <div class="t s" style="left:1014px;top:576px;width:722px;height:534px"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/></svg><b>หมวด/งบ</b></div>
+  <div class="t s" style="left:1764px;top:576px;width:708px;height:534px"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg><b>รายการ</b></div>
+  <div class="t s" style="left:1014px;top:1138px;width:722px;height:520px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><b>ตั้งค่า</b></div>
+  <div class="t s" style="left:1764px;top:1138px;width:708px;height:520px"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.4-2.8 4M12 17.5h.01"/></svg><b>Help</b></div>
+</body></html>

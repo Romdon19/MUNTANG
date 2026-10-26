@@ -1,6 +1,6 @@
 // สมองของบอท: รับ LINE event แล้วคืน array ของข้อความที่จะตอบ (ไม่ผูกกับ LINE API โดยตรง)
 import { parseEntries, looksLikeEntry } from './parser.js';
-import { CATEGORIES, getCategory, guessCategory } from './categories.js';
+import { CATEGORIES, WALLETS, getCategory, guessCategory } from './categories.js';
 import { todayStr, rangeFor, shiftCycle, timeStr } from './dates.js';
 import { money } from './format.js';
 import * as ops from './ops.js';
@@ -26,7 +26,8 @@ const SUMMARY_WORDS = {
  *   getMemberName?: (source) -> string  ชื่อสมาชิกในกลุ่ม
  *   getGroupName?: (groupId) -> string
  *   getProfile?: (userId) -> { name, pictureUrl }
- *   links: { dashboard(userId), export(userId) }
+ *   links: { dashboard(userId), export(userId), view?(name), edit?(txId) }  (view/edit = หน้าเฉพาะใน LIFF)
+ *   peekUrl?: string  รูปนายหัวหมุนแอบมองบนหัวการ์ด
  *   logoUrl?: string
  *   now?: () => Date
  */
@@ -53,9 +54,12 @@ export function createBot(deps) {
   function ctxFor(user) {
     return {
       logoUrl: deps.logoUrl,
+      peekUrl: deps.peekUrl,
       links: {
         dashboard: deps.links?.dashboard?.(user.id),
         export: deps.links?.export?.(user.id),
+        view: deps.links?.view,
+        edit: deps.links?.edit,
       },
     };
   }
@@ -67,13 +71,25 @@ export function createBot(deps) {
       todayExpense: ops.summaryFor(user, 'today', n).expense,
       budget: ops.budgetStatus(user, n),
       streak: ops.streak(user, n),
+      catStatus: ops.catStatusMap(user, n),
+      cycleStartDay: user.settings.cycleStartDay,
     };
+  }
+
+  /** การ์ด "เก่งมาก! จดมา N วัน" ส่งวันละครั้งเมื่อจดต่อเนื่องตั้งแต่ 2 วัน */
+  function streakCard(user, ctx) {
+    const n = ops.streak(user, now());
+    const today = todayStr(now());
+    if (n < 2 || user.settings.lastStreakCard === today) return [];
+    user.settings.lastStreakCard = today;
+    return [ui.streakMessage(n, ops.tierFor(n), ctx)];
   }
 
   function afterRecord(user, txs, ctx) {
     const out = [ui.recordedMessage(txs, recordedInfo(user), ctx)];
     const alerts = ops.budgetAlerts(user, now());
     if (alerts.length) out.push(ui.alertMessage(alerts));
+    out.push(...streakCard(user, ctx));
     return out;
   }
 
@@ -84,6 +100,11 @@ export function createBot(deps) {
     const by = sess.by ? { by: sess.by } : {};
 
     if (['ตั้งค่า', 'ตั้งค่าเริ่มต้น', 'setup'].includes(t)) return [ui.setupMessage('cycle', user)];
+    if (['จด', 'จดรายการ', 'จดรายรับรายจ่าย', 'บันทึก'].includes(t)) return [ui.recordPromptMessage()];
+    if (['วิเคราะห์', 'analysis'].includes(t)) {
+      const link = ctx.links.view ? ctx.links.view('analysis') : ctx.links.dashboard;
+      return [ui.textMsg(link ? `🔍 ดูการวิเคราะห์การใช้เงินของคุณ\n${link}` : 'ยังไม่ได้ตั้งค่าแดชบอร์ด')];
+    }
     let m = t.match(/^(?:รอบบัญชี|รอบงบ|เริ่มงบ(?:วันที่)?|วันเงินเดือนออก|เงินเดือนออก(?:วันที่)?)\s*(?:วันที่)?\s*(\d{1,2})?$/);
     if (m) {
       if (!m[1]) return [ui.setupMessage('cycle', user)];
@@ -376,6 +397,7 @@ export function createBot(deps) {
     const out = [ui.slipMessage(tx, slip, recordedInfo(user), ctx)];
     const alerts = ops.budgetAlerts(user, now());
     if (alerts.length) out.push(ui.alertMessage(alerts));
+    out.push(...streakCard(user, ctx));
     return out;
   }
 
@@ -426,6 +448,17 @@ export function createBot(deps) {
         ops.updateTx(user, tx.id, { categoryId: cat.id, type: cat.type });
         if (tx.source !== 'slip') ops.learnKeyword(user, tx.note, cat.id);
         return [ui.textMsg(`ย้าย "${tx.note}" ไปหมวด ${cat.emoji} ${cat.name} แล้ว${tx.source !== 'slip' ? '\n(จำไว้แล้ว ครั้งหน้าจัดหมวดให้อัตโนมัติ)' : ''}`)];
+      }
+      case 'wallet': {
+        const tx = user.txs.find((x) => x.id === p.id);
+        if (!tx) return [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
+        ops.updateTx(user, tx.id, { wallet: p.w });
+        const w = WALLETS.find((x) => x.id === p.w);
+        return [ui.textMsg(`เปลี่ยน "${tx.note}" เป็น ${w ? `${w.emoji} ${w.name}` : p.w} แล้ว`)];
+      }
+      case 'edit': {
+        const tx = user.txs.find((x) => x.id === p.id);
+        return tx ? [ui.editMenuMessage(tx)] : [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
       }
       case 'flip': {
         const tx = user.txs.find((x) => x.id === p.id);

@@ -1,10 +1,8 @@
 // สร้าง Rich Menu 6 ช่อง แล้วตั้งเป็นเมนูหลักของ LINE OA
-const W = 2500, H = 1686, cw = [834, 833, 833], ch = 843;
+const W = 2500, H = 1686;
 
-const area = (col, row, action) => ({
-  bounds: { x: cw.slice(0, col).reduce((a, b) => a + b, 0), y: row * ch, width: cw[col], height: ch },
-  action,
-});
+// ช่องบนภาพ (ต้องตรงกับ scripts/richmenu.html): ซ้าย 1000px, ขวา 2 คอลัมน์ x 750px, 3 แถว x 562px
+const rect = (x, y, width, height) => ({ x, y, width, height });
 const msg = (label, text) => ({ type: 'message', label, text });
 
 async function call(url, opts) {
@@ -19,18 +17,22 @@ export async function setupRichMenu(cfg, image) {
   if (!cfg.lineAccessToken) throw new Error('ต้องตั้งค่า LINE_CHANNEL_ACCESS_TOKEN ก่อน');
   const headers = { Authorization: `Bearer ${cfg.lineAccessToken}` };
   const dashboardUri = cfg.liffId ? `https://liff.line.me/${cfg.liffId}` : null;
+  // ปุ่มที่เปิดหน้าใน LIFF ได้ (ถ้ายังไม่ตั้ง LIFF จะส่งข้อความแทน)
+  const page = (label, view, fallback) => (cfg.liffId ? { type: 'uri', label, uri: `https://liff.line.me/${cfg.liffId}?view=${view}` } : msg(label, fallback));
   const body = {
     size: { width: W, height: H },
     selected: true,
     name: 'muntang-main',
     chatBarText: 'เมนูหมุนตังค์',
     areas: [
-      area(0, 0, msg('สรุปวันนี้', 'สรุปวันนี้')),
-      area(1, 0, dashboardUri ? { type: 'uri', label: 'แดชบอร์ด', uri: dashboardUri } : msg('แดชบอร์ด', 'แดชบอร์ด')),
-      area(2, 0, msg('สรุปเดือนนี้', 'สรุปเดือนนี้')),
-      area(0, 1, msg('งบประมาณ', 'งบ')),
-      area(1, 1, msg('รายการล่าสุด', 'รายการ')),
-      area(2, 1, msg('วิธีใช้', 'วิธีใช้')),
+      { bounds: rect(0, 0, 1000, 1124), action: msg('จด', 'จด') },
+      { bounds: rect(0, 1124, 1000, 562), action: msg('ออมเงิน', 'เป้า') },
+      { bounds: rect(1000, 0, 750, 562), action: page('สรุป', 'home', 'สรุปเดือนนี้') },
+      { bounds: rect(1750, 0, 750, 562), action: page('วิเคราะห์', 'analysis', 'วิเคราะห์') },
+      { bounds: rect(1000, 562, 750, 562), action: page('หมวด/งบ', 'budget', 'งบ') },
+      { bounds: rect(1750, 562, 750, 562), action: page('รายการ', 'list', 'รายการ') },
+      { bounds: rect(1000, 1124, 750, 562), action: page('ตั้งค่า', 'settings', 'ตั้งค่า') },
+      { bounds: rect(1750, 1124, 750, 562), action: msg('Help', 'วิธีใช้') },
     ],
   };
 

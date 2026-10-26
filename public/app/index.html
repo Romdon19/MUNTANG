@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#ffc400">
   <link rel="icon" href="/assets/favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Kanit:wght@500;600&family=Anuphan:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600&family=Anuphan:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/app.css">
   <script src="/config.js"></script>
@@ -20,8 +20,13 @@
     import { mountDashboard } from '/js/dashboard.js';
 
     const root = document.getElementById('app');
+    // หน้าที่ขอเปิด เช่น ?view=analysis หรือ ?view=list&edit=<id> (มาจากริชเมนู/ปุ่มแก้ไขในแชท)
+    const params = new URLSearchParams(location.search);
+    const liffState = new URLSearchParams((params.get('liff.state') || '').replace(/^[^?]*\?/, ''));
+    const view = params.get('view') || liffState.get('view');
+    const edit = params.get('edit') || liffState.get('edit');
     const backend = remoteBackend();
-    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-192.jpg' });
+    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-192.jpg', peekUrl: '/assets/peek.jpg', view, edit });
     backend
       .authenticate()
       .then(() => dash.refresh())

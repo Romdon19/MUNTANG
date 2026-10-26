@@ -34,12 +34,17 @@ export function createApp({ cfg, store, loadAsset, files, speechToText }) {
     const isGroup = /^[CR]/.test(ledgerId || '');
     const dashToken = ledgerId ? await auth.makeToken(ledgerId) : '';
     const exportToken = ledgerId ? await auth.makeToken(ledgerId, 1) : '';
+    // กลุ่มใช้ลิงก์โทเคน เพราะ LIFF จะล็อกอินเป็นบัญชีส่วนตัวของคนที่กด
+    const useLiff = cfg.liffId && !isGroup;
+    const page = (query) => (useLiff ? `https://liff.line.me/${cfg.liffId}${query ? `?${query}` : ''}` : `${base}/app/?t=${dashToken}${query ? `&${query}` : ''}`);
     return {
       logoUrl: `${base}/assets/logo-192.jpg`,
+      peekUrl: `${base}/assets/peek.jpg`,
       links: {
-        // กลุ่มใช้ลิงก์โทเคน เพราะ LIFF จะล็อกอินเป็นบัญชีส่วนตัวของคนที่กด
-        dashboard: cfg.liffId && !isGroup ? `https://liff.line.me/${cfg.liffId}` : `${base}/app/?t=${dashToken}`,
+        dashboard: page(''),
         export: `${base}/api/export.csv?t=${exportToken}`,
+        view: (name) => page(`view=${name}`),
+        edit: (txId) => page(`view=list&edit=${txId}`),
       },
     };
   }
@@ -52,7 +57,8 @@ export function createApp({ cfg, store, loadAsset, files, speechToText }) {
       store,
       ai,
       logoUrl: ctx.logoUrl,
-      links: { dashboard: () => ctx.links.dashboard, export: () => ctx.links.export },
+      peekUrl: ctx.peekUrl,
+      links: { dashboard: () => ctx.links.dashboard, export: () => ctx.links.export, view: ctx.links.view, edit: ctx.links.edit },
       getProfile: hasLine ? (id) => (id.startsWith('U') ? line.profile(id) : null) : undefined,
       getGroupName: hasLine ? (id) => line.groupName(id) : undefined,
       getMemberName: hasLine ? (src) => line.memberName(src) : undefined,

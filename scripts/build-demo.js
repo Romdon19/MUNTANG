@@ -27,10 +27,12 @@ const result = await build({
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const css = ['public/css/theme.css', 'public/css/app.css', 'public/css/sim.css'].map((f) => fs.readFileSync(path.join(root, f), 'utf8')).join('\n');
 const logo = `data:image/jpeg;base64,${fs.readFileSync(path.join(root, 'public/assets/logo-192.jpg')).toString('base64')}`;
+const peek = `data:image/jpeg;base64,${fs.readFileSync(path.join(root, 'public/assets/peek.jpg')).toString('base64')}`;
 const html = fs
   .readFileSync(path.join(root, 'scripts/demo/template.html'), 'utf8')
   .replace('/*__CSS__*/', () => css)
   .replaceAll('__LOGO__', () => logo)
+  .replaceAll('__PEEK__', () => peek)
   .replace('/*__JS__*/', () => js);
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist/muntang-demo.html'), html);

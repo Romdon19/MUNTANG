@@ -1,88 +1,96 @@
-// ข้อความ Flex Message ธีม "หมุนตังค์" สไตล์ 2D — หัวการ์ดเหลืองทอง เส้นดำ ตัวการ์ดขาว เหมือนสติกเกอร์
-import { getCategory, categoriesOf, WALLET_MAP, CATEGORY_MAP } from './categories.js';
+// ข้อความ Flex Message ของ "หมุนตังค์" — โครงแบบป้านวล (หัวการ์ดมีมาสคอตแอบมอง · แท็กประเภท · ปุ่มแก้/ลบ · แถบงบหมวด · คอมเมนต์มาสคอต)
+// ในโทนแบรนด์: เหลืองโลโก้ + ดำ บนการ์ดขาวสะอาด
+import { getCategory, categoriesOf, WALLETS, WALLET_MAP, CATEGORY_MAP } from './categories.js';
 import { money, pct, truncate } from './format.js';
 import { thaiDate } from './dates.js';
 import { moodFor } from './mood.js';
 
 export const C = {
-  ink: '#0D0D0D', // Deep Space Black — ตัวอักษร เส้น
-  gold: '#FFC400', // Cosmic Gold — พื้นหัวการ์ด ปุ่ม
-  goldSoft: '#FFF1BF',
-  goldText: '#9A6A00', // ทองเข้มสำหรับตัวหนังสือบนพื้นขาว
+  ink: '#1A1A1A',
+  head: '#FBDE0A', // สีพื้นโลโก้ — หัวการ์ด (มาสคอตแอบมองกลืนกับพื้น)
+  gold: '#FFC400',
+  goldText: '#8A5A00', // ทองเข้มสำหรับตัวหนังสือบนพื้นขาว
+  tint: '#FFF6D1',
+  mint: '#E6F7EE',
+  chip: '#F5F1E8',
   card: '#FFFFFF',
-  paper: '#FFF8E1',
-  line: '#EAD9A6',
-  track: '#F3E9C9',
-  muted: '#7A6F57',
+  line: '#ECE6DA',
+  track: '#F1ECE2',
+  muted: '#8A8172',
   red: '#E5484D',
-  amber: '#E08A00',
-  green: '#14A05A',
+  redTint: '#FDECEC',
+  amber: '#D97706',
+  green: '#16A34A',
 };
 
 // ---------- primitives ----------
 const text = (t, o = {}) => ({ type: 'text', text: String(t === '' || t == null ? ' ' : t), color: C.ink, size: 'sm', wrap: true, ...o });
 const box = (layout, contents, o = {}) => ({ type: 'box', layout, contents, ...o });
 const sep = (o = {}) => ({ type: 'separator', color: C.line, margin: 'md', ...o });
-// ปุ่มหลัก: พื้นทอง ตัวหนังสือดำ (style secondary ใน LINE = ตัวหนังสือสีดำ)
+// ปุ่มหลัก: พื้นเหลือง ตัวหนังสือดำ (style secondary ใน LINE = ตัวหนังสือสีดำ)
 const btn = (label, action, o = {}) => ({ type: 'button', height: 'sm', style: 'secondary', color: C.gold, action: { label, ...action }, ...o });
 const postback = (data, displayText) => ({ type: 'postback', data, ...(displayText ? { displayText } : {}) });
 const msg = (t) => ({ type: 'message', text: t });
 const uri = (u) => ({ type: 'uri', uri: u });
 
-/** แถบความคืบหน้าแบบ 2D: รางครีมขอบดำ เติมดำ/ส้ม/แดง */
-function bar(p, color = C.ink) {
+/** แถบความคืบหน้าบางๆ แบบป้านวล */
+function bar(p, color = C.gold, height = 6) {
   const w = Math.max(3, Math.min(100, Math.round((p || 0) * 100)));
-  return box('vertical', [box('vertical', [{ type: 'filler' }], { width: `${w}%`, backgroundColor: color, height: '8px', cornerRadius: '4px' })], {
+  return box('vertical', [box('vertical', [{ type: 'filler' }], { width: `${w}%`, backgroundColor: color, height: `${height}px`, cornerRadius: `${height / 2}px` })], {
     backgroundColor: C.track,
-    height: '10px',
-    cornerRadius: '5px',
-    borderWidth: '1px',
-    borderColor: C.ink,
+    height: `${height}px`,
+    cornerRadius: `${height / 2}px`,
     margin: 'sm',
   });
 }
 
-const budgetColor = (pct) => (pct >= 1 ? C.red : pct >= 0.8 ? C.amber : C.ink);
+const budgetColor = (p) => (p >= 1 ? C.red : p >= 0.8 ? C.amber : C.gold);
 
-/** ป้ายอารมณ์นายหัวหมุนตามสถานะงบ */
-function moodPill(budget) {
-  const m = moodFor(budget);
-  return box(
-    'horizontal',
-    [text(m.face, { flex: 0, size: 'lg' }), box('vertical', [text(m.title, { weight: 'bold', size: 'sm' }), text(m.line, { size: 'xxs', color: C.muted })], { paddingStart: 'md' })],
-    { backgroundColor: m.level === 'spin' ? '#FFE1E1' : C.goldSoft, cornerRadius: '12px', paddingAll: 'md', margin: 'lg', alignItems: 'center', borderWidth: '1px', borderColor: C.ink }
-  );
+/** ป้ายเล็กมุมโค้ง เช่น [รายจ่าย] */
+function tag(label, bg = C.ink, color = C.gold) {
+  return box('vertical', [text(label, { size: 'xxs', color, weight: 'bold', wrap: false })], {
+    flex: 0,
+    backgroundColor: bg,
+    cornerRadius: '10px',
+    paddingStart: '8px',
+    paddingEnd: '8px',
+    paddingTop: '2px',
+    paddingBottom: '2px',
+  });
 }
 
+/** ปุ่มไอคอนสี่เหลี่ยมเล็ก (แก้ไข / ลบ) */
+function iconBtn(icon, action, bg = C.chip, color = C.ink) {
+  return box('vertical', [text(icon, { size: 'sm', align: 'center', color, weight: 'bold' })], {
+    flex: 0,
+    width: '30px',
+    height: '30px',
+    cornerRadius: '8px',
+    backgroundColor: bg,
+    justifyContent: 'center',
+    margin: 'sm',
+    action,
+  });
+}
+
+/** หัวการ์ดสีเหลืองโลโก้ มีนายหัวหมุนแอบมองที่มุมขวาล่าง */
 function header(title, subtitle, ctx) {
-  const left = [];
-  if (ctx?.logoUrl) {
-    left.push(
-      box('vertical', [{ type: 'image', url: ctx.logoUrl, size: 'full', aspectRatio: '1:1', aspectMode: 'cover' }], {
-        width: '40px',
-        height: '40px',
-        cornerRadius: '20px',
-        borderWidth: '2px',
-        borderColor: C.ink,
-        flex: 0,
+  const contents = [
+    box('vertical', [text(title, { weight: 'bold', size: 'lg' }), ...(subtitle ? [text(subtitle, { color: '#5A4A00', size: 'xxs', margin: 'xs' })] : [])], {
+      paddingEnd: ctx?.peekUrl ? '96px' : 'none',
+    }),
+  ];
+  if (ctx?.peekUrl) {
+    contents.push(
+      box('vertical', [{ type: 'image', url: ctx.peekUrl, size: 'full', aspectRatio: '20:9', aspectMode: 'cover' }], {
+        position: 'absolute',
+        offsetBottom: '0px',
+        offsetEnd: '8px',
+        width: '100px',
       })
     );
   }
-  return box(
-    'horizontal',
-    [
-      ...left,
-      box(
-        'vertical',
-        [
-          text(title, { color: C.ink, weight: 'bold', size: 'md' }),
-          ...(subtitle ? [text(subtitle, { color: '#4A3B00', size: 'xxs' })] : []),
-        ],
-        { paddingStart: left.length ? 'md' : 'none', justifyContent: 'center' }
-      ),
-    ],
-    { backgroundColor: C.gold, paddingAll: 'lg', alignItems: 'center' }
-  );
+  return box('vertical', contents, { backgroundColor: C.head, paddingAll: 'lg', paddingBottom: 'xl' });
 }
 
 function bubble({ title, subtitle, body, footer, ctx, size = 'mega' }) {
@@ -91,7 +99,7 @@ function bubble({ title, subtitle, body, footer, ctx, size = 'mega' }) {
     size,
     header: header(title, subtitle, ctx),
     body: box('vertical', body, { backgroundColor: C.card, paddingAll: 'lg', spacing: 'sm' }),
-    styles: { header: { backgroundColor: C.gold }, body: { backgroundColor: C.card, separator: true, separatorColor: C.ink }, footer: { backgroundColor: C.card } },
+    styles: { header: { backgroundColor: C.head }, body: { backgroundColor: C.card }, footer: { backgroundColor: C.card } },
   };
   if (footer?.length) b.footer = box('vertical', footer, { backgroundColor: C.card, paddingAll: 'md', paddingTop: 'none', spacing: 'sm' });
   return b;
@@ -109,15 +117,20 @@ export function textMsg(t, quickReply) {
   return m;
 }
 
+/** items: { label, text } | { label, data, displayText } | { label, uri } | { label, camera: true } | { label, cameraRoll: true } */
 export function quickReplies(items) {
   return {
     items: items.slice(0, 13).map((it) => ({
       type: 'action',
-      action: it.data
-        ? { type: 'postback', label: truncate(it.label, 20), data: it.data, displayText: it.displayText || it.label }
-        : it.uri
-          ? { type: 'uri', label: truncate(it.label, 20), uri: it.uri }
-          : { type: 'message', label: truncate(it.label, 20), text: it.text || it.label },
+      action: it.camera
+        ? { type: 'camera', label: truncate(it.label, 20) }
+        : it.cameraRoll
+          ? { type: 'cameraRoll', label: truncate(it.label, 20) }
+          : it.data
+            ? { type: 'postback', label: truncate(it.label, 20), data: it.data, displayText: it.displayText || it.label }
+            : it.uri
+              ? { type: 'uri', label: truncate(it.label, 20), uri: it.uri }
+              : { type: 'message', label: truncate(it.label, 20), text: it.text || it.label },
     })),
   };
 }
@@ -136,9 +149,7 @@ function txRow(t, { withDate = false, deletable = false } = {}) {
       width: '34px',
       height: '34px',
       cornerRadius: '10px',
-      backgroundColor: C.goldSoft,
-      borderWidth: '1px',
-      borderColor: C.ink,
+      backgroundColor: isInc ? C.mint : C.tint,
       justifyContent: 'center',
     }),
     box(
@@ -151,113 +162,293 @@ function txRow(t, { withDate = false, deletable = false } = {}) {
     ),
     text(money(isInc ? t.amount : -t.amount, { sign: true }), { flex: 3, align: 'end', weight: 'bold', color: isInc ? C.green : C.ink, gravity: 'center' }),
   ];
-  if (deletable) {
-    contents.push(
-      box('vertical', [text('✕', { color: C.muted, size: 'xs', align: 'center' })], {
-        flex: 0,
-        width: '24px',
-        justifyContent: 'center',
-        action: postback(`action=del&id=${t.id}`, `ลบ ${truncate(t.note, 15)}`),
-      })
-    );
-  }
+  if (deletable) contents.push(iconBtn('✕', postback(`action=del&id=${t.id}`, `ลบ ${truncate(t.note, 15)}`), C.redTint, C.red));
   return box('horizontal', contents, { margin: 'md', alignItems: 'center' });
 }
 
-// ---------- messages ----------
+// ---------- การ์ด "จดสำเร็จ" ----------
+const timeOf = (t) => {
+  const d = new Date(new Date(t.createdAt).getTime() + 7 * 3600e3);
+  return d.toISOString().slice(11, 16);
+};
 
-export function recordedMessage(txs, info, ctx) {
-  const total = txs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
-  const body = [text('🪙 จดแล้ว! เงินหมุนเข้าสมุดเรียบร้อย', { color: C.green, size: 'xs', weight: 'bold' }), ...txs.map((t) => txRow(t, { withDate: t.date !== info.today }))];
-  if (txs.length > 1) body.push(sep(), row('รวม', money(total, { sign: true }), { rightStyle: { color: C.ink, size: 'md' } }));
-  body.push(sep({ margin: 'lg' }));
-  body.push(row('จ่ายวันนี้', money(info.todayExpense), { margin: 'md' }));
-  if (info.budget?.total) {
-    const b = info.budget;
-    body.push(row('งบเดือนนี้เหลือ', money(b.remaining), { rightStyle: { color: b.remaining < 0 ? C.red : C.ink } }));
-    body.push(bar(b.pct, budgetColor(b.pct)));
+/** คำพูดนายหัวหมุนหลังจด: ดูงบหมวดก่อน แล้วค่อยดูงบรวม */
+export function mascotComment(info, tx) {
+  const cs = info.catStatus?.[tx.categoryId];
+  const cat = getCategory(tx.categoryId);
+  if (tx.type === 'expense' && cs?.limit) {
+    const p = cs.spent / cs.limit;
+    if (p >= 1) return `หมวด${cat.name} ทะลุงบมา ${Math.round((p - 1) * 100)}% แล้ว หัวหมุนติ้วเลย 🌀`;
+    if (p >= 0.8) return `หมวด${cat.name} ใช้ไป ${Math.round(p * 100)}% แล้ว เริ่มหัวหมุนนิดๆ 😵‍💫`;
   }
-  body.push(moodPill(info.budget));
-  if (info.streak >= 2) body.push(text(`🔥 จดต่อเนื่อง ${info.streak} วัน หมุนเก่งมาก!`, { size: 'xs', color: C.goldText, margin: 'md', weight: 'bold' }));
+  if (tx.type === 'income') return `เงินหมุนเข้ามาแล้ว ${money(tx.amount)} เก็บไว้ดีๆ น้า 🪙`;
+  const m = moodFor(info.budget);
+  return m.level === 'idle' ? `วันนี้ใช้ไป ${money(info.todayExpense)} แล้ว ตั้งงบไว้ด้วยนะ หัวจะได้ไม่หมุน 🙂` : `${m.title} ${m.face} ${m.line}`;
+}
 
+function walletChips(tx) {
+  return [
+    text('💳 แตะเพื่อเปลี่ยนช่องทางชำระ', { size: 'xxs', color: C.muted, margin: 'md' }),
+    box(
+      'horizontal',
+      WALLETS.map((w) =>
+        box('vertical', [text(`${w.emoji} ${w.short || w.name}`, { size: 'xxs', align: 'center', weight: w.id === tx.wallet ? 'bold' : 'regular', wrap: false })], {
+          backgroundColor: w.id === tx.wallet ? C.tint : C.chip,
+          cornerRadius: '12px',
+          paddingAll: '6px',
+          ...(w.id === tx.wallet ? { borderWidth: '1px', borderColor: C.gold } : {}),
+          action: postback(`action=wallet&id=${tx.id}&w=${w.id}`, `เปลี่ยนเป็น${w.name}`),
+        })
+      ),
+      { spacing: 'sm', margin: 'sm' }
+    ),
+  ];
+}
+
+/**
+ * การ์ดจดสำเร็จแบบป้านวล
+ * info: { today, todayExpense, budget, catStatus: { [catId]: { spent, limit } }, cycleStartDay, slip? }
+ */
+function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
+  const body = [];
+  // จัดกลุ่มตามประเภท + หมวด
+  const groups = [];
+  for (const t of txs) {
+    const key = `${t.type}:${t.categoryId}`;
+    let g = groups.find((x) => x.key === key);
+    if (!g) groups.push((g = { key, type: t.type, categoryId: t.categoryId, txs: [] }));
+    g.txs.push(t);
+  }
+  groups.forEach((g, gi) => {
+    const cat = getCategory(g.categoryId);
+    const inc = g.type === 'income';
+    body.push(
+      box('horizontal', [tag(inc ? 'รายรับ' : 'รายจ่าย', inc ? C.green : C.ink, inc ? '#FFFFFF' : C.gold), text(`- ${cat.emoji} ${cat.name}`, { weight: 'bold', margin: 'sm', gravity: 'center' })], {
+        alignItems: 'center',
+        margin: gi ? 'xl' : 'none',
+      })
+    );
+    for (const t of g.txs) {
+      const w = WALLET_MAP[t.wallet];
+      body.push(
+        box(
+          'horizontal',
+          [
+            text(`${thaiDate(t.date)} ${timeOf(t)}${t.by ? ` · โดย ${t.by}` : ''}`, { size: 'xxs', color: C.muted, flex: 0, wrap: false, gravity: 'center' }),
+            box('vertical', [text(`${w?.emoji || ''} ${w?.name || ''}`, { size: 'xxs', wrap: false })], {
+              flex: 0,
+              backgroundColor: C.chip,
+              cornerRadius: '6px',
+              paddingStart: '6px',
+              paddingEnd: '6px',
+              margin: 'sm',
+            }),
+          ],
+          { margin: 'md', alignItems: 'center' }
+        )
+      );
+      const editAction = ctx?.links?.edit ? uri(ctx.links.edit(t.id)) : postback(`action=edit&id=${t.id}`, `แก้ไข ${truncate(t.note, 15)}`);
+      body.push(
+        box(
+          'horizontal',
+          [
+            text(`${t.attachment ? '📎 ' : ''}${truncate(t.note, 30)}`, { flex: 5, gravity: 'center' }),
+            text(money(t.amount), { flex: 3, align: 'end', weight: 'bold', size: 'md', color: inc ? C.green : C.ink, gravity: 'center' }),
+            iconBtn('✏️', editAction),
+            iconBtn('✕', postback(`action=del&id=${t.id}`, `ลบ ${truncate(t.note, 15)}`), C.redTint, C.red),
+          ],
+          { alignItems: 'center', margin: 'xs' }
+        )
+      );
+    }
+  });
+
+  body.push(...extra);
+
+  // แถบงบของหมวด (แบบป้านวล)
+  const main = txs[txs.length - 1];
+  const cat = getCategory(main.categoryId);
+  const cs = info.catStatus?.[main.categoryId];
+  body.push(sep({ color: C.ink, margin: 'lg' }));
+  if (main.type === 'expense' && cs) {
+    const over = cs.limit && cs.spent > cs.limit;
+    body.push(
+      box('horizontal', [text(cat.name, { weight: 'bold', flex: 4 }), text(cs.limit ? `${money(cs.spent)} / ${money(cs.limit)}` : money(cs.spent), { flex: 6, align: 'end', weight: 'bold', color: over ? C.red : C.ink })], {
+        margin: 'lg',
+      })
+    );
+    body.push(bar(cs.limit ? cs.spent / cs.limit : 1, cs.limit ? budgetColor(cs.spent / cs.limit) : C.gold));
+  } else {
+    body.push(row('จ่ายวันนี้', money(info.todayExpense), { margin: 'lg' }));
+  }
+  body.push(text(`รอบงบ: รายเดือน (วันที่ ${info.cycleStartDay || 1})`, { size: 'xxs', color: C.muted, align: 'end', margin: 'sm' }));
+
+  // คอมเมนต์นายหัวหมุน
+  body.push(
+    box('horizontal', [text('👦', { flex: 0 }), text(mascotComment(info, main), { size: 'xs', margin: 'sm' })], {
+      margin: 'lg',
+      paddingTop: 'md',
+      borderWidth: 'none',
+    })
+  );
+  if (txs.length === 1) body.push(sep({ margin: 'md' }), ...walletChips(main));
+
+  return bubble({ title, subtitle, body, ctx });
+}
+
+function entryQuickReplies(txs) {
   const t = txs[txs.length - 1];
-  const others = categoriesOf(t.type)
-    .filter((c) => c.id !== t.categoryId)
-    .slice(0, 8);
-  const qr = quickReplies([
+  const others = categoriesOf(t.type).filter((c) => c.id !== t.categoryId).slice(0, 8);
+  return quickReplies([
     ...(txs.length === 1 ? others.map((c) => ({ label: `${c.emoji} ${c.name}`, data: `action=cat&id=${t.id}&c=${c.id}`, displayText: `ย้ายไปหมวด ${c.name}` })) : []),
-    { label: '🗑 ยกเลิกรายการ', data: `action=undo&ids=${txs.map((x) => x.id).join(',')}`, displayText: 'ยกเลิกรายการล่าสุด' },
+    { label: '🗑 ยกเลิกทั้งหมด', data: `action=undo&ids=${txs.map((x) => x.id).join(',')}`, displayText: 'ยกเลิกรายการที่เพิ่งจด' },
     { label: '📊 สรุปวันนี้', text: 'สรุปวันนี้' },
   ]);
+}
+
+const SUBTITLES = ['อย่าลืมตรวจสอบรายการที่จดด้วยนะ', 'จดแล้ว หัวไม่หมุนแน่นอน', 'เงินไปไหน หมุนตังค์รู้หมด'];
+
+export function recordedMessage(txs, info, ctx) {
   const alt = txs.map((x) => `${x.note} ${money(x.amount)}`).join(', ');
-  return flex(`บันทึกแล้ว: ${alt}`, bubble({ title: 'หมุนตังค์', subtitle: 'จดให้แล้วนะ', body, ctx, size: 'kilo' }), qr);
+  const sub = info.budget?.pct >= 1 ? 'อื้อหือ ใช้เงินเกินงบแล้วนะ' : SUBTITLES[txs[0].amount % SUBTITLES.length | 0] || SUBTITLES[0];
+  return flex(`จดสำเร็จ: ${alt}`, entryCard({ title: 'จดสำเร็จ ✅', subtitle: sub, txs, info, ctx }), entryQuickReplies(txs));
 }
 
 export function slipMessage(tx, slip, info, ctx) {
-  const cat = getCategory(tx.categoryId);
-  const body = [
-    text('อ่านสลิปแล้ว ✓', { color: C.green, size: 'xs', weight: 'bold' }),
-    text(money(tx.amount), { size: 'xxl', weight: 'bold', color: C.goldText, margin: 'sm' }),
-    text(`${cat.emoji} ${cat.name}`, { size: 'sm', color: C.ink }),
-    sep(),
-    row('ผู้รับ', slip.receiver || '-'),
-    row('ผู้โอน', slip.sender || '-'),
-    row('ธนาคาร', slip.bank || '-'),
-    row('วันที่', `${thaiDate(tx.date)}${slip.time ? ` ${slip.time}` : ''}`),
-    ...(slip.ref ? [row('เลขอ้างอิง', truncate(slip.ref, 22), { rightStyle: { size: 'xxs', color: C.muted } })] : []),
-    sep({ margin: 'lg' }),
-    row('จ่ายวันนี้', money(info.todayExpense), { margin: 'md' }),
+  const extra = [
+    box(
+      'vertical',
+      [
+        ...(slip.receiver ? [row('ผู้รับ', slip.receiver)] : []),
+        ...(slip.sender ? [row('ผู้โอน', slip.sender)] : []),
+        ...(slip.bank ? [row('ธนาคาร', slip.bank)] : []),
+        ...(slip.ref ? [row('เลขอ้างอิง', truncate(slip.ref, 22), { rightStyle: { size: 'xxs', color: C.muted } })] : []),
+      ],
+      { backgroundColor: C.chip, cornerRadius: '10px', paddingAll: 'md', margin: 'md' }
+    ),
   ];
+  return flex(`อ่านสลิป ${money(tx.amount)} ${tx.note}`, entryCard({ title: 'อ่านสลิปสำเร็จ 🧾', subtitle: 'ตรวจยอดกับสลิปอีกทีนะ', txs: [tx], info, ctx, extra }), entryQuickReplies([tx]));
+}
+
+// ---------- การ์ดสถิติจดต่อเนื่อง ----------
+export function streakMessage(n, tier, ctx) {
+  const left = ctx?.logoUrl
+    ? [box('vertical', [{ type: 'image', url: ctx.logoUrl, size: 'full', aspectRatio: '1:1', aspectMode: 'cover' }], { width: '84px', height: '84px', cornerRadius: '42px', flex: 0 })]
+    : [];
+  const right = [
+    text('เก่งมาก!', { color: C.muted, size: 'sm' }),
+    text(`จดมา ${n} วัน 🔥`, { weight: 'bold', size: 'xl' }),
+    text(`${tier.emoji} ${tier.name}`, { weight: 'bold', color: C.goldText }),
+    bar(tier.progress, C.gold, 8),
+    text(tier.next ? `อีก ${tier.next.min - n} วันเป็น ${tier.next.name}` : 'สูงสุดแล้ว หัวไม่หมุนเลยสักนิด', { size: 'xxs', color: C.muted, margin: 'sm' }),
+  ];
+  return flex(`เก่งมาก! จดต่อเนื่อง ${n} วัน`, {
+    type: 'bubble',
+    size: 'kilo',
+    body: box('horizontal', [...left, box('vertical', right, { paddingStart: left.length ? 'lg' : 'none', justifyContent: 'center' })], { paddingAll: 'lg', alignItems: 'center' }),
+  });
+}
+
+// ---------- ปุ่ม "จด" ในเมนู ----------
+export function recordPromptMessage() {
+  return textMsg(
+    '📝 จดได้ 3 แบบเลย\n1) พิมพ์ เช่น "ข้าวมันไก่ 50" หรือ "+เงินเดือน 25000"\n2) ถ่ายรูปสลิป/ใบเสร็จ ส่งมาได้เลย\n3) กดไมค์ แล้วพูดว่าจ่ายอะไรไป',
+    quickReplies([
+      { label: '📷 ถ่ายสลิป/ใบเสร็จ', camera: true },
+      { label: '🖼 เลือกรูปสลิป', cameraRoll: true },
+      { label: '☕ กาแฟ 45', text: 'กาแฟ 45' },
+      { label: '🍚 ข้าว 50', text: 'ข้าว 50' },
+      { label: '💰 +เงินเดือน', text: '+เงินเดือน 25000' },
+    ])
+  );
+}
+
+/** เมนูแก้ไขรายการ (เมื่อไม่มี LIFF) */
+export function editMenuMessage(tx) {
   const others = categoriesOf(tx.type).filter((c) => c.id !== tx.categoryId).slice(0, 9);
-  const qr = quickReplies([
-    ...others.map((c) => ({ label: `${c.emoji} ${c.name}`, data: `action=cat&id=${tx.id}&c=${c.id}`, displayText: `ย้ายไปหมวด ${c.name}` })),
-    { label: tx.type === 'income' ? '↔ เป็นรายจ่าย' : '↔ เป็นรายรับ', data: `action=flip&id=${tx.id}` },
-    { label: '🗑 ยกเลิก', data: `action=undo&ids=${tx.id}`, displayText: 'ยกเลิกสลิปนี้' },
-  ]);
-  return flex(`อ่านสลิป ${money(tx.amount)} ${tx.note}`, bubble({ title: 'หมุนตังค์ · สลิป', subtitle: truncate(tx.note, 40), body, ctx, size: 'kilo' }), qr);
+  return textMsg(
+    `✏️ แก้ "${tx.note}" ${money(tx.amount)}\nเลือกหมวดใหม่ หรือพิมพ์ใหม่แล้วลบอันเดิมก็ได้นะ`,
+    quickReplies([
+      ...others.map((c) => ({ label: `${c.emoji} ${c.name}`, data: `action=cat&id=${tx.id}&c=${c.id}`, displayText: `ย้ายไปหมวด ${c.name}` })),
+      { label: tx.type === 'income' ? '↔ เป็นรายจ่าย' : '↔ เป็นรายรับ', data: `action=flip&id=${tx.id}` },
+      { label: '🗑 ลบรายการนี้', data: `action=del&id=${tx.id}`, displayText: `ลบ ${truncate(tx.note, 15)}` },
+    ])
+  );
+}
+
+/** บรรทัดคำพูดนายหัวหมุนตามสถานะงบ */
+function moodPill(budget) {
+  const m = moodFor(budget);
+  return box('horizontal', [text('👦', { flex: 0 }), box('vertical', [text(`${m.title} ${m.face}`, { weight: 'bold', size: 'xs' }), text(m.line, { size: 'xxs', color: C.muted })], { margin: 'sm' })], {
+    backgroundColor: m.level === 'spin' ? C.redTint : C.tint,
+    cornerRadius: '12px',
+    paddingAll: 'md',
+    margin: 'lg',
+  });
+}
+
+/** ช่องสรุปแบบป้านวล (รายจ่าย / รายรับ) */
+function statTile(label, amount, { bg, color, sub, barPct, barColor } = {}) {
+  return box(
+    'vertical',
+    [
+      text(label, { size: 'xxs', color: C.muted }),
+      text(money(amount), { size: 'lg', weight: 'bold', color, wrap: false }),
+      ...(sub ? [text(sub, { size: 'xxs', color: barColor === C.red ? C.red : C.muted })] : []),
+      ...(barPct != null ? [bar(barPct, barColor, 5)] : []),
+    ],
+    { flex: 1, backgroundColor: bg, cornerRadius: '12px', paddingAll: 'md' }
+  );
 }
 
 export function summaryMessage(s, ctx, { budget } = {}) {
   const body = [
-    text(s.range.label, { color: C.muted, size: 'xs' }),
+    text(s.range.label, { color: C.muted, size: 'xs', align: 'center' }),
+    text('เหลือเก็บ', { size: 'xs', color: C.muted, align: 'center', margin: 'md' }),
+    text(money(s.net), { size: '3xl', weight: 'bold', align: 'center', color: s.net < 0 ? C.red : C.green }),
     box(
       'horizontal',
       [
-        box('vertical', [text('รายจ่าย', { size: 'xxs', color: C.muted }), text(money(s.expense), { size: 'xl', weight: 'bold', color: C.goldText })], { flex: 1 }),
-        box('vertical', [text('รายรับ', { size: 'xxs', color: C.muted }), text(money(s.income), { size: 'xl', weight: 'bold', color: C.green })], { flex: 1 }),
+        statTile('รายจ่าย', s.expense, {
+          bg: C.tint,
+          color: C.ink,
+          ...(budget?.total
+            ? {
+                sub: budget.remaining >= 0 ? `เหลือ ${money(budget.remaining)} จากงบ` : `เกิน ${money(-budget.remaining)} จากงบ`,
+                barPct: budget.pct,
+                barColor: budgetColor(budget.pct),
+              }
+            : {}),
+        }),
+        statTile('รายรับ', s.income, { bg: C.mint, color: C.green }),
       ],
-      { margin: 'md' }
+      { spacing: 'sm', margin: 'lg' }
     ),
-    row('คงเหลือสุทธิ', money(s.net, { sign: true }), { margin: 'md', rightStyle: { color: s.net < 0 ? C.red : C.green } }),
-    sep(),
   ];
   if (!s.cats.length) {
-    body.push(text('ยังไม่มีรายจ่ายในช่วงนี้ ลองพิมพ์ "ข้าว 50" ดูสิ', { color: C.muted, size: 'xs', margin: 'md' }));
+    body.push(text('ยังไม่มีรายจ่ายในช่วงนี้ ลองพิมพ์ "ข้าว 50" ดูสิ', { color: C.muted, size: 'xs', margin: 'lg' }));
   } else {
-    body.push(text('ใช้ไปกับอะไรบ้าง', { size: 'xs', color: C.muted, margin: 'md' }));
+    body.push(sep({ margin: 'lg' }));
     for (const c of s.cats.slice(0, 6)) {
       const cat = getCategory(c.id);
       body.push(
         box(
-          'vertical',
+          'horizontal',
           [
-            box('horizontal', [text(`${cat.emoji} ${cat.name}`, { flex: 5, size: 'sm' }), text(`${money(c.total)} · ${pct(c.pct)}`, { flex: 4, align: 'end', size: 'xs', color: C.muted })]),
-            bar(c.pct),
+            box('vertical', [{ type: 'filler' }], { width: '10px', height: '10px', cornerRadius: '5px', backgroundColor: cat.color, flex: 0 }),
+            text(cat.name, { flex: 5, margin: 'md', size: 'sm' }),
+            text(pct(c.pct), { flex: 2, align: 'end', size: 'xs', color: C.muted }),
+            text(money(c.total), { flex: 3, align: 'end', size: 'sm', weight: 'bold' }),
           ],
-          { margin: 'md' }
+          { margin: 'md', alignItems: 'center' }
         )
       );
     }
   }
-  if (budget?.total) {
-    body.push(sep({ margin: 'lg' }));
-    body.push(row('งบเดือนนี้', `${money(budget.spent)} / ${money(budget.total)}`, { margin: 'md' }));
-    body.push(bar(budget.pct, budgetColor(budget.pct)));
-    body.push(moodPill(budget));
-  }
+  if (budget?.total) body.push(moodPill(budget));
   body.push(text(`ทั้งหมด ${s.count} รายการ`, { size: 'xxs', color: C.muted, margin: 'md', align: 'end' }));
   const footer = [];
-  if (ctx?.links?.dashboard) footer.push(btn('เปิดแดชบอร์ด', uri(ctx.links.dashboard)));
+  if (ctx?.links?.dashboard) footer.push(btn('ดูสรุปเต็มๆ', uri(ctx.links.view ? ctx.links.view('home') : ctx.links.dashboard)));
   const qr = quickReplies([
     { label: '☀️ วันนี้', text: 'สรุปวันนี้' },
     { label: '📅 สัปดาห์นี้', text: 'สรุปสัปดาห์' },
@@ -265,7 +456,7 @@ export function summaryMessage(s, ctx, { budget } = {}) {
     { label: '⏮ เดือนที่แล้ว', text: 'สรุปเดือนที่แล้ว' },
     { label: '🧾 รายการล่าสุด', text: 'รายการ' },
   ]);
-  return flex(`สรุป ${s.range.label}: จ่าย ${money(s.expense)} รับ ${money(s.income)}`, bubble({ title: 'สรุปการหมุนเงิน', subtitle: 'หมุนตังค์ report', body, footer, ctx }), qr);
+  return flex(`สรุป ${s.range.label}: จ่าย ${money(s.expense)} รับ ${money(s.income)}`, bubble({ title: 'สรุป 📊', subtitle: 'เงินหมุนไปไหนบ้าง', body, footer, ctx }), qr);
 }
 
 export function listMessage(txs, ctx) {

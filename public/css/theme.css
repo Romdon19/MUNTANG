@@ -1,30 +1,32 @@
-/* หมุนตังค์ — 2D Sticker Style
-   แนวคิด: เหมือนโลโก้นายหัวหมุน — พื้นครีม/เหลืองทอง เส้นขอบดำหนา สีแบน เงาแข็งแบบสติกเกอร์
-   ทองใช้เป็นพื้นของสิ่งที่สำคัญ ดำใช้เป็นเส้นและตัวหนังสือ */
+/* หมุนตังค์ — โครงสะอาดแบบป้านวล + แบรนด์เหลืองทอง/ดำของนายหัวหมุน
+   พื้นครีมนวล การ์ดขาวขอบบาง มุมโค้ง เงานุ่ม · สีเหลืองใช้กับสิ่งที่ต้องการให้กด/สังเกต */
 :root {
-  --ink: #0d0d0d;        /* Deep Space Black — เส้นและตัวอักษร */
-  --carbon: #1a1a1a;
+  --bg: #faf7f1;
+  --card: #ffffff;
+  --border: #ede6d8;
+  --ink: #1f1d1a;
+  --muted: #8b8375;
+  --faint: #bdb5a7;
+  --track: #f1ece2;
+
+  --head: #fbde0a;       /* เหลืองพื้นโลโก้ */
   --gold: #ffc400;       /* Cosmic Gold */
-  --amber: #ffb300;      /* Neon Amber */
-  --gold-soft: #ffe58a;
-  --paper: #fff8e1;      /* พื้นครีม */
-  --paper-2: #fdeec0;
-  --card: #ffffff;       /* Moon White */
-  --line: #ead9a6;       /* เส้นจางอมทอง */
-  --muted: #6e6350;
-  --faint: #a59a80;
-  --good: #14a05a;
-  --warn: #e08a00;
-  --bad: #e5484d;
-  --on-gold: #0d0d0d;
+  --gold-soft: #ffe7a0;
+  --gold-tint: #fff6d6;
+  --gold-line: #f3d57a;
+  --gold-text: #8a5a00;
+  --mint-tint: #e7f7ee;
+  --mint-line: #bfe8d0;
+  --green: #16a34a;
+  --red: #e5484d;
+  --red-tint: #fdecec;
+  --amber: #d97706;
 
-  --font-display: 'Mitr', 'Anuphan', system-ui, sans-serif;
+  --font-display: 'Kanit', 'Anuphan', system-ui, sans-serif;
   --font-body: 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
-  --font-num: 'Kanit', 'Mitr', system-ui, sans-serif; /* ตัวเลขเงิน: เลขศูนย์ไม่มีขีด */
+  --font-num: 'Kanit', system-ui, sans-serif;
 
-  --stroke: 2px solid var(--ink);
-  --pop: 3px 3px 0 var(--ink);
-  --pop-lg: 4px 4px 0 var(--ink);
+  --shadow: 0 1px 2px rgba(60, 40, 0, 0.04), 0 6px 18px rgba(60, 40, 0, 0.06);
   --r-sm: 10px;
   --r-md: 16px;
   --r-lg: 22px;
@@ -35,7 +37,7 @@
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--paper);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;
@@ -44,25 +46,17 @@ body {
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
-:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* เหรียญทองแบบ 2D (ใช้เป็นตกแต่ง) */
-.coin {
-  display: inline-grid; place-items: center;
-  width: 1.4em; height: 1.4em; border-radius: 50%;
-  background: var(--gold); border: var(--stroke); box-shadow: inset -2px -2px 0 var(--amber);
-  font-family: var(--font-display); font-weight: 600; font-size: 0.8em; line-height: 1; color: var(--ink);
-}
-
-/* ---------- Flex Message renderer ---------- */
-.fx-bubble { border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; background: #fff; max-width: 100%; flex-shrink: 0; font-family: var(--font-body); border: var(--stroke); box-shadow: var(--pop); }
+/* ---------- Flex Message renderer (จำลองหน้าตาใน LINE) ---------- */
+.fx-bubble { border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; background: #fff; max-width: 100%; flex-shrink: 0; font-family: var(--font-body); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
 .fx-carousel { display: flex; gap: 10px; overflow-x: auto; padding: 0 4px 6px 0; scroll-snap-type: x mandatory; max-width: 100%; }
 .fx-carousel > .fx-bubble { scroll-snap-align: start; }
-.fx-box { display: flex; min-width: 0; }
+.fx-box { display: flex; min-width: 0; position: relative; }
 .fx-vertical { flex-direction: column; }
 .fx-horizontal { flex-direction: row; }
 .fx-baseline { flex-direction: row; align-items: baseline; }
@@ -78,4 +72,4 @@ button { cursor: pointer; }
 .fx-secondary { background: #dcdfe5; color: #111; }
 .fx-link { background: transparent; }
 .fx-tap { cursor: pointer; }
-.fx-tap:hover { filter: brightness(0.95); }
+.fx-tap:hover { filter: brightness(0.96); }

@@ -1,64 +1,70 @@
-/* หน้าแชท LINE จำลอง — สไตล์ 2D: หัวเหลืองทอง เส้นดำ พื้นแชทครีมลายจุดเหรียญ */
+/* หน้าแชท LINE จำลอง — ใกล้เคียงแอป LINE + ริชเมนูแบบป้านวล (ช่องใหญ่ "จด" + ช่องเล็ก) ในโทนเหลืองดำ */
 .sim {
-  --chat-bg: #f4ead0;
+  --chat-bg: #eef0f3;
   display: flex; flex-direction: column; height: 100%; min-height: 0;
   background: var(--chat-bg);
-  background-image: radial-gradient(rgba(13, 13, 13, 0.07) 1.2px, transparent 1.4px);
-  background-size: 20px 20px;
   position: relative; overflow: hidden;
 }
-.sim-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--gold); border-bottom: var(--stroke); }
-.sim-top img { width: 36px; height: 36px; border-radius: 50%; border: var(--stroke); }
+.sim-top { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fff; border-bottom: 1px solid #e3e5e8; }
+.sim-top img { width: 34px; height: 34px; border-radius: 50%; }
 .sim-top div { display: flex; flex-direction: column; line-height: 1.2; }
-.sim-top strong { font-family: var(--font-display); font-size: 17px; font-weight: 600; }
-.sim-top span { font-size: 11.5px; color: #4a3b00; }
+.sim-top strong { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.sim-top span { font-size: 11.5px; color: var(--muted); }
 
 .sim-log { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 10px 10px; display: flex; flex-direction: column; gap: 12px; }
 .sim-row { display: flex; align-items: flex-start; gap: 6px; max-width: 100%; }
 .sim-row.is-me { justify-content: flex-end; }
-.sim-avatar { width: 32px; height: 32px; border-radius: 50%; flex: 0 0 32px; border: 1.5px solid var(--ink); }
+.sim-avatar { width: 32px; height: 32px; border-radius: 50%; flex: 0 0 32px; }
 .sim-bubble {
   max-width: 78%; padding: 8px 12px; border-radius: 18px; background: #fff; color: var(--ink);
-  border: 1.5px solid var(--ink); font-size: 14.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-size: 14.5px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .sim-bubble a { color: #1d4fb8; }
 .sim-row:not(.is-me) .sim-bubble { border-top-left-radius: 6px; }
-.is-me .sim-bubble { background: var(--gold); border-top-right-radius: 6px; box-shadow: 2px 2px 0 var(--ink); }
+.is-me .sim-bubble { background: #8de055; border-top-right-radius: 6px; }
 .sim-bubble.is-photo { padding: 0; background: none; overflow: hidden; }
 .sim-photo { display: block; max-width: 180px; border-radius: 14px; }
 .sim-flex { min-width: 0; max-width: calc(100% - 38px); }
-.sim-flex > .fx-bubble { animation: sim-pop 0.3s cubic-bezier(.3, 1.5, .6, 1); }
-@keyframes sim-pop { from { transform: scale(0.92) translateY(6px); opacity: 0; } }
+.sim-flex > .fx-bubble, .sim-flex > .fx-carousel { animation: sim-pop 0.3s cubic-bezier(.3, 1.4, .6, 1); }
+@keyframes sim-pop { from { transform: translateY(8px); opacity: 0; } }
 .sim-typing .sim-bubble { display: flex; gap: 4px; padding: 12px 14px; }
-.sim-typing i { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); border: 1.5px solid var(--ink); animation: sim-dot 0.9s infinite; }
+.sim-typing i { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); animation: sim-dot 0.9s infinite; }
 .sim-typing i:nth-child(2) { animation-delay: 0.15s; }
 .sim-typing i:nth-child(3) { animation-delay: 0.3s; }
-@keyframes sim-dot { 50% { transform: translateY(-5px) rotateY(180deg); } }
+@keyframes sim-dot { 50% { transform: translateY(-5px); } }
 
 .sim-qr { display: flex; gap: 6px; overflow-x: auto; padding: 6px 10px 8px; scrollbar-width: none; }
 .sim-qr button {
-  flex: 0 0 auto; border: 1.5px solid var(--ink); background: #fff; color: var(--ink);
-  border-radius: 999px; padding: 6px 12px; font-size: 13px; white-space: nowrap; box-shadow: 2px 2px 0 var(--ink);
+  flex: 0 0 auto; border: 1px solid #d5d8dc; background: #fff; color: var(--ink);
+  border-radius: 999px; padding: 6px 12px; font-size: 13px; white-space: nowrap;
 }
-.sim-qr button:hover { background: var(--gold); }
-.sim-qr button:active { transform: translate(2px, 2px); box-shadow: none; }
+.sim-qr button:hover { border-color: var(--gold); background: var(--gold-tint); }
 
-.sim-input { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: #fff; border-top: var(--stroke); }
-.sim-input input[type='text'] { flex: 1; min-width: 0; padding: 9px 14px; border-radius: 999px; border: 1.5px solid var(--ink); background: var(--paper); }
-.sim-input input[type='text']:focus { outline: 3px solid var(--gold); outline-offset: 0; }
+.sim-input { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: #fff; border-top: 1px solid #e3e5e8; }
+.sim-input input[type='text'] { flex: 1; min-width: 0; padding: 9px 14px; border-radius: 999px; border: 1px solid #e3e5e8; background: #f5f6f7; }
+.sim-input input[type='text']:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .sim-icon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; cursor: pointer; font-size: 18px; }
-.sim-icon:hover { background: var(--paper); }
-.sim-send { width: 40px; height: 40px; border-radius: 50%; border: var(--stroke); background: var(--gold); font-size: 16px; box-shadow: 2px 2px 0 var(--ink); }
-.sim-send:active { transform: translate(2px, 2px); box-shadow: none; }
+.sim-icon:hover { background: #f5f6f7; }
+.sim-send { width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--gold); font-size: 15px; }
 .sim-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-.sim-menu-toggle { border: 0; border-top: 1.5px solid var(--ink); background: #fff; color: var(--muted); font-size: 12px; padding: 4px; }
-.sim-rich { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; background: var(--gold); border-top: var(--stroke); }
-.sim-rich button {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  padding: 10px 4px; background: #fff; border: var(--stroke); border-radius: 14px; box-shadow: 2px 2px 0 var(--ink);
-  color: var(--ink); font-size: 12.5px; font-weight: 500;
+.sim-menu-toggle { border: 0; border-top: 1px solid #e3e5e8; background: #fff; color: var(--muted); font-size: 12px; padding: 5px; }
+
+/* ริชเมนูแบบป้านวล */
+.sim-rich {
+  display: grid; gap: 6px; padding: 8px; background: var(--ink);
+  grid-template-columns: 1.25fr 1fr 1fr; grid-template-rows: repeat(3, 62px);
+  grid-template-areas: 'rec home analysis' 'rec budget list' 'goal settings help';
 }
-.sim-rich button span { font-size: 22px; }
-.sim-rich button:hover { background: var(--paper); }
-.sim-rich button:active { transform: translate(2px, 2px); box-shadow: none; }
+.sim-rich button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  border: 0; border-radius: 12px; background: var(--gold-tint); color: var(--ink); font-size: 12px; font-weight: 600; line-height: 1.2; padding: 4px;
+}
+.sim-rich button span { font-size: 19px; }
+.sim-rich button:hover { filter: brightness(0.97); }
+.sim-rich .is-rec { grid-area: rec; background: var(--head); align-items: flex-start; justify-content: space-between; padding: 10px 12px; text-align: left; position: relative; overflow: hidden; }
+.sim-rich .is-rec b { font-family: var(--font-display); font-size: 28px; line-height: 1; font-weight: 600; }
+.sim-rich .is-rec em { font-style: normal; font-family: var(--font-display); font-size: 14px; font-weight: 500; }
+.sim-rich .is-rec small { font-size: 10.5px; font-weight: 500; }
+.sim-rich .is-rec img { position: absolute; right: -6px; bottom: 0; width: 66px; }
+.sim-rich .is-goal { grid-area: goal; background: var(--gold); flex-direction: row; gap: 6px; font-size: 13px; }

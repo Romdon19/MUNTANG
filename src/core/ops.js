@@ -22,6 +22,9 @@ export function newUser(id, profile = {}) {
       // วันเริ่มรอบบัญชี (1 = ต้นเดือน, 25 = วันเงินเดือนออก ฯลฯ)
       cycleStartDay: 1,
       monthlyReport: true,
+      // 'total' = งบรวมก้อนเดียว, 'category' = งบรวม = ผลรวมงบรายหมวด
+      budgetMode: 'total',
+      lastStreakCard: null,
       lastReport: null,
       onboarded: false,
     },
@@ -138,8 +141,10 @@ export function budgetStatus(user, now = new Date()) {
   const cycle = rangeFor('month', now, user.settings.cycleStartDay);
   const s = summarize(txInRange(user, cycle.from, cycle.to));
   const daysLeft = diffDays(today, cycle.to) + 1;
-  const total = user.settings.monthlyBudget || 0;
+  const catSum = Object.values(user.settings.catBudgets || {}).reduce((a, v) => a + (Number(v) || 0), 0);
+  const total = user.settings.budgetMode === 'category' ? catSum : user.settings.monthlyBudget || 0;
   const result = {
+    mode: user.settings.budgetMode || 'total',
     month: cycle.key,
     from: cycle.from,
     to: cycle.to,
@@ -183,6 +188,32 @@ export function budgetAlerts(user, now = new Date()) {
   if (b.total) check('total', b.pct, 'งบรวมเดือนนี้');
   for (const c of b.cats) check(c.id, c.pct, `งบหมวด${CATEGORY_MAP[c.id]?.name || c.id}`);
   return out;
+}
+
+/** ใช้ไปเท่าไรในแต่ละหมวด (รอบปัจจุบัน) + งบของหมวด */
+export function catStatusMap(user, now = new Date()) {
+  const cycle = rangeFor('month', now, user.settings.cycleStartDay);
+  const s = summarize(txInRange(user, cycle.from, cycle.to));
+  const out = {};
+  for (const c of s.cats) out[c.id] = { spent: c.total, limit: user.settings.catBudgets?.[c.id] || 0 };
+  for (const [id, limit] of Object.entries(user.settings.catBudgets || {})) out[id] ||= { spent: 0, limit };
+  return out;
+}
+
+// ระดับความต่อเนื่องในการจด (ยิ่งจดนาน ยิ่งหัวไม่หมุน)
+export const TIERS = [
+  { min: 365, name: 'God Tier', emoji: '👑' },
+  { min: 100, name: 'เทพแห่งการหมุน', emoji: '🌟' },
+  { min: 30, name: 'เซียนหมุนตังค์', emoji: '💎' },
+  { min: 7, name: 'หมุนคล่องมือ', emoji: '🔥' },
+  { min: 3, name: 'มือใหม่หัดหมุน', emoji: '🌱' },
+  { min: 0, name: 'เริ่มหมุน', emoji: '🪙' },
+];
+
+export function tierFor(n) {
+  const t = TIERS.find((x) => n >= x.min);
+  const next = [...TIERS].reverse().find((x) => x.min > n) || null;
+  return { ...t, next, progress: next ? (n - t.min) / (next.min - t.min) : 1 };
 }
 
 /** จำนวนวันติดต่อกันที่มีการจด (นับถึงวันนี้หรือเมื่อวาน) */
@@ -312,6 +343,8 @@ export function publicState(user, { aiEnabled = false, now = new Date() } = {}) 
     recurring: user.recurring,
     budget: budgetStatus(user, now),
     streak: streak(user, now),
+    tier: tierFor(streak(user, now)),
+    catStatus: catStatusMap(user, now),
     categories: CATEGORIES.map(({ keywords, ...c }) => c),
     wallets: WALLETS,
     aiEnabled,
@@ -333,5 +366,6 @@ export function applySettings(user, b = {}) {
   if (b.name) user.name = String(b.name).slice(0, 40);
   if (b.cycleStartDay !== undefined) user.settings.cycleStartDay = Math.min(31, Math.max(1, Number(b.cycleStartDay) || 1));
   if (b.monthlyReport !== undefined) user.settings.monthlyReport = !!b.monthlyReport;
+  if (b.budgetMode === 'total' || b.budgetMode === 'category') user.settings.budgetMode = b.budgetMode;
   user.alerts = {};
 }

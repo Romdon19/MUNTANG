@@ -39,6 +39,15 @@ function renderBubble(b, onAction) {
 
 function applyCommon(node, n, parentLayout, isFirst) {
   const s = node.style;
+  if (n.position === 'absolute') {
+    s.position = 'absolute';
+    if (n.offsetTop) s.top = px(n.offsetTop);
+    if (n.offsetBottom) s.bottom = px(n.offsetBottom);
+    if (n.offsetStart) s.left = px(n.offsetStart);
+    if (n.offsetEnd) s.right = px(n.offsetEnd);
+    if (n.action) node.classList.add('fx-tap');
+    return;
+  }
   // flex: ในแนวนอนค่าเริ่มต้น = 1, ในแนวตั้ง = 0
   const f = n.flex ?? (parentLayout === 'vertical' ? 0 : 1);
   s.flex = f > 0 ? `${f} ${f} 0` : '0 0 auto';
@@ -116,7 +125,6 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
         img.style.aspectRatio = `${a} / ${b}`;
       }
       img.style.objectFit = n.aspectMode === 'cover' ? 'cover' : 'contain';
-      img.style.borderRadius = '50%';
       node.append(img);
       applyCommon(node, n, parentLayout, isFirst);
       return node;

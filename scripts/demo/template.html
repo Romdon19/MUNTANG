@@ -1,13 +1,13 @@
 <title>หมุนตังค์</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Kanit:wght@500;600&family=Anuphan:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600&family=Anuphan:wght@400;500;600;700&display=swap">
 <style>
 /*__CSS__*/
 
-/* ---- demo shell 2D: แถบหัวเหลืองทองลายเหรียญ + โทรศัพท์ 2 เครื่องแบบสติกเกอร์ (แชท LINE | แดชบอร์ด) ---- */
+/* ---- demo shell: แถบแบรนด์เหลืองโลโก้ + โทรศัพท์ 2 เครื่อง (แชท LINE | แดชบอร์ด LIFF) ---- */
 html, body { height: auto; }
-body { background: var(--paper); background-image: radial-gradient(var(--line) 1.2px, transparent 1.4px); background-size: 22px 22px; }
+body { background: var(--bg); }
 .demo {
   max-width: 1080px; margin: 0 auto;
   padding-block: 20px 32px;
@@ -16,41 +16,24 @@ body { background: var(--paper); background-image: radial-gradient(var(--line) 1
   display: flex; flex-direction: column; gap: 18px;
 }
 .demo-head {
-  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-  background: var(--gold); border: var(--stroke); border-radius: 26px; padding: 16px 20px; box-shadow: var(--pop-lg);
-  position: relative; overflow: hidden;
+  display: flex; align-items: flex-end; gap: 6px 18px; flex-wrap: wrap;
+  background: var(--head); border-radius: 24px; padding: 20px 22px 0; position: relative; overflow: hidden;
 }
-.demo-head::after { /* วงโคจรทองแบบโลโก้ พร้อมเหรียญ */
-  content: ''; position: absolute; right: -30px; top: 50%; width: 300px; height: 96px; border-radius: 50%;
-  border: 3px solid rgba(13, 13, 13, 0.16); transform: translateY(-50%) rotate(-14deg); pointer-events: none;
-  background: radial-gradient(circle at 16% 80%, var(--card) 0 8px, var(--ink) 8px 10.5px, transparent 11px),
-    radial-gradient(circle at 86% 18%, var(--card) 0 6px, var(--ink) 6px 8.5px, transparent 9px);
-}
-.demo-logo { width: 76px; height: 76px; border-radius: 50%; border: 3px solid var(--ink); box-shadow: var(--pop); animation: demo-bob 3s ease-in-out infinite; }
-@keyframes demo-bob { 50% { transform: translateY(-4px) rotate(-4deg); } }
-.demo-title { flex: 1; min-width: 220px; position: relative; z-index: 1; }
-.demo-title h1 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: clamp(34px, 7vw, 50px); line-height: 1; letter-spacing: 0.01em; text-wrap: balance; }
-.demo-title h1 b { font-weight: 600; background: var(--card); border: var(--stroke); border-radius: 12px; padding: 0 10px; margin-left: 4px; display: inline-block; transform: rotate(-3deg); box-shadow: 3px 3px 0 var(--ink); }
-.demo-title p { margin: 10px 0 0; color: #3b3000; max-width: 60ch; text-wrap: pretty; }
+.demo-title { flex: 1; min-width: 240px; padding-bottom: 20px; }
+.demo-title h1 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: clamp(34px, 7vw, 52px); line-height: 1; text-wrap: balance; }
+.demo-title p { margin: 10px 0 0; color: #3b3000; max-width: 58ch; text-wrap: pretty; }
+.demo-peek { width: min(260px, 60vw); max-width: 100%; display: block; margin-left: auto; }
 .demo-try { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .demo-try span { font-size: 13px; color: var(--muted); font-weight: 600; }
-.demo-try button {
-  border: 1.5px solid var(--ink); background: var(--card); color: var(--ink);
-  border-radius: 999px; padding: 6px 14px; font-size: 14px; box-shadow: 2px 2px 0 var(--ink);
-}
-.demo-try button:hover { background: var(--gold); }
-.demo-try button:active { transform: translate(2px, 2px); box-shadow: none; }
-.demo-tabs { display: none; gap: 6px; background: var(--card); border: var(--stroke); padding: 4px; border-radius: 999px; }
-.demo-tabs button { flex: 1; border: 1.5px solid transparent; background: none; color: var(--muted); padding: 9px; border-radius: 999px; font-weight: 600; font-family: var(--font-display); }
-.demo-tabs button[aria-selected='true'] { background: var(--gold); color: var(--ink); border-color: var(--ink); }
+.demo-try button { border: 1px solid var(--border); background: var(--card); color: var(--ink); border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+.demo-try button:hover { border-color: var(--gold); background: var(--gold-tint); }
+.demo-tabs { display: none; gap: 6px; background: var(--card); border: 1px solid var(--border); padding: 4px; border-radius: 14px; }
+.demo-tabs button { flex: 1; border: 0; background: none; color: var(--muted); padding: 9px; border-radius: 10px; font-weight: 600; font-family: var(--font-display); }
+.demo-tabs button[aria-selected='true'] { background: var(--ink); color: var(--gold); }
 .demo-stage { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 400px); justify-content: center; gap: 36px; }
 .demo-pane { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.demo-pane h2 { margin: 0; align-self: center; font-family: var(--font-display); font-size: 14px; font-weight: 500; background: var(--ink); color: var(--gold); padding: 3px 14px; border-radius: 999px; }
-.demo-phone {
-  height: 760px; border-radius: 34px; overflow: hidden; position: relative;
-  border: 3px solid var(--ink); background: var(--paper);
-  box-shadow: 6px 6px 0 var(--ink);
-}
+.demo-pane > h2 { margin: 0; align-self: center; font-family: var(--font-display); font-size: 14px; font-weight: 500; color: var(--muted); }
+.demo-phone { height: 760px; border-radius: 36px; overflow: hidden; position: relative; border: 8px solid #2b2620; background: var(--bg); box-shadow: 0 24px 50px rgba(60, 40, 0, 0.18); }
 .demo-phone > div { height: 100%; }
 .demo-note { margin: 0; text-align: center; font-size: 12.5px; color: var(--muted); max-width: 70ch; align-self: center; text-wrap: pretty; }
 
@@ -58,20 +41,21 @@ body { background: var(--paper); background-image: radial-gradient(var(--line) 1
   .demo-tabs { display: flex; }
   .demo-stage { grid-template-columns: minmax(0, 440px); }
   .demo[data-pane='chat'] .demo-pane.is-dash, .demo[data-pane='dash'] .demo-pane.is-chat { display: none; }
-  .demo-pane h2 { display: none; }
-  .demo-phone { height: min(760px, calc(100dvh - 120px)); min-height: 520px; border-radius: 22px; box-shadow: 4px 4px 0 var(--ink); }
-  .demo-head::after { display: none; }
+  .demo-pane > h2 { display: none; }
+  .demo-phone { height: min(760px, calc(100dvh - 120px)); min-height: 520px; border-radius: 26px; border-width: 6px; }
+  .demo-peek { width: 180px; }
 }
 </style>
 
 <img id="mt-logo-src" src="__LOGO__" alt="" hidden>
+<img id="mt-peek-src" src="__PEEK__" alt="" hidden>
 <div class="demo" data-pane="chat">
   <header class="demo-head">
-    <img class="demo-logo" src="__LOGO__" alt="โลโก้หมุนตังค์">
     <div class="demo-title">
-      <h1>หมุน<b>ตังค์</b></h1>
+      <h1>หมุนตังค์</h1>
       <p>ผู้ช่วยจดรายรับรายจ่ายใน LINE แค่พิมพ์ "ข้าว 50" หรือส่งรูปสลิป ระบบจัดหมวด สรุปยอด เตือนงบให้เอง แล้วดูกราฟทั้งหมดในแดชบอร์ด</p>
     </div>
+    <img class="demo-peek" src="__PEEK__" alt="นายหัวหมุนแอบมอง">
   </header>
   <div class="demo-try">
     <span>ลองพิมพ์:</span>

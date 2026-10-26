@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>หมุนตังค์ แชทจำลอง</title>
   <link rel="icon" href="/assets/favicon.png">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Kanit:wght@500;600&family=Anuphan:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600&family=Anuphan:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/sim.css">
   <script src="/config.js"></script>
   <style>
-    .phone { height: 100%; max-width: 440px; margin: 0 auto; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); }
+    .phone { height: 100%; max-width: 440px; margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
   </style>
 </head>
 <body>
@@ -20,6 +20,7 @@
     import { mountSimulator } from '/js/simulator.js';
     mountSimulator(document.getElementById('sim'), remoteBackend(), {
       logoUrl: '/assets/logo-192.jpg',
+      peekUrl: '/assets/peek.jpg',
       onUri: (uri) => window.open(uri, '_blank', 'noopener'),
     });
   </script>

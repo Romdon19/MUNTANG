@@ -3,13 +3,16 @@ import { renderFlex } from './flex-render.js';
 
 const HISTORY_KEY = 'muntang-sim-history-v1';
 
+// ริชเมนูแบบป้านวล: ช่องใหญ่ "จด" + ช่องเล็กที่เปิดหน้าต่างๆ ใน LIFF (view) หรือส่งข้อความ (text)
 export const RICH_MENU = [
-  { icon: '☀️', label: 'สรุปวันนี้', text: 'สรุปวันนี้' },
-  { icon: '🗓', label: 'สรุปเดือนนี้', text: 'สรุปเดือนนี้' },
-  { icon: '📱', label: 'แดชบอร์ด', text: 'แดชบอร์ด', uri: 'dashboard' },
-  { icon: '🎯', label: 'งบประมาณ', text: 'งบ' },
-  { icon: '🧾', label: 'รายการล่าสุด', text: 'รายการ' },
-  { icon: '📖', label: 'วิธีใช้', text: 'วิธีใช้' },
+  { id: 'rec', text: 'จด' },
+  { id: 'home', icon: '🏠', label: 'สรุป', view: 'home', text: 'สรุปเดือนนี้' },
+  { id: 'analysis', icon: '🔍', label: 'วิเคราะห์', view: 'analysis', text: 'วิเคราะห์' },
+  { id: 'budget', icon: '🥧', label: 'หมวด/งบ', view: 'budget', text: 'งบ' },
+  { id: 'list', icon: '☰', label: 'รายการ', view: 'list', text: 'รายการ' },
+  { id: 'goal', icon: '🐷', label: 'ออมเงิน', text: 'เป้า' },
+  { id: 'settings', icon: '⚙️', label: 'ตั้งค่า', view: 'settings', text: 'ตั้งค่า' },
+  { id: 'help', icon: '❓', label: 'Help', text: 'วิธีใช้' },
 ];
 
 export function mountSimulator(root, backend, opts = {}) {
@@ -32,7 +35,11 @@ export function mountSimulator(root, backend, opts = {}) {
       <button type="submit" class="sim-send" aria-label="ส่ง">➤</button>
     </form>
     <button class="sim-menu-toggle" type="button" aria-expanded="true">เมนู ▾</button>
-    <nav class="sim-rich">${RICH_MENU.map((m, i) => `<button type="button" data-rich="${i}"><span>${m.icon}</span>${m.label}</button>`).join('')}</nav>`;
+    <nav class="sim-rich">${RICH_MENU.map((m, i) =>
+      m.id === 'rec'
+        ? `<button type="button" class="is-rec" data-rich="${i}"><b>จด</b><em>รายรับ/รายจ่าย</em><small>ง่ายๆ แค่ไลน์บอก<br>นายหัวหมุน</small>${opts.peekUrl ? `<img src="${opts.peekUrl}" alt="">` : ''}</button>`
+        : `<button type="button" class="${m.id === 'goal' ? 'is-goal' : ''}" style="grid-area:${m.id}" data-rich="${i}"><span>${m.icon}</span>${m.label}</button>`
+    ).join('')}</nav>`;
 
   const log = root.querySelector('.sim-log');
   const qr = root.querySelector('.sim-qr');
@@ -158,6 +165,7 @@ export function mountSimulator(root, backend, opts = {}) {
     if (a.type === 'message') sendText(a.text);
     else if (a.type === 'postback') send({ type: 'postback', postback: { data: a.data } }, a.displayText ? { text: a.displayText } : null);
     else if (a.type === 'uri') opts.onUri ? opts.onUri(a.uri) : window.open(a.uri, '_blank', 'noopener');
+    else if (a.type === 'camera' || a.type === 'cameraRoll') root.querySelector('#sim-file').click();
   }
 
   root.querySelector('.sim-input').addEventListener('submit', (e) => {
@@ -188,7 +196,7 @@ export function mountSimulator(root, backend, opts = {}) {
     const b = e.target.closest('[data-rich]');
     if (!b) return;
     const m = RICH_MENU[Number(b.dataset.rich)];
-    if (m.uri && opts.onRichUri) opts.onRichUri(m.uri);
+    if (m.view && opts.onRichUri) opts.onRichUri(m.view);
     else sendText(m.text);
   });
 

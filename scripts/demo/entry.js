@@ -4,7 +4,8 @@ import { mountSimulator } from '../../public/js/simulator.js';
 import { mountDashboard } from '../../public/js/dashboard.js';
 
 const logo = document.getElementById('mt-logo-src').getAttribute('src');
-const backend = localBackend({ logoUrl: logo });
+const peek = document.getElementById('mt-peek-src').getAttribute('src');
+const backend = localBackend({ logoUrl: logo, peekUrl: peek });
 const shell = document.querySelector('.demo');
 
 function showPane(name) {
@@ -13,21 +14,23 @@ function showPane(name) {
 }
 
 backend.authenticate().then(() => {
-  const dash = mountDashboard(document.getElementById('demo-dash'), backend, { logoUrl: logo });
-  const openDash = () => {
-    dash.refresh();
+  const dash = mountDashboard(document.getElementById('demo-dash'), backend, { logoUrl: logo, peekUrl: peek });
+  const openDash = async (view, editId) => {
+    await dash.refresh();
+    if (view) dash.show(view, editId);
     showPane('dash');
   };
   mountSimulator(document.getElementById('demo-chat'), backend, {
     logoUrl: logo,
+    peekUrl: peek,
     onChange: () => dash.refresh(),
-    onRichUri: openDash,
+    onRichUri: (view) => openDash(view),
     onUri: (uri) => {
-      if (uri === '#dashboard' || uri === 'dashboard') openDash();
-      else if (uri === '#export') {
-        openDash();
-        dash.show('settings');
-      } else window.open(uri, '_blank', 'noopener');
+      const m = uri.match(/^#(view|edit)-(.+)$/);
+      if (m) openDash(m[1] === 'view' ? m[2] : 'list', m[1] === 'edit' ? m[2] : null);
+      else if (uri === '#dashboard' || uri === 'dashboard') openDash('home');
+      else if (uri === '#export') openDash('settings');
+      else window.open(uri, '_blank', 'noopener');
     },
   });
   dash.refresh();
