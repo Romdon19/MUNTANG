@@ -2,6 +2,7 @@
 import { money } from '../core/format.js';
 import { todayStr, thaiDate, TH_DAYS, weekday, cycleOf, shiftCycle, diffDays, addDays } from '../core/dates.js';
 import { summarize } from '../core/ops.js';
+import { moodFor } from '../core/mood.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const SOURCE_LABEL = { chat: 'แชท', slip: 'สลิป', app: 'แอป', ai: 'AI', recurring: 'ประจำ', pdf: 'PDF' };
@@ -47,14 +48,32 @@ export function mountDashboard(root, backend, opts = {}) {
     }, 2200);
   }
 
+  /** เหรียญทองเด้งออกจากปุ่ม + */
+  function coinBurst() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-coins';
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElement('i');
+      c.style.setProperty('--x', `${Math.round((Math.random() - 0.5) * 220)}px`);
+      c.style.setProperty('--y', `${-Math.round(120 + Math.random() * 220)}px`);
+      c.style.animationDelay = `${i * 40}ms`;
+      wrap.append(c);
+    }
+    root.append(wrap);
+    setTimeout(() => wrap.remove(), 1400);
+  }
+
   async function act(fn, msg) {
     try {
       await fn();
       st.sheet = null;
       await refresh();
       if (msg) toast(msg);
+      return true;
     } catch (e) {
       toast(`ทำรายการไม่สำเร็จ: ${e.message}`);
+      return false;
     }
   }
 
@@ -144,6 +163,22 @@ export function mountDashboard(root, backend, opts = {}) {
       .join('')}</ul>`;
   }
 
+  /** หัวหมุนมิเตอร์: นายหัวหมุนพร้อมเหรียญโคจร หมุนเร็วขึ้นเมื่อใกล้เกินงบ */
+  function moodCard() {
+    const b = st.data.budget;
+    if (st.cycle.from !== b.from) return '';
+    const m = moodFor(b);
+    return `
+      <section class="mt-mood" data-level="${m.level}" aria-label="อารมณ์นายหัวหมุน: ${esc(m.title)}">
+        <div class="mt-mascot">
+          ${opts.logoUrl ? `<img src="${esc(opts.logoUrl)}" alt="">` : ''}
+          <div class="mt-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+          <span class="mt-face" aria-hidden="true">${m.face}</span>
+        </div>
+        <div class="mt-bubble"><b>${esc(m.title)}</b><span>${esc(m.line)}</span></div>
+      </section>`;
+  }
+
   function budgetCard() {
     const b = st.data.budget;
     if (st.cycle.from !== b.from) return '';
@@ -176,8 +211,10 @@ export function mountDashboard(root, backend, opts = {}) {
     const recent = [...txs].sort((a, b) => (a.date === b.date ? (a.createdAt < b.createdAt ? 1 : -1) : a.date < b.date ? 1 : -1)).slice(0, 6);
     return `
       ${monthSwitch()}
+      ${moodCard()}
       <section class="mt-hero">
         <span class="mt-eyebrow">คงเหลือสุทธิ</span>
+        <span class="mt-serial" aria-hidden="true">MT-${st.cycle.from.replace(/-/g, '')}</span>
         <div class="mt-hero-n num ${s.net < 0 ? 'is-neg' : ''}">${money(s.net, { sign: true })}</div>
         <div class="mt-hero-split">
           <div><span>รายรับ</span><b class="num is-inc">${money(s.income)}</b></div>
@@ -267,8 +304,7 @@ export function mountDashboard(root, backend, opts = {}) {
                 .map((g) => {
                   const p = g.saved / g.target;
                   return `<li>
-                  <div class="mt-goal-h"><span class="mt-emoji">${esc(g.emoji)}</span><div><b>${esc(g.name)}</b><span class="mt-sub num">${money(g.saved)} / ${money(g.target)}</span></div><span class="num mt-goal-p">${Math.round(p * 100)}%</span></div>
-                  <div class="mt-track is-lg ${p >= 1 ? 'is-good' : ''}"><span style="width:${Math.min(100, Math.max(2, p * 100))}%"></span></div>
+                  <div class="mt-goal-h">${ring(p, g.emoji)}<div><b>${esc(g.name)}</b><span class="mt-sub num">${money(g.saved)} / ${money(g.target)}</span><span class="mt-sub">${p >= 1 ? '🎉 ครบเป้าแล้ว!' : `ขาดอีก ${money(g.target - g.saved)}`}</span></div><span class="num mt-goal-p">${Math.round(p * 100)}%</span></div>
                   <div class="mt-goal-a">
                     <button class="mt-chip" data-act="deposit" data-id="${g.id}" data-v="100">+100</button>
                     <button class="mt-chip" data-act="deposit" data-id="${g.id}" data-v="500">+500</button>
@@ -519,7 +555,7 @@ export function mountDashboard(root, backend, opts = {}) {
         render();
         break;
       case 'deposit':
-        act(() => backend.deposit(b.dataset.id, Number(b.dataset.v)), `หยอดกระปุก ${money(Number(b.dataset.v))} แล้ว`);
+        act(() => backend.deposit(b.dataset.id, Number(b.dataset.v)), `🐷 หยอดกระปุก ${money(Number(b.dataset.v))} แล้ว`).then((ok) => ok && coinBurst());
         break;
       case 'depositcustom':
         st.sheet = { kind: 'deposit', id: b.dataset.id };
@@ -590,7 +626,7 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'tx': {
         const body = { ...fd, amount: Number(fd.amount) };
         if (st.sheet.tx) act(() => backend.updateTx(st.sheet.tx.id, body), 'บันทึกการแก้ไขแล้ว');
-        else act(() => backend.addTx(body), `บันทึก ${money(body.amount)} แล้ว`);
+        else act(() => backend.addTx(body), `🪙 บันทึก ${money(body.amount)} แล้ว`).then((ok) => ok && coinBurst());
         break;
       }
       case 'budget': {
@@ -652,6 +688,18 @@ export function mountDashboard(root, backend, opts = {}) {
       render();
     },
   };
+}
+
+/** วงแหวนกระปุกออมสิน */
+function ring(p, emoji) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - Math.min(1, Math.max(0, p)));
+  return `<div class="mt-ring" aria-hidden="true"><svg viewBox="0 0 62 62">
+    <circle cx="31" cy="31" r="${r}" fill="var(--paper-2)" stroke="var(--ink)" stroke-width="2"></circle>
+    <circle cx="31" cy="31" r="${r}" fill="none" stroke="var(--gold)" stroke-width="8" stroke-dasharray="${c}" stroke-dashoffset="${off}"></circle>
+    <circle cx="31" cy="31" r="${r - 5}" fill="none" stroke="var(--ink)" stroke-width="1.5"></circle>
+  </svg><span>${esc(emoji)}</span></div>`;
 }
 
 function niceMax(v) {

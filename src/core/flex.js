@@ -1,43 +1,72 @@
-// ข้อความ Flex Message ธีม "หมุนตังค์" — ดำ Deep Space + ทอง Cosmic Gold
+// ข้อความ Flex Message ธีม "หมุนตังค์" สไตล์ 2D — หัวการ์ดเหลืองทอง เส้นดำ ตัวการ์ดขาว เหมือนสติกเกอร์
 import { getCategory, categoriesOf, WALLET_MAP, CATEGORY_MAP } from './categories.js';
 import { money, pct, truncate } from './format.js';
 import { thaiDate } from './dates.js';
+import { moodFor } from './mood.js';
 
 export const C = {
-  black: '#0D0D0D',
-  carbon: '#1A1A1A',
-  line: '#2A2A2A',
-  gold: '#FFC400',
-  amber: '#FFB300',
-  white: '#F5F5F5',
-  muted: '#9A9A9A',
-  red: '#FF6B5B',
-  green: '#3DDC97',
+  ink: '#0D0D0D', // Deep Space Black — ตัวอักษร เส้น
+  gold: '#FFC400', // Cosmic Gold — พื้นหัวการ์ด ปุ่ม
+  goldSoft: '#FFF1BF',
+  goldText: '#9A6A00', // ทองเข้มสำหรับตัวหนังสือบนพื้นขาว
+  card: '#FFFFFF',
+  paper: '#FFF8E1',
+  line: '#EAD9A6',
+  track: '#F3E9C9',
+  muted: '#7A6F57',
+  red: '#E5484D',
+  amber: '#E08A00',
+  green: '#14A05A',
 };
 
 // ---------- primitives ----------
-const text = (t, o = {}) => ({ type: 'text', text: String(t === '' || t == null ? ' ' : t), color: C.white, size: 'sm', wrap: true, ...o });
+const text = (t, o = {}) => ({ type: 'text', text: String(t === '' || t == null ? ' ' : t), color: C.ink, size: 'sm', wrap: true, ...o });
 const box = (layout, contents, o = {}) => ({ type: 'box', layout, contents, ...o });
 const sep = (o = {}) => ({ type: 'separator', color: C.line, margin: 'md', ...o });
-const btn = (label, action, o = {}) => ({ type: 'button', height: 'sm', style: 'primary', color: C.gold, action: { label, ...action }, ...o });
+// ปุ่มหลัก: พื้นทอง ตัวหนังสือดำ (style secondary ใน LINE = ตัวหนังสือสีดำ)
+const btn = (label, action, o = {}) => ({ type: 'button', height: 'sm', style: 'secondary', color: C.gold, action: { label, ...action }, ...o });
 const postback = (data, displayText) => ({ type: 'postback', data, ...(displayText ? { displayText } : {}) });
 const msg = (t) => ({ type: 'message', text: t });
 const uri = (u) => ({ type: 'uri', uri: u });
 
-function bar(p, color = C.gold) {
-  const w = Math.max(2, Math.min(100, Math.round((p || 0) * 100)));
-  return box('vertical', [box('vertical', [{ type: 'filler' }], { width: `${w}%`, backgroundColor: color, height: '6px', cornerRadius: '3px' })], {
-    backgroundColor: C.line,
-    height: '6px',
-    cornerRadius: '3px',
+/** แถบความคืบหน้าแบบ 2D: รางครีมขอบดำ เติมดำ/ส้ม/แดง */
+function bar(p, color = C.ink) {
+  const w = Math.max(3, Math.min(100, Math.round((p || 0) * 100)));
+  return box('vertical', [box('vertical', [{ type: 'filler' }], { width: `${w}%`, backgroundColor: color, height: '8px', cornerRadius: '4px' })], {
+    backgroundColor: C.track,
+    height: '10px',
+    cornerRadius: '5px',
+    borderWidth: '1px',
+    borderColor: C.ink,
     margin: 'sm',
   });
+}
+
+const budgetColor = (pct) => (pct >= 1 ? C.red : pct >= 0.8 ? C.amber : C.ink);
+
+/** ป้ายอารมณ์นายหัวหมุนตามสถานะงบ */
+function moodPill(budget) {
+  const m = moodFor(budget);
+  return box(
+    'horizontal',
+    [text(m.face, { flex: 0, size: 'lg' }), box('vertical', [text(m.title, { weight: 'bold', size: 'sm' }), text(m.line, { size: 'xxs', color: C.muted })], { paddingStart: 'md' })],
+    { backgroundColor: m.level === 'spin' ? '#FFE1E1' : C.goldSoft, cornerRadius: '12px', paddingAll: 'md', margin: 'lg', alignItems: 'center', borderWidth: '1px', borderColor: C.ink }
+  );
 }
 
 function header(title, subtitle, ctx) {
   const left = [];
   if (ctx?.logoUrl) {
-    left.push({ type: 'image', url: ctx.logoUrl, size: '36px', aspectRatio: '1:1', aspectMode: 'cover', flex: 0 });
+    left.push(
+      box('vertical', [{ type: 'image', url: ctx.logoUrl, size: 'full', aspectRatio: '1:1', aspectMode: 'cover' }], {
+        width: '40px',
+        height: '40px',
+        cornerRadius: '20px',
+        borderWidth: '2px',
+        borderColor: C.ink,
+        flex: 0,
+      })
+    );
   }
   return box(
     'horizontal',
@@ -46,13 +75,13 @@ function header(title, subtitle, ctx) {
       box(
         'vertical',
         [
-          text(title, { color: C.gold, weight: 'bold', size: 'md' }),
-          ...(subtitle ? [text(subtitle, { color: C.muted, size: 'xxs' })] : []),
+          text(title, { color: C.ink, weight: 'bold', size: 'md' }),
+          ...(subtitle ? [text(subtitle, { color: '#4A3B00', size: 'xxs' })] : []),
         ],
         { paddingStart: left.length ? 'md' : 'none', justifyContent: 'center' }
       ),
     ],
-    { backgroundColor: C.black, paddingAll: 'lg', alignItems: 'center' }
+    { backgroundColor: C.gold, paddingAll: 'lg', alignItems: 'center' }
   );
 }
 
@@ -61,10 +90,10 @@ function bubble({ title, subtitle, body, footer, ctx, size = 'mega' }) {
     type: 'bubble',
     size,
     header: header(title, subtitle, ctx),
-    body: box('vertical', body, { backgroundColor: C.carbon, paddingAll: 'lg', spacing: 'sm' }),
-    styles: { header: { backgroundColor: C.black }, body: { backgroundColor: C.carbon }, footer: { backgroundColor: C.carbon } },
+    body: box('vertical', body, { backgroundColor: C.card, paddingAll: 'lg', spacing: 'sm' }),
+    styles: { header: { backgroundColor: C.gold }, body: { backgroundColor: C.card, separator: true, separatorColor: C.ink }, footer: { backgroundColor: C.card } },
   };
-  if (footer?.length) b.footer = box('vertical', footer, { backgroundColor: C.carbon, paddingAll: 'md', paddingTop: 'none', spacing: 'sm' });
+  if (footer?.length) b.footer = box('vertical', footer, { backgroundColor: C.card, paddingAll: 'md', paddingTop: 'none', spacing: 'sm' });
   return b;
 }
 
@@ -102,7 +131,16 @@ function txRow(t, { withDate = false, deletable = false } = {}) {
   const cat = getCategory(t.categoryId);
   const isInc = t.type === 'income';
   const contents = [
-    text(cat.emoji, { flex: 0, size: 'md' }),
+    box('vertical', [text(cat.emoji, { size: 'md', align: 'center' })], {
+      flex: 0,
+      width: '34px',
+      height: '34px',
+      cornerRadius: '10px',
+      backgroundColor: C.goldSoft,
+      borderWidth: '1px',
+      borderColor: C.ink,
+      justifyContent: 'center',
+    }),
     box(
       'vertical',
       [
@@ -111,7 +149,7 @@ function txRow(t, { withDate = false, deletable = false } = {}) {
       ],
       { flex: 5, paddingStart: 'md' }
     ),
-    text(money(isInc ? t.amount : -t.amount, { sign: true }), { flex: 3, align: 'end', weight: 'bold', color: isInc ? C.green : C.white, gravity: 'center' }),
+    text(money(isInc ? t.amount : -t.amount, { sign: true }), { flex: 3, align: 'end', weight: 'bold', color: isInc ? C.green : C.ink, gravity: 'center' }),
   ];
   if (deletable) {
     contents.push(
@@ -130,17 +168,17 @@ function txRow(t, { withDate = false, deletable = false } = {}) {
 
 export function recordedMessage(txs, info, ctx) {
   const total = txs.reduce((s, t) => s + (t.type === 'income' ? t.amount : -t.amount), 0);
-  const body = [text('บันทึกแล้ว ✓', { color: C.green, size: 'xs', weight: 'bold' }), ...txs.map((t) => txRow(t, { withDate: t.date !== info.today }))];
-  if (txs.length > 1) body.push(sep(), row('รวม', money(total, { sign: true }), { rightStyle: { color: C.gold } }));
+  const body = [text('🪙 จดแล้ว! เงินหมุนเข้าสมุดเรียบร้อย', { color: C.green, size: 'xs', weight: 'bold' }), ...txs.map((t) => txRow(t, { withDate: t.date !== info.today }))];
+  if (txs.length > 1) body.push(sep(), row('รวม', money(total, { sign: true }), { rightStyle: { color: C.ink, size: 'md' } }));
   body.push(sep({ margin: 'lg' }));
   body.push(row('จ่ายวันนี้', money(info.todayExpense), { margin: 'md' }));
   if (info.budget?.total) {
     const b = info.budget;
-    body.push(row('งบเดือนนี้เหลือ', money(b.remaining), { rightStyle: { color: b.remaining < 0 ? C.red : C.gold } }));
-    body.push(bar(b.pct, b.pct >= 1 ? C.red : b.pct >= 0.8 ? C.amber : C.gold));
-    if (b.perDayLeft != null && b.remaining > 0) body.push(text(`ใช้ได้อีกวันละ ~${money(b.perDayLeft)} (${b.daysLeft} วัน)`, { size: 'xxs', color: C.muted, margin: 'sm' }));
+    body.push(row('งบเดือนนี้เหลือ', money(b.remaining), { rightStyle: { color: b.remaining < 0 ? C.red : C.ink } }));
+    body.push(bar(b.pct, budgetColor(b.pct)));
   }
-  if (info.streak >= 2) body.push(text(`🔥 จดต่อเนื่อง ${info.streak} วัน หมุนเก่งมาก!`, { size: 'xs', color: C.amber, margin: 'md' }));
+  body.push(moodPill(info.budget));
+  if (info.streak >= 2) body.push(text(`🔥 จดต่อเนื่อง ${info.streak} วัน หมุนเก่งมาก!`, { size: 'xs', color: C.goldText, margin: 'md', weight: 'bold' }));
 
   const t = txs[txs.length - 1];
   const others = categoriesOf(t.type)
@@ -159,8 +197,8 @@ export function slipMessage(tx, slip, info, ctx) {
   const cat = getCategory(tx.categoryId);
   const body = [
     text('อ่านสลิปแล้ว ✓', { color: C.green, size: 'xs', weight: 'bold' }),
-    text(money(tx.amount), { size: 'xxl', weight: 'bold', color: C.gold, margin: 'sm' }),
-    text(`${cat.emoji} ${cat.name}`, { size: 'sm', color: C.white }),
+    text(money(tx.amount), { size: 'xxl', weight: 'bold', color: C.goldText, margin: 'sm' }),
+    text(`${cat.emoji} ${cat.name}`, { size: 'sm', color: C.ink }),
     sep(),
     row('ผู้รับ', slip.receiver || '-'),
     row('ผู้โอน', slip.sender || '-'),
@@ -185,7 +223,7 @@ export function summaryMessage(s, ctx, { budget } = {}) {
     box(
       'horizontal',
       [
-        box('vertical', [text('รายจ่าย', { size: 'xxs', color: C.muted }), text(money(s.expense), { size: 'xl', weight: 'bold', color: C.gold })], { flex: 1 }),
+        box('vertical', [text('รายจ่าย', { size: 'xxs', color: C.muted }), text(money(s.expense), { size: 'xl', weight: 'bold', color: C.goldText })], { flex: 1 }),
         box('vertical', [text('รายรับ', { size: 'xxs', color: C.muted }), text(money(s.income), { size: 'xl', weight: 'bold', color: C.green })], { flex: 1 }),
       ],
       { margin: 'md' }
@@ -214,7 +252,8 @@ export function summaryMessage(s, ctx, { budget } = {}) {
   if (budget?.total) {
     body.push(sep({ margin: 'lg' }));
     body.push(row('งบเดือนนี้', `${money(budget.spent)} / ${money(budget.total)}`, { margin: 'md' }));
-    body.push(bar(budget.pct, budget.pct >= 1 ? C.red : budget.pct >= 0.8 ? C.amber : C.gold));
+    body.push(bar(budget.pct, budgetColor(budget.pct)));
+    body.push(moodPill(budget));
   }
   body.push(text(`ทั้งหมด ${s.count} รายการ`, { size: 'xxs', color: C.muted, margin: 'md', align: 'end' }));
   const footer = [];
@@ -245,8 +284,8 @@ export function budgetMessage(b, ctx) {
   }
   if (b.total) {
     body.push(text('งบรวมเดือนนี้', { size: 'xs', color: C.muted }));
-    body.push(text(`${money(b.spent)} / ${money(b.total)}`, { size: 'lg', weight: 'bold', color: b.pct >= 1 ? C.red : C.gold }));
-    body.push(bar(b.pct, b.pct >= 1 ? C.red : b.pct >= 0.8 ? C.amber : C.gold));
+    body.push(text(`${money(b.spent)} / ${money(b.total)}`, { size: 'lg', weight: 'bold', color: b.pct >= 1 ? C.red : C.ink }));
+    body.push(bar(b.pct, budgetColor(b.pct)));
     body.push(
       text(b.remaining >= 0 ? `เหลือ ${money(b.remaining)} · ใช้ได้วันละ ~${money(b.perDayLeft)}` : `เกินงบไปแล้ว ${money(-b.remaining)} 😵‍💫`, {
         size: 'xs',
@@ -254,6 +293,7 @@ export function budgetMessage(b, ctx) {
         margin: 'sm',
       })
     );
+    body.push(moodPill(b));
   }
   if (b.cats.length) {
     body.push(sep({ margin: 'lg' }));
@@ -264,7 +304,7 @@ export function budgetMessage(b, ctx) {
           'vertical',
           [
             box('horizontal', [text(`${cat.emoji} ${cat.name}`, { flex: 5 }), text(`${money(c.spent)} / ${money(c.limit)}`, { flex: 5, align: 'end', size: 'xs', color: C.muted })]),
-            bar(c.pct, c.pct >= 1 ? C.red : c.pct >= 0.8 ? C.amber : C.gold),
+            bar(c.pct, budgetColor(c.pct)),
           ],
           { margin: 'md' }
         )
@@ -289,7 +329,7 @@ export function goalsMessage(goals, ctx) {
   const body = goals.length
     ? goals.flatMap((g, i) => [
         ...(i ? [sep()] : []),
-        box('horizontal', [text(`${g.emoji} ${g.name}`, { weight: 'bold', flex: 5 }), text(pct(g.saved / g.target), { align: 'end', flex: 2, color: C.gold, weight: 'bold' })], { margin: 'md' }),
+        box('horizontal', [text(`${g.emoji} ${g.name}`, { weight: 'bold', flex: 5 }), text(pct(g.saved / g.target), { align: 'end', flex: 2, color: C.goldText, weight: 'bold' })], { margin: 'md' }),
         text(`${money(g.saved)} / ${money(g.target)}`, { size: 'xs', color: C.muted }),
         bar(g.saved / g.target),
       ])
@@ -306,7 +346,7 @@ export function recurringMessage(items, ctx) {
           [
             text(`${i + 1}.`, { flex: 0, color: C.muted }),
             box('vertical', [text(`${cat.emoji} ${r.note}`, { weight: 'bold' }), text(`ทุกวันที่ ${r.day} · ${r.type === 'income' ? 'รายรับ' : 'รายจ่าย'}`, { size: 'xxs', color: C.muted })], { flex: 6, paddingStart: 'sm' }),
-            text(money(r.amount), { flex: 3, align: 'end', color: C.gold, weight: 'bold' }),
+            text(money(r.amount), { flex: 3, align: 'end', color: C.goldText, weight: 'bold' }),
           ],
           { margin: 'md' }
         );
@@ -329,7 +369,7 @@ export function welcomeMessage(name, ctx) {
       ['🎯', 'ตั้งงบ "งบ 15000" แจ้งเตือนเมื่อใกล้เกิน'],
     ].map(([e, t]) => box('horizontal', [text(e, { flex: 0 }), text(t, { size: 'sm', margin: 'md' })], { margin: 'md' })),
   ];
-  const footer = [btn('ลองจดรายการแรก', msg('กาแฟ 45')), btn('วิธีใช้ทั้งหมด', msg('วิธีใช้'), { style: 'secondary', color: '#333333' })];
+  const footer = [btn('ลองจดรายการแรก', msg('กาแฟ 45')), btn('วิธีใช้ทั้งหมด', msg('วิธีใช้'), { style: 'primary', color: C.ink })];
   return flex('ยินดีต้อนรับสู่หมุนตังค์', bubble({ title: 'หมุนตังค์', subtitle: 'ผู้ช่วยจดเงินใน LINE', body, footer, ctx }));
 }
 
@@ -447,7 +487,7 @@ export function importedMessage(txs, batch, fileName, ctx) {
   const dates = txs.map((t) => t.date).sort();
   const body = [
     text('นำเข้า Statement แล้ว ✓', { color: C.green, size: 'xs', weight: 'bold' }),
-    text(`${txs.length} รายการ`, { size: 'xxl', weight: 'bold', color: C.gold, margin: 'sm' }),
+    text(`${txs.length} รายการ`, { size: 'xxl', weight: 'bold', color: C.goldText, margin: 'sm' }),
     text(`${thaiDate(dates[0])} - ${thaiDate(dates[dates.length - 1])}`, { size: 'xs', color: C.muted }),
     sep(),
     row('รายจ่าย', money(exp)),
@@ -456,7 +496,7 @@ export function importedMessage(txs, batch, fileName, ctx) {
     ...txs.slice(0, 5).map((t) => txRow(t, { withDate: true })),
     ...(txs.length > 5 ? [text(`และอีก ${txs.length - 5} รายการ`, { size: 'xxs', color: C.muted, margin: 'md', align: 'end' })] : []),
   ];
-  const footer = [btn('ยกเลิกการนำเข้าทั้งหมด', postback(`action=undobatch&b=${batch}`, 'ยกเลิกการนำเข้า'), { style: 'secondary', color: '#333333' })];
+  const footer = [btn('ยกเลิกการนำเข้าทั้งหมด', postback(`action=undobatch&b=${batch}`, 'ยกเลิกการนำเข้า'), { style: 'primary', color: C.ink })];
   if (ctx?.links?.dashboard) footer.unshift(btn('ตรวจในแดชบอร์ด', uri(ctx.links.dashboard)));
   return flex(`นำเข้า ${txs.length} รายการจาก ${fileName}`, bubble({ title: 'หมุนตังค์ · PDF', subtitle: truncate(fileName, 40), body, footer, ctx }));
 }

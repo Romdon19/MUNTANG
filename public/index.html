@@ -6,29 +6,33 @@
   <title>หมุนตังค์</title>
   <meta name="description" content="หมุนตังค์ ผู้ช่วยจดรายรับรายจ่ายใน LINE แค่แชทหรือส่งสลิป">
   <link rel="icon" href="/assets/favicon.png">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Kanit:wght@500;600&family=Anuphan:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/css/theme.css">
   <style>
+    /* หน้าแรก 2D: แถบเหลืองทองขอบดำ มาสคอตลอยในวงโคจร การ์ดฟีเจอร์แบบสติกเกอร์ */
     html, body { height: auto; }
-    .wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 48px; }
-    .hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; align-items: center; }
-    .hero h1 { font-family: var(--font-display); font-size: clamp(44px, 9vw, 76px); line-height: 0.95; margin: 0 0 14px; }
-    .hero h1 b { color: var(--gold); }
-    .hero p { color: var(--muted); font-size: 17px; max-width: 46ch; margin: 0 0 24px; }
+    body { background-image: radial-gradient(var(--line) 1.2px, transparent 1.4px); background-size: 22px 22px; }
+    .wrap { max-width: 980px; margin: 0 auto; padding-block: 32px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 40px; }
+    .hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 28px; align-items: center; background: var(--gold); border: var(--stroke); border-radius: 28px; padding: 28px; box-shadow: 6px 6px 0 var(--ink); }
+    .hero h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(44px, 9vw, 76px); line-height: 0.95; margin: 0 0 14px; }
+    .hero h1 b { font-weight: 600; background: var(--card); border: var(--stroke); border-radius: 14px; padding: 0 12px; display: inline-block; transform: rotate(-3deg); box-shadow: 3px 3px 0 var(--ink); }
+    .hero p { color: #3b3000; font-size: 17px; max-width: 46ch; margin: 0 0 22px; }
     .cta { display: flex; flex-wrap: wrap; gap: 10px; }
-    .cta a { text-decoration: none; padding: 12px 20px; border-radius: 999px; font-weight: 700; }
-    .cta .primary { background: var(--gold); color: var(--on-gold); }
-    .cta .ghost { border: 1px solid var(--gold-dim); color: var(--gold); }
-    .mascot { position: relative; justify-self: center; width: min(320px, 70vw); aspect-ratio: 1; max-width: 100%; }
-    .mascot img { width: 100%; border-radius: 50%; box-shadow: 0 0 0 3px var(--gold), 0 0 80px rgba(255, 196, 0, 0.25); }
-    .mascot::before { content: ''; position: absolute; inset: 18% -22%; border: 2px solid rgba(255, 196, 0, 0.4); border-radius: 50%; transform: rotate(-16deg); }
-    .feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    .feat { background: var(--carbon); border-radius: var(--r-md); padding: 18px; }
-    .feat h3 { margin: 0 0 6px; font-family: var(--font-display); font-size: 17px; color: var(--gold); }
+    .cta a { text-decoration: none; padding: 12px 20px; border-radius: 999px; font-family: var(--font-display); font-weight: 500; border: var(--stroke); box-shadow: 3px 3px 0 var(--ink); color: var(--ink); }
+    .cta .primary { background: var(--ink); color: var(--gold); }
+    .cta .ghost { background: var(--card); }
+    .cta a:active { transform: translate(3px, 3px); box-shadow: none; }
+    .mascot { position: relative; justify-self: center; width: min(280px, 64vw); aspect-ratio: 1; max-width: 100%; }
+    .mascot img { width: 100%; border-radius: 50%; border: 3px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); animation: bob 3s ease-in-out infinite; }
+    .mascot::before { content: ''; position: absolute; inset: 22% -16%; border: 3px dashed var(--ink); border-radius: 50%; transform: rotate(-16deg); }
+    @keyframes bob { 50% { transform: translateY(-6px) rotate(-3deg); } }
+    .feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .feat { background: var(--card); border: var(--stroke); border-radius: var(--r-md); padding: 18px; box-shadow: var(--pop); }
+    .feat h3 { margin: 0 0 6px; font-family: var(--font-display); font-weight: 600; font-size: 18px; }
     .feat p { margin: 0; color: var(--muted); font-size: 14px; }
-    .feat code { color: var(--moon); font-family: var(--font-display); }
-    h2 { font-family: var(--font-display); font-size: 24px; margin: 0 0 14px; }
-    @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } .mascot { order: -1; width: 200px; } .feats { grid-template-columns: 1fr; } }
+    .feat code { color: var(--ink); background: var(--gold-soft); border-radius: 6px; padding: 0 4px; font-family: var(--font-body); font-weight: 600; }
+    h2 { font-family: var(--font-display); font-weight: 600; font-size: 26px; margin: 0 0 16px; }
+    @media (max-width: 760px) { .hero { grid-template-columns: 1fr; } .mascot { order: -1; width: 190px; } .feats { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>

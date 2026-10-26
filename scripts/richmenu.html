@@ -1,29 +1,27 @@
 <!doctype html>
 <html lang="th"><head><meta charset="utf-8">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Sans+Thai:wght@600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@500;600&display=swap">
 <style>
-  /* Rich menu 2500x1686: 3x2 ช่อง ช่องละ 833x843 */
-  html, body { margin: 0; width: 2500px; height: 1686px; background: #0d0d0d; font-family: 'IBM Plex Sans Thai', sans-serif; }
-  .grid { display: grid; grid-template-columns: 834px 833px 833px; grid-template-rows: 843px 843px; }
-  .cell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 40px;
-    border-right: 3px solid #2c2a24; border-bottom: 3px solid #2c2a24; color: #f5f5f5; overflow: hidden; }
-  .cell:nth-child(3n) { border-right: 0; }
-  .cell:nth-child(n+4) { border-bottom: 0; }
-  .icon { width: 260px; height: 260px; border-radius: 50%; display: grid; place-items: center; font-size: 150px;
-    background: radial-gradient(circle at 35% 30%, #2b2410, #141414 70%); box-shadow: 0 0 0 6px #ffc400, 0 0 80px rgba(255,196,0,.25); }
-  .label { font-size: 92px; font-weight: 600; letter-spacing: .01em; }
-  .hint { font-family: 'Chakra Petch', sans-serif; font-size: 52px; color: #a39e92; margin-top: -30px; }
-  .cell.hero { background: #ffc400; color: #141100; }
-  .cell.hero .icon { background: #0d0d0d; box-shadow: none; }
-  .cell.hero .hint { color: #4a3b00; }
-  .orbit { position: absolute; width: 900px; height: 380px; border: 5px solid rgba(255,196,0,.18); border-radius: 50%; transform: rotate(-16deg); top: -120px; right: -380px; }
-  .cell.hero .orbit { border-color: rgba(0,0,0,.15); }
+  /* Rich menu 2500x1686 สไตล์ 2D: พื้นเหลืองทองลายจุด ปุ่มสติกเกอร์ขาวขอบดำเงาแข็ง */
+  html, body { margin: 0; width: 2500px; height: 1686px; font-family: 'Mitr', sans-serif; color: #0d0d0d; }
+  body { background: #ffc400; background-image: radial-gradient(rgba(13,13,13,.12) 6px, transparent 7px); background-size: 90px 90px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 44px; padding: 52px; height: 100%; box-sizing: border-box; }
+  .cell { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+    background: #fff; border: 10px solid #0d0d0d; border-radius: 70px; box-shadow: 22px 22px 0 #0d0d0d; }
+  .icon { width: 270px; height: 270px; border-radius: 50%; display: grid; place-items: center; font-size: 150px;
+    background: #fff1bf; border: 9px solid #0d0d0d; }
+  .label { font-size: 104px; font-weight: 600; line-height: 1; }
+  .cell.hero { background: #0d0d0d; color: #ffc400; box-shadow: 22px 22px 0 #fff1bf; }
+  .cell.hero .icon { background: #ffc400; border-color: #ffc400; overflow: visible; position: relative; }
+  .cell.hero .icon img { width: 100%; height: 100%; border-radius: 50%; }
+  .cell.hero .icon::before { content: ''; position: absolute; inset: 32% -30%; border: 8px dashed #ffc400; border-radius: 50%; transform: rotate(-16deg); }
+  .tag { position: absolute; top: -38px; right: 60px; background: #ffc400; border: 8px solid #0d0d0d; border-radius: 999px; font-size: 52px; padding: 0 34px; transform: rotate(6deg); color: #0d0d0d; }
 </style></head>
 <body><div class="grid">
-  <div class="cell"><div class="orbit"></div><div class="icon">☀️</div><div class="label">สรุปวันนี้</div><div class="hint">TODAY</div></div>
-  <div class="cell hero"><div class="orbit"></div><div class="icon"><img src="../public/assets/logo.png" style="width:260px;height:260px;border-radius:50%"></div><div class="label">แดชบอร์ด</div><div class="hint">DASHBOARD</div></div>
-  <div class="cell"><div class="orbit"></div><div class="icon">🗓</div><div class="label">สรุปเดือนนี้</div><div class="hint">MONTH</div></div>
-  <div class="cell"><div class="icon">🎯</div><div class="label">งบประมาณ</div><div class="hint">BUDGET</div></div>
-  <div class="cell"><div class="icon">🧾</div><div class="label">รายการล่าสุด</div><div class="hint">HISTORY</div></div>
-  <div class="cell"><div class="icon">📖</div><div class="label">วิธีใช้</div><div class="hint">HELP</div></div>
+  <div class="cell"><div class="icon">☀️</div><div class="label">สรุปวันนี้</div></div>
+  <div class="cell hero"><span class="tag">กดเลย!</span><div class="icon"><img src="../public/assets/logo.png" alt=""></div><div class="label">แดชบอร์ด</div></div>
+  <div class="cell"><div class="icon">🗓️</div><div class="label">สรุปเดือนนี้</div></div>
+  <div class="cell"><div class="icon">🎯</div><div class="label">งบประมาณ</div></div>
+  <div class="cell"><div class="icon">🧾</div><div class="label">รายการล่าสุด</div></div>
+  <div class="cell"><div class="icon">📖</div><div class="label">วิธีใช้</div></div>
 </div></body></html>

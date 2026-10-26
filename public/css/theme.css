@@ -1,36 +1,42 @@
-/* หมุนตังค์ — Mood & Tone: Premium Tech Creator (ดำเรียบหรู + แสงทอง)
-   Layout: แอปมือถือคอลัมน์เดียว การ์ดคาร์บอนบนพื้นดำ ทองใช้เฉพาะจุดสำคัญ */
+/* หมุนตังค์ — 2D Sticker Style
+   แนวคิด: เหมือนโลโก้นายหัวหมุน — พื้นครีม/เหลืองทอง เส้นขอบดำหนา สีแบน เงาแข็งแบบสติกเกอร์
+   ทองใช้เป็นพื้นของสิ่งที่สำคัญ ดำใช้เป็นเส้นและตัวหนังสือ */
 :root {
-  --space: #0d0d0d;      /* Deep Space Black */
-  --carbon: #1a1a1a;     /* Carbon Black */
-  --carbon-2: #232323;
-  --rule: #2c2a24;       /* เส้นแบ่งเทาอมทอง */
+  --ink: #0d0d0d;        /* Deep Space Black — เส้นและตัวอักษร */
+  --carbon: #1a1a1a;
   --gold: #ffc400;       /* Cosmic Gold */
   --amber: #ffb300;      /* Neon Amber */
-  --gold-dim: #8a6a00;
-  --moon: #f5f5f5;       /* Moon White */
-  --muted: #a39e92;
-  --faint: #6e6a60;
-  --good: #3ddc97;
-  --warn: #ffb300;
-  --bad: #ff6b5b;
-  --on-gold: #141100;
+  --gold-soft: #ffe58a;
+  --paper: #fff8e1;      /* พื้นครีม */
+  --paper-2: #fdeec0;
+  --card: #ffffff;       /* Moon White */
+  --line: #ead9a6;       /* เส้นจางอมทอง */
+  --muted: #6e6350;
+  --faint: #a59a80;
+  --good: #14a05a;
+  --warn: #e08a00;
+  --bad: #e5484d;
+  --on-gold: #0d0d0d;
 
-  --font-display: 'Chakra Petch', 'IBM Plex Sans Thai', system-ui, sans-serif;
-  --font-body: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
+  --font-display: 'Mitr', 'Anuphan', system-ui, sans-serif;
+  --font-body: 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
+  --font-num: 'Kanit', 'Mitr', system-ui, sans-serif; /* ตัวเลขเงิน: เลขศูนย์ไม่มีขีด */
 
-  --r-sm: 8px;
-  --r-md: 14px;
+  --stroke: 2px solid var(--ink);
+  --pop: 3px 3px 0 var(--ink);
+  --pop-lg: 4px 4px 0 var(--ink);
+  --r-sm: 10px;
+  --r-md: 16px;
   --r-lg: 22px;
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--space);
-  color: var(--moon);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.5;
@@ -38,15 +44,23 @@ body {
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.num { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+/* เหรียญทองแบบ 2D (ใช้เป็นตกแต่ง) */
+.coin {
+  display: inline-grid; place-items: center;
+  width: 1.4em; height: 1.4em; border-radius: 50%;
+  background: var(--gold); border: var(--stroke); box-shadow: inset -2px -2px 0 var(--amber);
+  font-family: var(--font-display); font-weight: 600; font-size: 0.8em; line-height: 1; color: var(--ink);
+}
+
 /* ---------- Flex Message renderer ---------- */
-.fx-bubble { border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; background: #fff; max-width: 100%; flex-shrink: 0; font-family: var(--font-body); }
-.fx-carousel { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x mandatory; max-width: 100%; }
+.fx-bubble { border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; background: #fff; max-width: 100%; flex-shrink: 0; font-family: var(--font-body); border: var(--stroke); box-shadow: var(--pop); }
+.fx-carousel { display: flex; gap: 10px; overflow-x: auto; padding: 0 4px 6px 0; scroll-snap-type: x mandatory; max-width: 100%; }
 .fx-carousel > .fx-bubble { scroll-snap-align: start; }
 .fx-box { display: flex; min-width: 0; }
 .fx-vertical { flex-direction: column; }
@@ -59,10 +73,9 @@ button { cursor: pointer; }
 .fx-sep { height: 1px; background: #ddd; flex: 0 0 auto; }
 .fx-sep.fx-sep-v { width: 1px; height: auto; }
 .fx-filler { flex: 1 1 0; }
-.fx-button { border: 0; border-radius: 8px; font-weight: 700; font-size: 14px; padding: 0 12px; width: 100%; }
+.fx-button { border: 0; border-radius: 10px; font-weight: 700; font-size: 14px; padding: 0 12px; width: 100%; }
 .fx-primary { background: #17c950; color: #fff; }
 .fx-secondary { background: #dcdfe5; color: #111; }
-.fx-secondary[style*='background'] { color: var(--moon); }
 .fx-link { background: transparent; }
 .fx-tap { cursor: pointer; }
-.fx-tap:hover { filter: brightness(1.15); }
+.fx-tap:hover { filter: brightness(0.95); }

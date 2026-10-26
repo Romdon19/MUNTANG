@@ -29,6 +29,9 @@ function renderBubble(b, onAction) {
     const node = renderNode(b[part], onAction, 'vertical');
     const bg = b.styles?.[part]?.backgroundColor;
     if (bg && !b[part].backgroundColor) node.style.backgroundColor = bg;
+    // separator: เส้นคั่นด้านบนของบล็อก
+    const st = b.styles?.[part];
+    if (st?.separator && part !== 'header') node.style.borderTop = `2px solid ${st.separatorColor || '#ddd'}`;
     root.append(node);
   }
   return root;
@@ -61,6 +64,11 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
       const s = node.style;
       if (n.backgroundColor) s.backgroundColor = n.backgroundColor;
       if (n.cornerRadius) s.borderRadius = px(n.cornerRadius);
+      if (n.borderWidth) {
+        const bw = { none: '0', light: '0.5px', normal: '1px', medium: '2px', 'semi-bold': '3px', bold: '4px' }[n.borderWidth] || n.borderWidth;
+        s.border = `${bw} solid ${n.borderColor || '#000'}`;
+      }
+      if (n.cornerRadius || n.borderWidth) s.overflow = 'hidden';
       if (n.width) s.width = n.width;
       if (n.height) s.height = n.height;
       if (n.paddingAll) s.padding = px(n.paddingAll);

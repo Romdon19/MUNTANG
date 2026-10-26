@@ -1,13 +1,13 @@
 <title>หมุนตังค์</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Kanit:wght@500;600&family=Anuphan:wght@400;500;600;700&display=swap">
 <style>
 /*__CSS__*/
 
-/* ---- demo shell: แถบแบรนด์ด้านบน + โทรศัพท์ 2 เครื่อง (แชท LINE | แดชบอร์ด) ---- */
+/* ---- demo shell 2D: แถบหัวเหลืองทองลายเหรียญ + โทรศัพท์ 2 เครื่องแบบสติกเกอร์ (แชท LINE | แดชบอร์ด) ---- */
 html, body { height: auto; }
-body { background: var(--space); }
+body { background: var(--paper); background-image: radial-gradient(var(--line) 1.2px, transparent 1.4px); background-size: 22px 22px; }
 .demo {
   max-width: 1080px; margin: 0 auto;
   padding-block: 20px 32px;
@@ -15,39 +15,52 @@ body { background: var(--space); }
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   display: flex; flex-direction: column; gap: 18px;
 }
-.demo-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.demo-logo { width: 64px; height: 64px; border-radius: 50%; box-shadow: 0 0 0 2px var(--gold), 0 0 28px rgba(255, 196, 0, 0.25); }
-.demo-title { flex: 1; min-width: 220px; }
-.demo-title h1 { margin: 0; font-family: var(--font-display); font-size: clamp(30px, 6vw, 42px); line-height: 1; color: var(--moon); letter-spacing: 0.01em; }
-.demo-title h1 b { color: var(--gold); }
-.demo-title p { margin: 6px 0 0; color: var(--muted); max-width: 60ch; text-wrap: pretty; }
-.demo-try { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.demo-try span { font-size: 13px; color: var(--faint); }
-.demo-try button {
-  border: 1px solid var(--gold-dim); background: transparent; color: var(--gold);
-  border-radius: 999px; padding: 6px 14px; font-size: 14px;
+.demo-head {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  background: var(--gold); border: var(--stroke); border-radius: 26px; padding: 16px 20px; box-shadow: var(--pop-lg);
+  position: relative; overflow: hidden;
 }
-.demo-try button:hover { background: var(--gold); color: var(--on-gold); }
-.demo-tabs { display: none; gap: 6px; background: var(--carbon); padding: 4px; border-radius: 999px; }
-.demo-tabs button { flex: 1; border: 0; background: none; color: var(--muted); padding: 9px; border-radius: 999px; font-weight: 600; }
-.demo-tabs button[aria-selected='true'] { background: var(--gold); color: var(--on-gold); }
+.demo-head::after { /* วงโคจรทองแบบโลโก้ พร้อมเหรียญ */
+  content: ''; position: absolute; right: -30px; top: 50%; width: 300px; height: 96px; border-radius: 50%;
+  border: 3px solid rgba(13, 13, 13, 0.16); transform: translateY(-50%) rotate(-14deg); pointer-events: none;
+  background: radial-gradient(circle at 16% 80%, var(--card) 0 8px, var(--ink) 8px 10.5px, transparent 11px),
+    radial-gradient(circle at 86% 18%, var(--card) 0 6px, var(--ink) 6px 8.5px, transparent 9px);
+}
+.demo-logo { width: 76px; height: 76px; border-radius: 50%; border: 3px solid var(--ink); box-shadow: var(--pop); animation: demo-bob 3s ease-in-out infinite; }
+@keyframes demo-bob { 50% { transform: translateY(-4px) rotate(-4deg); } }
+.demo-title { flex: 1; min-width: 220px; position: relative; z-index: 1; }
+.demo-title h1 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: clamp(34px, 7vw, 50px); line-height: 1; letter-spacing: 0.01em; text-wrap: balance; }
+.demo-title h1 b { font-weight: 600; background: var(--card); border: var(--stroke); border-radius: 12px; padding: 0 10px; margin-left: 4px; display: inline-block; transform: rotate(-3deg); box-shadow: 3px 3px 0 var(--ink); }
+.demo-title p { margin: 10px 0 0; color: #3b3000; max-width: 60ch; text-wrap: pretty; }
+.demo-try { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.demo-try span { font-size: 13px; color: var(--muted); font-weight: 600; }
+.demo-try button {
+  border: 1.5px solid var(--ink); background: var(--card); color: var(--ink);
+  border-radius: 999px; padding: 6px 14px; font-size: 14px; box-shadow: 2px 2px 0 var(--ink);
+}
+.demo-try button:hover { background: var(--gold); }
+.demo-try button:active { transform: translate(2px, 2px); box-shadow: none; }
+.demo-tabs { display: none; gap: 6px; background: var(--card); border: var(--stroke); padding: 4px; border-radius: 999px; }
+.demo-tabs button { flex: 1; border: 1.5px solid transparent; background: none; color: var(--muted); padding: 9px; border-radius: 999px; font-weight: 600; font-family: var(--font-display); }
+.demo-tabs button[aria-selected='true'] { background: var(--gold); color: var(--ink); border-color: var(--ink); }
 .demo-stage { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 400px); justify-content: center; gap: 36px; }
 .demo-pane { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.demo-pane h2 { margin: 0; font-family: var(--font-display); font-size: 13px; font-weight: 600; letter-spacing: 0.14em; color: var(--muted); text-align: center; }
+.demo-pane h2 { margin: 0; align-self: center; font-family: var(--font-display); font-size: 14px; font-weight: 500; background: var(--ink); color: var(--gold); padding: 3px 14px; border-radius: 999px; }
 .demo-phone {
   height: 760px; border-radius: 34px; overflow: hidden; position: relative;
-  border: 1px solid #3a3220; background: var(--space);
-  box-shadow: 0 0 0 6px #121212, 0 0 0 7px #2c2a24, 0 30px 60px rgba(0, 0, 0, 0.5);
+  border: 3px solid var(--ink); background: var(--paper);
+  box-shadow: 6px 6px 0 var(--ink);
 }
 .demo-phone > div { height: 100%; }
-.demo-note { margin: 0; text-align: center; font-size: 12.5px; color: var(--faint); max-width: 70ch; align-self: center; text-wrap: pretty; }
+.demo-note { margin: 0; text-align: center; font-size: 12.5px; color: var(--muted); max-width: 70ch; align-self: center; text-wrap: pretty; }
 
 @media (max-width: 900px) {
   .demo-tabs { display: flex; }
   .demo-stage { grid-template-columns: minmax(0, 440px); }
   .demo[data-pane='chat'] .demo-pane.is-dash, .demo[data-pane='dash'] .demo-pane.is-chat { display: none; }
   .demo-pane h2 { display: none; }
-  .demo-phone { height: min(760px, calc(100dvh - 120px)); min-height: 520px; border-radius: 22px; box-shadow: none; }
+  .demo-phone { height: min(760px, calc(100dvh - 120px)); min-height: 520px; border-radius: 22px; box-shadow: 4px 4px 0 var(--ink); }
+  .demo-head::after { display: none; }
 }
 </style>
 
