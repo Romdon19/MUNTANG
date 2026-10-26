@@ -69,7 +69,7 @@
 .sim-rich .is-rec b { font-size: 30px; line-height: 1; font-weight: 600; }
 .sim-rich .is-rec em { font-style: normal; font-size: 14px; font-weight: 500; }
 .sim-rich .is-rec small { font-size: 10.5px; font-weight: 500; font-family: var(--font-body); }
-.sim-rich .is-rec img { position: absolute; right: 8px; bottom: 8px; width: 46px; height: 46px; border-radius: 12px; }
+.sim-rich .is-rec img { position: absolute; right: 4px; bottom: 4px; width: 56px; height: 56px; }
 .sim-rich .is-goal { grid-area: goal; background: var(--gold); flex-direction: row; gap: 10px; justify-content: flex-start; padding: 0 12px; }
 .sim-rich .is-goal:hover { background: #ffcf33; }
 .sim-rich .is-goal .sim-ic-wrap { background: var(--ink); width: 38px; height: 38px; }

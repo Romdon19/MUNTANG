@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>หมุนตังค์ แชทจำลอง</title>
   <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600&family=Anuphan:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/sim.css">
@@ -19,8 +20,8 @@
     import { remoteBackend } from '/js/backend.js';
     import { mountSimulator } from '/js/simulator.js';
     mountSimulator(document.getElementById('sim'), remoteBackend(), {
-      logoUrl: '/assets/logo-192.jpg',
-      peekUrl: '/assets/peek.jpg',
+      logoUrl: '/assets/logo-256.png',
+      spinUrl: '/assets/mood-spin.png',
       onUri: (uri) => window.open(uri, '_blank', 'noopener'),
     });
   </script>

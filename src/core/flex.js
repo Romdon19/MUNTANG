@@ -377,11 +377,21 @@ export function editMenuMessage(tx) {
   );
 }
 
+/** รูปนายหัวหมุนตามอารมณ์ (ท่าไหนยังไม่มีรูป ใช้โลโก้แทน) */
+function moodPic(level, ctx) {
+  return (level === 'spin' && ctx?.spinUrl) || ctx?.logoUrl || '';
+}
+
 /** บรรทัดคำพูดนายหัวหมุนตามสถานะงบ */
-function moodPill(budget) {
+function moodPill(budget, ctx) {
   const m = moodFor(budget);
-  return box('horizontal', [text('👦', { flex: 0 }), box('vertical', [text(`${m.title} ${m.face}`, { weight: 'bold', size: 'xs' }), text(m.line, { size: 'xxs', color: C.muted })], { margin: 'sm' })], {
+  const pic = moodPic(m.level, ctx);
+  const face = pic
+    ? box('vertical', [{ type: 'image', url: pic, size: 'full', aspectRatio: '1:1', aspectMode: 'fit' }], { flex: 0, width: '44px', height: '44px' })
+    : text('👦', { flex: 0 });
+  return box('horizontal', [face, box('vertical', [text(`${m.title} ${m.face}`, { weight: 'bold', size: 'xs' }), text(m.line, { size: 'xxs', color: C.muted })], { margin: 'sm' })], {
     backgroundColor: m.level === 'spin' ? C.redTint : C.tint,
+    alignItems: 'center',
     cornerRadius: '12px',
     paddingAll: 'md',
     margin: 'lg',
@@ -446,7 +456,7 @@ export function summaryMessage(s, ctx, { budget } = {}) {
       );
     }
   }
-  if (budget?.total) body.push(moodPill(budget));
+  if (budget?.total) body.push(moodPill(budget, ctx));
   body.push(text(`ทั้งหมด ${s.count} รายการ`, { size: 'xxs', color: C.muted, margin: 'md', align: 'end' }));
   const footer = [];
   if (ctx?.links?.dashboard) footer.push(btn('ดูสรุปเต็มๆ', uri(ctx.links.view ? ctx.links.view('home') : ctx.links.dashboard)));
@@ -485,7 +495,7 @@ export function budgetMessage(b, ctx) {
         margin: 'sm',
       })
     );
-    body.push(moodPill(b));
+    body.push(moodPill(b, ctx));
   }
   if (b.cats.length) {
     body.push(sep({ margin: 'lg' }));

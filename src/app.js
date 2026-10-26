@@ -40,8 +40,8 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
     const useLiff = cfg.liffId && !isGroup;
     const page = (query) => (useLiff ? `https://liff.line.me/${cfg.liffId}${query ? `?${query}` : ''}` : `${base}/app/?t=${dashToken}${query ? `&${query}` : ''}`);
     return {
-      logoUrl: `${base}/assets/logo-192.jpg`,
-      peekUrl: `${base}/assets/peek.jpg`,
+      logoUrl: `${base}/assets/logo-256.png`,
+      spinUrl: `${base}/assets/mood-spin.png`,
       links: {
         dashboard: page(''),
         export: `${base}/api/export.csv?t=${exportToken}`,
@@ -59,7 +59,7 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
       store,
       ai,
       logoUrl: ctx.logoUrl,
-      peekUrl: ctx.peekUrl,
+      spinUrl: ctx.spinUrl,
       links: { dashboard: () => ctx.links.dashboard, export: () => ctx.links.export, view: ctx.links.view, edit: ctx.links.edit },
       getProfile: hasLine ? (id) => (id.startsWith('U') ? line.profile(id) : null) : undefined,
       getGroupName: hasLine ? (id) => line.groupName(id) : undefined,

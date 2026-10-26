@@ -6,6 +6,7 @@
   <title>หมุนตังค์</title>
   <meta name="theme-color" content="#ffc400">
   <link rel="icon" href="/assets/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600&family=Anuphan:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="/css/theme.css">
@@ -26,12 +27,12 @@
     const view = params.get('view') || liffState.get('view');
     const edit = params.get('edit') || liffState.get('edit');
     const backend = remoteBackend();
-    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-192.jpg', peekUrl: '/assets/peek.jpg', view, edit });
+    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-256.png', spinUrl: '/assets/mood-spin.png', view, edit });
     backend
       .authenticate()
       .then(() => dash.refresh())
       .catch((e) => {
-        root.innerHTML = '<div class="mt-loading"><img src="/assets/logo-192.jpg" alt=""><p></p></div>';
+        root.innerHTML = '<div class="mt-loading"><img src="/assets/logo-256.png" alt=""><p></p></div>';
         root.querySelector('p').textContent = e.message;
       });
     addEventListener('visibilitychange', () => document.visibilityState === 'visible' && dash.refresh());

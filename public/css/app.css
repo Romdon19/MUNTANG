@@ -80,7 +80,7 @@
 
 /* นายหัวหมุนพูด */
 .mt-says { display: flex; align-items: center; gap: 14px; background: var(--head); border-radius: var(--r-md); padding: 12px 14px; }
-.mt-says img { width: 64px; height: 64px; border-radius: 16px; flex: 0 0 64px; display: block; }
+.mt-says img { width: 72px; height: 72px; flex: 0 0 72px; display: block; object-fit: contain; }
 .mt-says div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .mt-says b { font-family: var(--font-display); font-weight: 600; font-size: 16px; }
 .mt-says span { font-size: 13px; color: #4a3b00; }
