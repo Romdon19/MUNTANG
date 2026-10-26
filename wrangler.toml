@@ -8,6 +8,11 @@ keep_vars = true
 workers_dev = true
 preview_urls = false
 
+# ค่าที่ไม่ใช่รหัสลับ (รหัสลับตั้งเป็น Secret ในหน้าเว็บ Cloudflare)
+[vars]
+LIFF_ID = "2012218154-yRrXmkTD"
+LINE_LOGIN_CHANNEL_ID = "2012218154"
+
 [build]
 command = "node scripts/copy-core.js"
 
