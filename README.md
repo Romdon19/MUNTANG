@@ -48,28 +48,51 @@ npm run build:demo   # -> dist/muntang-demo.html
 
 ## เชื่อมกับ LINE จริง
 
-1. **สร้าง LINE OA + Messaging API channel** ที่ <https://developers.line.biz/console/>
-   - คัดลอก *Channel secret* และออก *Channel access token (long-lived)*
-   - ใน LINE Official Account Manager ปิด "Auto-reply messages" และเปิด "Webhooks"
-2. **Deploy เซิร์ฟเวอร์** ที่ไหนก็ได้ที่ได้ HTTPS (Render, Railway, Fly.io, VPS + Docker)
-   - ตั้ง environment ตาม `.env.example`
-   - ข้อมูลเก็บเป็นไฟล์ JSON ใน `DATA_DIR` ต้องเป็นดิสก์ถาวร (mount volume) ไม่อย่างนั้นข้อมูลจะหายเมื่อรีสตาร์ต
-3. ตั้ง **Webhook URL** = `https://<โดเมน>/webhook` แล้วกด Verify
-4. **LIFF แดชบอร์ด**: สร้าง *LINE Login channel* → แท็บ LIFF → Add
-   - Endpoint URL: `https://<โดเมน>/app/` · Size: Full · Scope: `openid`, `profile`
-   - ใส่ `LIFF_ID` และ `LINE_LOGIN_CHANNEL_ID` (Channel ID ของ LINE Login channel)
-5. **Rich Menu**: เปิด `https://<โดเมน>/admin/setup-richmenu?key=<APP_SECRET>` ในเบราว์เซอร์ หรือรัน `npm run richmenu:setup` (ถ้าแก้หน้าตาเมนูใน `scripts/richmenu.html` ให้รัน `npm run richmenu:image` ก่อน)
-6. **AI อ่านสลิป**: ใส่ `ANTHROPIC_API_KEY` (ใช้ Claude อ่านรูปและแปลประโยคยาว ถ้าไม่ใส่ บอทยังจดจากข้อความได้ตามปกติ)
+### 1. LINE Official Account
+1. สร้างบัญชีที่ <https://manager.line.biz> → ตั้งค่า → Messaging API → เปิดใช้ (สร้าง Provider ชื่อ "หมุนตังค์")
+2. ตั้งค่าการตอบกลับ: ปิดแชท / ข้อความทักทาย / ตอบกลับอัตโนมัติ (Webhook จะเปิดได้หลังใส่ URL)
+3. ที่ <https://developers.line.biz/console> เก็บ *Channel secret* (Basic settings) และ *Channel access token* (Messaging API → Issue)
+
+### 2A. Deploy บน Cloudflare Workers + D1 (แนะนำ, มีแผนฟรี)
+1. Cloudflare Dashboard → **Storage & Databases → D1** → Create database ชื่อ `muntang` → คัดลอก *Database ID* ไปใส่ `database_id` ใน `wrangler.toml` แล้ว commit (ตารางสร้างให้อัตโนมัติ)
+2. **Workers & Pages → Create → Import a repository** → เลือก repo และ branch นี้ → Deploy (คำสั่ง deploy ค่าเริ่มต้น `npx wrangler deploy`)
+3. Worker → **Settings → Variables and Secrets** → เพิ่มแบบ *Secret*: `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN`, `APP_SECRET` (และ `ANTHROPIC_API_KEY`, `LIFF_ID`, `LINE_LOGIN_CHANNEL_ID` เมื่อพร้อม)
+4. เปิด `https://muntang.<subdomain>.workers.dev/healthz` ต้องเห็น `"line":true`
+- `BASE_URL` ไม่ต้องใส่ ระบบใช้โดเมนของ request ให้เอง
+- เตือนรายวัน/รายการประจำทำงานผ่าน Cron Trigger (ตั้งไว้ใน `wrangler.toml` แล้ว)
+- แผนฟรีจำกัด CPU ต่อ request ถ้าเจอ error "exceeded CPU" ใน Logs ให้อัปเกรด Workers Paid
+- ทดสอบในเครื่อง: `npm run cf:dev` (ใช้ D1 จำลอง ใส่ค่าลับใน `.dev.vars`)
+
+### 2B. หรือ Deploy เป็น Node.js (Railway / VPS / Docker)
+- `npm start` หรือใช้ `Dockerfile` ตั้ง environment ตาม `.env.example`
+- ข้อมูลเก็บเป็นไฟล์ JSON ใน `DATA_DIR` ต้องเป็นดิสก์ถาวร (เช่น Railway Volume ที่ `/data`)
+
+### 3. Webhook
+Developers Console → Messaging API → Webhook URL = `https://<โดเมน>/webhook` → Verify → เปิด *Use webhook*
+
+### 4. LIFF แดชบอร์ด
+สร้าง *LINE Login channel* ใน **Provider เดียวกัน** (คนละ Provider จะได้ userId คนละชุด) → แท็บ LIFF → Add
+- Endpoint URL: `https://<โดเมน>/app/` · Size: Full · Scope: `openid`, `profile`
+- ใส่ `LIFF_ID` และ `LINE_LOGIN_CHANNEL_ID` แล้วเปลี่ยน channel เป็น **Published**
+
+### 5. Rich Menu
+เปิด `https://<โดเมน>/admin/setup-richmenu?key=<APP_SECRET>` ในเบราว์เซอร์ (กดซ้ำได้ เมนูเก่าจะถูกแทนที่) หรือ `npm run richmenu:setup`
+
+### 6. AI อ่านสลิป
+ใส่ `ANTHROPIC_API_KEY` (ถ้าไม่ใส่ บอทยังจดจากข้อความได้ตามปกติ)
 
 ## โครงสร้างโปรเจกต์
 
 ```
 src/
-  server.js        Express: LINE webhook, API แดชบอร์ด, หน้าจำลอง
+  app.js           เส้นทาง HTTP ทั้งหมด (webhook, API แดชบอร์ด, หน้าจำลอง) แบบ Request -> Response
+  worker.js        จุดเริ่มบน Cloudflare Workers (+ Cron Trigger)
+  server.js        จุดเริ่มบน Node.js (Express เสิร์ฟไฟล์ + ตัวจับเวลา)
   line.js          เรียก LINE Messaging API / ตรวจลายเซ็น / ตรวจ LIFF token
   ai.js            Claude อ่านสลิป + แปลข้อความ (structured output)
-  scheduler.js     เตือนรายวัน + รายการประจำ (ทุก 1 นาที)
-  store.js         ฐานข้อมูลไฟล์ JSON (เปลี่ยนเป็น DB จริงได้โดยคง get/save)
+  jobs.js          เตือนรายวัน + รายการประจำ
+  store-d1.js      ฐานข้อมูล Cloudflare D1
+  store.js         ฐานข้อมูลไฟล์ JSON (Node)
   core/            สมองของบอท ใช้ร่วมกันทั้งเซิร์ฟเวอร์และเบราว์เซอร์
     parser.js      แปลงข้อความไทย -> รายการ
     categories.js  หมวด + คีย์เวิร์ด

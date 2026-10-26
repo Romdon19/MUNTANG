@@ -1,10 +1,4 @@
 // สร้าง Rich Menu 6 ช่อง แล้วตั้งเป็นเมนูหลักของ LINE OA
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { config } from './config.js';
-
-const IMAGE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public/assets/richmenu.png');
 const W = 2500, H = 1686, cw = [834, 833, 833], ch = 843;
 
 const area = (col, row, action) => ({
@@ -20,10 +14,11 @@ async function call(url, opts) {
   return text ? JSON.parse(text) : {};
 }
 
-export async function setupRichMenu() {
-  if (!config.lineAccessToken) throw new Error('ต้องตั้งค่า LINE_CHANNEL_ACCESS_TOKEN ก่อน');
-  const headers = { Authorization: `Bearer ${config.lineAccessToken}` };
-  const dashboardUri = config.liffId ? `https://liff.line.me/${config.liffId}` : null;
+/** cfg: ค่าตั้งค่า, image: ไบต์ของ public/assets/richmenu.png */
+export async function setupRichMenu(cfg, image) {
+  if (!cfg.lineAccessToken) throw new Error('ต้องตั้งค่า LINE_CHANNEL_ACCESS_TOKEN ก่อน');
+  const headers = { Authorization: `Bearer ${cfg.lineAccessToken}` };
+  const dashboardUri = cfg.liffId ? `https://liff.line.me/${cfg.liffId}` : null;
   const body = {
     size: { width: W, height: H },
     selected: true,
@@ -53,7 +48,7 @@ export async function setupRichMenu() {
   await call(`https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`, {
     method: 'POST',
     headers: { ...headers, 'Content-Type': 'image/png' },
-    body: fs.readFileSync(IMAGE),
+    body: image,
   });
   await call(`https://api.line.me/v2/bot/user/all/richmenu/${richMenuId}`, { method: 'POST', headers });
   return { richMenuId, dashboard: dashboardUri ? 'LIFF' : 'ข้อความ "แดชบอร์ด"' };

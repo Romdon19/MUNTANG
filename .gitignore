@@ -3,3 +3,6 @@ data/
 dist/
 .env
 *.log
+public/core/
+.wrangler/
+.dev.vars

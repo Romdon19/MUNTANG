@@ -1,7 +1,6 @@
 // ใช้ Claude อ่านสลิป/ใบเสร็จ และแปลประโยคยาวๆ เป็นรายการ
 import Anthropic from '@anthropic-ai/sdk';
 import { CATEGORIES } from './core/categories.js';
-import { config } from './config.js';
 
 const CATEGORY_IDS = CATEGORIES.map((c) => c.id);
 const CATEGORY_GUIDE = CATEGORIES.map((c) => `${c.id} (${c.type}): ${c.name}`).join('\n');
@@ -56,7 +55,7 @@ Categories (id (type): name):
 ${CATEGORY_GUIDE}
 Pick the category whose type matches the transaction type. Use "other"/"other_income" when unsure.`;
 
-export function createAI() {
+export function createAI(config) {
   if (!config.anthropicApiKey) return null;
   const client = new Anthropic({ apiKey: config.anthropicApiKey });
 

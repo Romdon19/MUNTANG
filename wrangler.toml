@@ -1,0 +1,26 @@
+name = "muntang"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+# เก็บค่า Variables/Secrets ที่ตั้งในหน้าเว็บ Cloudflare ไว้ ไม่ให้ถูกล้างตอน deploy
+keep_vars = true
+
+[build]
+command = "node scripts/copy-core.js"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# ฐานข้อมูลผู้ใช้ — ใส่ database_id ของ D1 ที่สร้างไว้
+[[d1_databases]]
+binding = "DB"
+database_name = "muntang"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# งานตามเวลา (เตือนรายวัน + รายการประจำ)
+[triggers]
+crons = ["* * * * *"]
+
+[observability]
+enabled = true
