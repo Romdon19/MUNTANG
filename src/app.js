@@ -21,10 +21,12 @@ const text = (body, status = 200, type = 'text/plain; charset=utf-8') => new Res
  *   loadAsset  (path) -> Promise<ArrayBuffer|Uint8Array>  ใช้อ่านรูป rich menu
  *   files?     { put(key, bytes, type), get(key) -> { body, contentType } | null }  เก็บรูปหลักฐาน
  *   speechToText?  (base64Audio) -> Promise<string>  แปลงเสียงเป็นข้อความ
+ *   freeAi?    AI สำรองแบบฟรี (Cloudflare Workers AI) ใช้เมื่อไม่ได้ตั้ง ANTHROPIC_API_KEY
  */
-export function createApp({ cfg, store, loadAsset, files, speechToText }) {
+export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }) {
   const line = createLine(cfg);
-  const ai = createAI(cfg);
+  // Claude ถ้ามี API key ไม่งั้นใช้ AI ฟรีของ Cloudflare
+  const ai = createAI(cfg) || freeAi || null;
   const auth = createAuth(cfg.appSecret);
   const hasLine = !!(cfg.lineChannelSecret && cfg.lineAccessToken);
 
@@ -89,7 +91,7 @@ export function createApp({ cfg, store, loadAsset, files, speechToText }) {
     ['POST', /^\/webhook$/, webhook],
     ['GET', /^\/config\.js$/, () =>
       text(`window.MUNTANG_CONFIG=${JSON.stringify({ liffId: cfg.liffId, demoMode: cfg.demoMode, aiEnabled: !!ai })};`, 200, 'application/javascript; charset=utf-8')],
-    ['GET', /^\/healthz$/, () => json({ ok: true, line: hasLine, ai: !!ai, liff: !!cfg.liffId, demo: cfg.demoMode })],
+    ['GET', /^\/healthz$/, () => json({ ok: true, line: hasLine, ai: ai ? ai.provider : false, liff: !!cfg.liffId, demo: cfg.demoMode })],
     ['GET', /^\/admin\/setup-richmenu$/, adminRichMenu],
     ['POST', /^\/api\/auth\/liff$/, authLiff],
     ['POST', /^\/api\/auth\/demo$/, authDemo],

@@ -86,7 +86,9 @@ Developers Console → Messaging API → Webhook URL = `https://<โดเมน
 เปิด `https://<โดเมน>/admin/setup-richmenu?key=<APP_SECRET>` ในเบราว์เซอร์ (กดซ้ำได้ เมนูเก่าจะถูกแทนที่) หรือ `npm run richmenu:setup`
 
 ### 6. AI อ่านสลิป
-ใส่ `ANTHROPIC_API_KEY` (ถ้าไม่ใส่ บอทยังจดจากข้อความได้ตามปกติ)
+- **ฟรี (ค่าเริ่มต้นบน Cloudflare):** ใช้ Cloudflare Workers AI (`@cf/meta/llama-4-scout-17b-16e-instruct`) ผ่าน binding `AI` ไม่ต้องมี API key ใช้โควตาฟรีรายวันของบัญชี อ่านรูปสลิป/ใบเสร็จและประโยคยาวได้ แต่ **อ่าน PDF ไม่ได้** · เปลี่ยนโมเดลด้วย `WORKERS_AI_MODEL` หรือปิดด้วย `FREE_AI=off`
+- **Claude (แม่นกว่า + อ่าน PDF Statement ได้):** ใส่ `ANTHROPIC_API_KEY` ระบบจะใช้ Claude แทนอัตโนมัติ
+- เช็กว่าใช้ตัวไหนอยู่ที่ `/healthz` (`"ai":"workers-ai"` หรือ `"ai":"claude"`)
 
 ## โครงสร้างโปรเจกต์
 

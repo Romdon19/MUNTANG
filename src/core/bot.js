@@ -422,7 +422,7 @@ export function createBot(deps) {
   async function handleFile(user, event, sess) {
     const name = event.message.fileName || '';
     if (!/\.pdf$/i.test(name)) return sess.isGroup ? [] : [ui.textMsg('ตอนนี้รับไฟล์ PDF Statement ธนาคารเท่านั้นนะ 📄')];
-    if (!deps.ai) return [ui.textMsg('การนำเข้า PDF Statement ต้องเปิดใช้ AI ก่อน (ตั้งค่า ANTHROPIC_API_KEY)')];
+    if (!deps.ai?.readStatement) return [ui.textMsg('การนำเข้า PDF Statement ต้องใช้ AI ของ Claude (ตั้งค่า ANTHROPIC_API_KEY)\nAI ฟรีอ่านได้เฉพาะรูปสลิป/ใบเสร็จนะ')];
     if (event.message.fileSize > 15 * 1024 * 1024) return [ui.textMsg('ไฟล์ใหญ่เกินไป (เกิน 15MB) ลองส่งทีละเดือนนะ')];
     const pdf = await deps.getImage(event);
     const items = await deps.ai.readStatement(pdf, todayStr(now()));

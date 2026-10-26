@@ -6,6 +6,7 @@ import { makeConfig } from './settings.js';
 import { createD1Store } from './store-d1.js';
 import { createApp } from './app.js';
 import { runJobs, windowStart } from './jobs.js';
+import { createWorkersAI } from './ai-workers.js';
 import { timeStr } from './core/dates.js';
 
 function r2Files(bucket) {
@@ -45,6 +46,8 @@ function boot(env) {
     store,
     files: r2Files(env.SLIPS),
     speechToText: whisper(env.AI),
+    // AI ฟรีสำหรับอ่านสลิป (ปิดได้ด้วย FREE_AI=off) เปลี่ยนโมเดลได้ด้วย WORKERS_AI_MODEL
+    freeAi: env.FREE_AI === 'off' ? null : createWorkersAI(env.AI, env.WORKERS_AI_MODEL || undefined),
     loadAsset: async (p) => (await env.ASSETS.fetch(new Request(`https://assets.local${p}`))).arrayBuffer(),
   });
   return { cfg, store, app };
