@@ -772,7 +772,7 @@ function acctIcon(a, ctx, px = 28) {
       flex: 0,
       width: `${px}px`,
       height: `${px}px`,
-      cornerRadius: `${Math.round(px * 0.25)}px`,
+      cornerRadius: `${Math.round(px / 2)}px`,
     });
   }
   return box('vertical', [{ type: 'filler' }], { flex: 0, width: '10px', height: '10px', cornerRadius: '5px', backgroundColor: a.color });

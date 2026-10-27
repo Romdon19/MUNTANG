@@ -14,8 +14,8 @@ export const ACCOUNT_TYPES = {
 export const LIABILITY = ['card', 'loan'];
 export const SPENDABLE = ['cash', 'bank', 'ewallet', 'card'];
 
-// ธนาคาร/ผู้ให้บริการที่เลือกได้ — ไอคอนเป็นป้ายสีประจำธนาคาร + ตัวย่อ (mono) ที่วาดเอง
-// ถ้าอยากใช้โลโก้จริง วางไฟล์ public/assets/banks/<id>.png ทับได้เลย
+// ธนาคาร/ผู้ให้บริการที่เลือกได้ — ไอคอนใช้โลโก้ใน assets-src/bank-logos/<id>.png (npm run icons)
+// ตัวไหนไม่มีโลโก้ ใช้ป้ายสีประจำ + ตัวย่อ (mono) ที่วาดเอง
 // words = คำที่พิมพ์ในแชทแล้วให้เข้าบัญชีนี้ (ระวังคำกว้างๆ เช่น "ทรู" ที่ชนกับค่าบิลทรู)
 export const PROVIDERS = [
   { id: 'kbank', name: 'กสิกรไทย', short: 'กสิกร', color: '#00A950', mono: 'K+', types: ['bank', 'card'], words: ['กสิกร', 'kbank', 'k plus', 'kplus', 'เคแบงก์'] },
@@ -38,6 +38,12 @@ export const PROVIDERS = [
   { id: 'firstchoice', name: 'กรุงศรี เฟิร์สช้อยส์', short: 'FirstChoice', color: '#6D2077', mono: 'FC', types: ['card'], words: ['first choice', 'firstchoice', 'เฟิร์สช้อยส์', 'เฟิร์สช้อย'] },
   { id: 'lhb', name: 'แลนด์ แอนด์ เฮ้าส์', short: 'LH Bank', color: '#6D6E71', mono: 'LH', types: ['bank'], words: ['lh bank', 'lhbank', 'แลนด์แอนด์เฮ้าส์'] },
   { id: 'tisco', name: 'ทิสโก้', short: 'TISCO', color: '#14387F', mono: 'TSC', types: ['bank'], words: ['tisco', 'ทิสโก้'] },
+  { id: 'ghb', name: 'อาคารสงเคราะห์', short: 'ธอส.', color: '#F68B1F', mono: 'ธอส', types: ['bank'], words: ['ธอส', 'ghb', 'อาคารสงเคราะห์'] },
+  { id: 'tcrb', name: 'ไทยเครดิต', short: 'ไทยเครดิต', color: '#F7941D', mono: 'TCR', types: ['bank'], words: ['ไทยเครดิต', 'tcrb'] },
+  { id: 'ibank', name: 'อิสลามแห่งประเทศไทย', short: 'ธอท.', color: '#006A44', mono: 'IB', types: ['bank'], words: ['ibank', 'ธนาคารอิสลาม'] },
+  { id: 'icbc', name: 'ICBC (ไทย)', short: 'ICBC', color: '#C7000B', mono: 'ICBC', types: ['bank'], words: ['icbc'] },
+  { id: 'citi', name: 'Citi', short: 'Citi', color: '#003B70', mono: 'citi', types: ['bank', 'card'], words: ['citi', 'ซิตี้'] },
+  { id: 'hsbc', name: 'HSBC', short: 'HSBC', color: '#DB0011', mono: 'HSBC', types: ['bank', 'card'], words: ['hsbc'] },
   { id: 'cardx', name: 'CardX', short: 'CardX', color: '#5E2CA5', mono: 'CX', types: ['card'], words: ['cardx', 'การ์ดเอ็กซ์'] },
 ];
 export const PROVIDER_MAP = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
@@ -57,14 +63,14 @@ const TYPE_GLYPH = {
   receivable: '<circle cx="48" cy="44" r="16"/><path d="M48 36v16M12 32h20M26 25l7 7-7 7"/>',
 };
 
-/** ไอคอน SVG ขนาด 80x80: ธนาคาร = พื้นสีประจำ + ตัวย่อ, ประเภท = พื้นสี + ภาพเส้น */
+/** ไอคอน SVG วงกลม 80x80 (ทรงเดียวกับโลโก้ธนาคาร): ธนาคาร = พื้นสีประจำ + ตัวย่อ, ประเภท = พื้นสี + ภาพเส้น */
 export function badgeSvg(key) {
   const p = PROVIDER_MAP[key];
   const bg = p?.color || TYPE_COLOR[key] || TYPE_COLOR.bank;
-  const head = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80"><rect width="80" height="80" rx="20" fill="${bg}"/>`;
-  if (!p) return `${head}<g fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">${TYPE_GLYPH[key] || TYPE_GLYPH.bank}</g></svg>`;
+  const head = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80"><circle cx="40" cy="40" r="40" fill="${bg}"/>`;
+  if (!p) return `${head}<g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" transform="translate(12 12) scale(0.7)">${TYPE_GLYPH[key] || TYPE_GLYPH.bank}</g></svg>`;
   const m = p.mono || p.short.slice(0, 3);
-  const size = m.length <= 2 ? 34 : m.length === 3 ? 26 : 20;
+  const size = m.length <= 2 ? 30 : m.length === 3 ? 23 : 18;
   return `${head}<text x="40" y="41" dominant-baseline="central" text-anchor="middle" font-family="Kanit, 'Noto Sans Thai', Arial, sans-serif" font-weight="700" font-size="${size}" fill="${p.fg || '#fff'}">${m}</text></svg>`;
 }
 

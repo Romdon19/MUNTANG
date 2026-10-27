@@ -8,13 +8,14 @@ import { badgeSvg } from '../core/accounts.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const SOURCE_LABEL = { chat: 'แชท', slip: 'สลิป', app: 'แอป', ai: 'AI', recurring: 'ประจำ', pdf: 'PDF' };
-const TABS = ['home', 'analysis', 'budget', 'list', 'settings', 'wallets'];
+const TABS = ['home', 'analysis', 'budget', 'list', 'settings', 'wallets', 'report'];
 const DAY_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
 
 // ไอคอนเส้นแบบแอปป้านวล
 const ICON = {
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   analysis: '<path d="M5 20V11M12 20V4M19 20v-6"/>',
+  report: '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/>',
   wallets: '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H18v3"/><rect x="3" y="8" width="18" height="12" rx="2.5"/><path d="M16 14h2"/>',
   budget: '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
@@ -41,6 +42,7 @@ export function mountDashboard(root, backend, opts = {}) {
     pendingAcct: opts.acct || null,
     wallet: '', // กรองรายการตามบัญชี
     listMode: 'list', // รายการ | ปฏิทิน | สลิป
+    rp: { period: 'cycle', offset: 0, tab: 'overview', chart: 'donut', show: { income: true, expense: true, transfer: true, debt: false } }, // หน้ารายงาน
     day: '', // วันที่เลือกในปฏิทิน
   };
 
@@ -174,6 +176,12 @@ export function mountDashboard(root, backend, opts = {}) {
     const rest = s.cats.slice(5).reduce((a, c) => a + c.total, 0);
     const parts = top.map((c) => ({ v: c.total, color: cat(c.id).color, label: cat(c.id).name }));
     if (rest > 0) parts.push({ v: rest, color: 'var(--faint)', label: 'อื่นๆ' });
+    return donutParts(parts, 'รายจ่าย', short(s.expense), 'สัดส่วนรายจ่ายตามหมวด');
+  }
+
+  /** โดนัททั่วไป: parts = [{ v, color, label }] */
+  function donutParts(parts, centerLabel, centerValue, aria, big = false) {
+    parts = parts.filter((p) => p.v > 0);
     const total = parts.reduce((a, p) => a + p.v, 0);
     const R = 52, r = 34, cx = 64, cy = 64;
     let a0 = -Math.PI / 2;
@@ -191,9 +199,9 @@ export function mountDashboard(root, backend, opts = {}) {
           })
           .join('')
       : `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="var(--track)" stroke-width="${R - r}"></circle>`;
-    return `<svg class="mt-donut" viewBox="0 0 128 128" role="img" aria-label="สัดส่วนรายจ่ายตามหมวด">${arcs}
-      <text x="64" y="60" text-anchor="middle" class="mt-donut-l">รายจ่าย</text>
-      <text x="64" y="78" text-anchor="middle" class="mt-donut-v">${short(s.expense)}</text></svg>`;
+    return `<svg class="mt-donut ${big ? 'is-big' : ''}" viewBox="0 0 128 128" role="img" aria-label="${esc(aria)}">${arcs}
+      <text x="64" y="60" text-anchor="middle" class="mt-donut-l">${esc(centerLabel)}</text>
+      <text x="64" y="78" text-anchor="middle" class="mt-donut-v">${esc(centerValue)}</text></svg>`;
   }
 
   function homeView() {
@@ -298,40 +306,255 @@ export function mountDashboard(root, backend, opts = {}) {
   }
   const gradeColor = (g) => ({ A: 'var(--green)', B: 'var(--green)', C: 'var(--amber)', D: 'var(--amber)', F: 'var(--red)' })[g];
 
-  /** รายรับ-รายจ่าย 12 เดือนล่าสุด (แท่งคู่) */
+  /** เดือน (YYYY-MM) ย้อนหลัง n เดือนจาก month */
+  const monthsBack = (month, n) =>
+    Array.from({ length: n }, (_, i) => {
+      const [y, m] = month.split('-').map(Number);
+      return new Date(Date.UTC(y, m - 1 - (n - 1 - i), 1)).toISOString().slice(0, 7);
+    });
+
+  /** แท่งคู่รายรับ-รายจ่าย: buckets = [{ label, tip, inc, exp }] */
+  function barsChart(buckets, aria) {
+    const n = buckets.length;
+    const max = niceMax(Math.max(1, ...buckets.map((b) => Math.max(b.inc, b.exp))));
+    const W = 340, H = 150, L = 34, B = 20, T = 8;
+    const cw = (W - L) / n;
+    const y = (v) => T + (H - T - B) * (1 - v / max);
+    const every = Math.ceil(n / 12);
+    const bars = buckets
+      .map((v, i) => {
+        const bw = Math.max(1.5, cw * 0.36);
+        const x = L + i * cw + (cw - bw * 2 - 1) / 2;
+        return `<g class="mt-bar" data-tip="${esc(v.tip)} · รับ ${money(v.inc)} · จ่าย ${money(v.exp)}">
+          <rect x="${L + i * cw}" y="${T}" width="${cw}" height="${H - T - B}" fill="transparent"/>
+          ${v.inc ? `<path d="${roundTop(x, y(v.inc), bw, H - B - y(v.inc))}" fill="var(--green)"/>` : ''}
+          ${v.exp ? `<path d="${roundTop(x + bw + 1, y(v.exp), bw, H - B - y(v.exp))}" fill="var(--gold)"/>` : ''}
+          ${i % every === 0 ? `<text x="${L + i * cw + cw / 2}" y="${H - 5}" text-anchor="middle" class="mt-axis">${esc(v.label)}</text>` : ''}</g>`;
+      })
+      .join('');
+    const grid = [0, 0.5, 1].map((f) => `<line x1="${L}" x2="${W}" y1="${y(max * f)}" y2="${y(max * f)}" stroke="var(--border)"/><text x="${L - 4}" y="${y(max * f) + 3}" text-anchor="end" class="mt-axis">${short(max * f)}</text>`).join('');
+    return `<div class="mt-chart"><svg viewBox="0 0 ${W} ${H}" class="mt-svg" role="img" aria-label="${esc(aria)}">${grid}${bars}</svg><div class="mt-tip" hidden></div></div>
+      <div class="mt-legend-i"><span><i style="background:var(--green)"></i>รายรับ</span><span><i style="background:var(--gold)"></i>รายจ่าย</span></div>`;
+  }
+
+  /** รายรับ-รายจ่าย 12 เดือนล่าสุด */
   function yearChart() {
-    const months = [];
-    const cur = todayStr().slice(0, 7);
-    for (let i = 11; i >= 0; i--) {
-      const [y, m] = cur.split('-').map(Number);
-      const d = new Date(Date.UTC(y, m - 1 - i, 1));
-      months.push(d.toISOString().slice(0, 7));
-    }
+    const months = monthsBack(todayStr().slice(0, 7), 12);
     const sums = Object.fromEntries(months.map((k) => [k, { inc: 0, exp: 0 }]));
     for (const t of st.data.txs) {
       const k = t.date.slice(0, 7);
       if (sums[k]) sums[k][t.type === 'income' ? 'inc' : 'exp'] += t.amount;
     }
-    const max = niceMax(Math.max(1, ...months.map((k) => Math.max(sums[k].inc, sums[k].exp))));
-    const W = 340, H = 150, L = 34, B = 20, T = 8;
-    const cw = (W - L) / 12;
-    const y = (v) => T + (H - T - B) * (1 - v / max);
-    const bars = months
-      .map((k, i) => {
-        const x = L + i * cw + cw * 0.15;
-        const bw = cw * 0.33;
-        const mi = Number(k.slice(5)) - 1;
-        const v = sums[k];
-        return `<g class="mt-bar" data-tip="${TH_MONTHS[mi]} · รับ ${money(v.inc)} · จ่าย ${money(v.exp)}">
-          <rect x="${L + i * cw}" y="${T}" width="${cw}" height="${H - T - B}" fill="transparent"/>
-          ${v.inc ? `<path d="${roundTop(x, y(v.inc), bw, H - B - y(v.inc))}" fill="var(--green)"/>` : ''}
-          ${v.exp ? `<path d="${roundTop(x + bw + 1, y(v.exp), bw, H - B - y(v.exp))}" fill="var(--gold)"/>` : ''}
-          <text x="${L + i * cw + cw / 2}" y="${H - 5}" text-anchor="middle" class="mt-axis">${TH_MONTHS[mi].replace('.', '').slice(0, 3)}</text></g>`;
-      })
-      .join('');
-    const grid = [0, 0.5, 1].map((f) => `<line x1="${L}" x2="${W}" y1="${y(max * f)}" y2="${y(max * f)}" stroke="var(--border)"/><text x="${L - 4}" y="${y(max * f) + 3}" text-anchor="end" class="mt-axis">${short(max * f)}</text>`).join('');
-    return `<div class="mt-chart"><svg viewBox="0 0 ${W} ${H}" class="mt-svg" role="img" aria-label="รายรับรายจ่าย 12 เดือน">${grid}${bars}</svg><div class="mt-tip" hidden></div></div>
-      <div class="mt-legend-i"><span><i style="background:var(--green)"></i>รายรับ</span><span><i style="background:var(--gold)"></i>รายจ่าย</span></div>`;
+    return barsChart(
+      months.map((k) => ({ ...sums[k], label: TH_MONTHS[Number(k.slice(5)) - 1].replace('.', '').slice(0, 3), tip: thaiMonthOf(k) })),
+      'รายรับรายจ่าย 12 เดือน'
+    );
+  }
+  const thaiMonthOf = (k) => `${TH_MONTHS[Number(k.slice(5)) - 1]} ${String(Number(k.slice(0, 4)) + 543).slice(2)}`;
+
+  // ---------------- รายงาน ----------------
+  const PERIODS = [
+    ['all', 'ทั้งหมด'],
+    ['day', 'วัน'],
+    ['week', 'สัปดาห์'],
+    ['cycle', 'เดือน'],
+    ['quarter', 'ไตรมาส'],
+    ['year', 'ปี'],
+  ];
+
+  /** ช่วงเวลาของรายงาน (offset = เลื่อนย้อน/ไปข้างหน้า) */
+  function periodRange(period, offset) {
+    const today = todayStr();
+    const startDay = st.data.settings.cycleStartDay || 1;
+    if (period === 'day') {
+      const d = addDays(today, offset);
+      return { from: d, to: d, label: `${TH_DAYS[weekday(d)]} ${thaiDate(d)}` };
+    }
+    if (period === 'week') {
+      const mon = addDays(today, -((weekday(today) + 6) % 7) + offset * 7);
+      const sun = addDays(mon, 6);
+      return { from: mon, to: sun, label: `${thaiDate(mon, { year: false })} - ${thaiDate(sun)}` };
+    }
+    if (period === 'cycle') {
+      const c = shiftCycle(cycleOf(today, startDay), offset, startDay);
+      return { from: c.from, to: c.to, label: c.label };
+    }
+    if (period === 'quarter') {
+      const [y, m] = today.split('-').map(Number);
+      const qi = Math.floor((m - 1) / 3) + offset;
+      const yy = y + Math.floor(qi / 4);
+      const q = ((qi % 4) + 4) % 4;
+      const from = `${yy}-${String(q * 3 + 1).padStart(2, '0')}-01`;
+      const end = new Date(Date.UTC(yy, q * 3 + 3, 0)).toISOString().slice(0, 10);
+      return { from, to: end, label: `ไตรมาส ${q + 1}/${yy + 543}` };
+    }
+    if (period === 'year') {
+      const yy = Number(today.slice(0, 4)) + offset;
+      return { from: `${yy}-01-01`, to: `${yy}-12-31`, label: `ปี ${yy + 543}` };
+    }
+    const dates = [...st.data.txs.map((t) => t.date), ...st.data.transfers.map((x) => x.date)].sort();
+    return { from: dates[0] || today, to: today, label: 'ทั้งหมด' };
+  }
+
+  /** ประเภทการโอน: จ่ายบัตร / จ่ายหนี้ / ยืม / ให้ยืม / ได้คืน / โอนระหว่างบัญชี */
+  function transferKind(x) {
+    const f = wallet(x.from)?.type;
+    const t = wallet(x.to)?.type;
+    if (t === 'card') return 'จ่ายบัตรเครดิต';
+    if (t === 'loan') return 'จ่ายหนี้';
+    if (f === 'loan') return 'ยืมเงิน';
+    if (t === 'receivable') return 'ให้ยืม';
+    if (f === 'receivable') return 'ได้เงินคืน';
+    if (t === 'cash') return 'กดเงินสด';
+    return 'โอนระหว่างบัญชี';
+  }
+
+  /** แท่งตามช่วงเวลา: วัน/สัปดาห์/เดือน = รายวัน, ไตรมาส/ปี/ทั้งหมด = รายเดือน */
+  function periodBuckets(range, txs) {
+    const daily = diffDays(range.from, range.to) <= 31;
+    const keys = [];
+    if (daily) for (let i = 0; i <= diffDays(range.from, range.to); i++) keys.push(addDays(range.from, i));
+    else {
+      let k = range.from.slice(0, 7);
+      while (k <= range.to.slice(0, 7) && keys.length < 120) {
+        keys.push(k);
+        const [y, m] = k.split('-').map(Number);
+        k = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
+      }
+    }
+    const sums = Object.fromEntries(keys.map((k) => [k, { inc: 0, exp: 0 }]));
+    for (const t of txs) {
+      const k = daily ? t.date : t.date.slice(0, 7);
+      if (sums[k]) sums[k][t.type === 'income' ? 'inc' : 'exp'] += t.amount;
+    }
+    return keys.map((k) => ({ ...sums[k], label: daily ? String(Number(k.slice(8))) : TH_MONTHS[Number(k.slice(5)) - 1].replace('.', '').slice(0, 3), tip: daily ? thaiDate(k) : thaiMonthOf(k) }));
+  }
+
+  const TYPE_COLOR = { income: 'var(--green)', expense: 'var(--gold)', transfer: '#5B8DEF', debt: 'var(--red)' };
+
+  function reportView() {
+    const rp = st.rp;
+    const range = periodRange(rp.period, rp.offset);
+    const txs = st.data.txs.filter((t) => t.date >= range.from && t.date <= range.to);
+    const xfers = st.data.transfers.filter((x) => x.date >= range.from && x.date <= range.to);
+    const s = summarize(txs);
+    const xferTotal = xfers.reduce((a, x) => a + x.amount, 0);
+    const t = st.data.accountTotals;
+    const debtAccts = st.data.accounts.filter((a) => !a.archived && a.known && isLiab(a) && a.used > 0);
+    const incCount = txs.filter((x) => x.type === 'income').length;
+    const expCount = txs.length - incCount;
+    const tabBtn = (v, l, dot) => `<button class="mt-pill ${rp.tab === v ? 'is-on' : ''}" data-act="rptab" data-v="${v}"><i style="background:${dot}"></i>${l}</button>`;
+    const toggle = (k, l) => `<button class="mt-check-chip ${rp.show[k] ? 'is-on' : ''}" data-act="rpshow" data-v="${k}" style="--c:${TYPE_COLOR[k]}"><i></i>${l}</button>`;
+    const nav = rp.period === 'all' ? '' : `<div class="mt-range"><button data-act="rpnav" data-d="-1" aria-label="ก่อนหน้า">‹</button><span>${esc(range.label)}</span><button data-act="rpnav" data-d="1" aria-label="ถัดไป" ${rp.offset >= 0 ? 'disabled' : ''}>›</button></div>`;
+    const head = `
+      <div class="mt-row-h"><h2>รายงาน</h2>${nav}</div>
+      <div class="mt-pills">${PERIODS.map(([v, l]) => `<button class="mt-pill ${rp.period === v ? 'is-on' : ''}" data-act="rpperiod" data-v="${v}">${l}</button>`).join('')}</div>
+      <div class="mt-pills is-tabs">${tabBtn('overview', 'ทั่วไป', 'var(--ink)')}${tabBtn('expense', 'รายจ่าย', TYPE_COLOR.expense)}${tabBtn('income', 'รายรับ', TYPE_COLOR.income)}${tabBtn('account', 'บัญชี', '#8A5A00')}${tabBtn('transfer', 'โอน', TYPE_COLOR.transfer)}</div>`;
+
+    if (rp.tab === 'expense' || rp.tab === 'income') {
+      const inc = rp.tab === 'income';
+      const list = (inc ? s.incomeCats : s.cats).map((c) => ({ ...c, n: txs.filter((x) => x.categoryId === c.id).length }));
+      const total = inc ? s.income : s.expense;
+      const parts = list.slice(0, 6).map((c) => ({ v: c.total, color: cat(c.id).color, label: cat(c.id).name }));
+      const rest = list.slice(6).reduce((a, c) => a + c.total, 0);
+      if (rest) parts.push({ v: rest, color: 'var(--faint)', label: 'อื่นๆ' });
+      return `${head}
+        <section class="mt-card">
+          <div class="mt-card-h"><h3>${inc ? 'รายรับ' : 'รายจ่าย'}ตามหมวด</h3><span class="mt-sub">${inc ? incCount : expCount} รายการ</span></div>
+          <div class="mt-rp-donut">${donutParts(parts, inc ? 'รายรับ' : 'รายจ่าย', short(total), `${inc ? 'รายรับ' : 'รายจ่าย'}ตามหมวด`, true)}</div>
+          ${
+            list.length
+              ? `<ul class="mt-rp-list">${list
+                  .map((c) => `<li><button data-act="filtercat" data-id="${c.id}"><span class="mt-catic" style="background:${cat(c.id).color}22">${cat(c.id).emoji}</span><span class="mt-tx-main"><b>${esc(cat(c.id).name)}</b><span class="mt-sub">${c.n} รายการ · ${Math.round((c.total / (total || 1)) * 100)}%</span>${bar(c.total / (list[0].total || 1), cat(c.id).color)}</span><b class="num ${inc ? 'is-inc' : ''}">${money(c.total)}</b></button></li>`)
+                  .join('')}</ul>`
+              : '<p class="mt-empty">ไม่มีรายการในช่วงนี้</p>'
+          }
+        </section>`;
+    }
+
+    if (rp.tab === 'account') {
+      const rows = st.data.accounts
+        .filter((a) => ['cash', 'bank', 'ewallet', 'card'].includes(a.type))
+        .map((a) => {
+          const own = txs.filter((x) => x.wallet === a.id);
+          const out = own.filter((x) => x.type === 'expense').reduce((v, x) => v + x.amount, 0);
+          const inn = own.filter((x) => x.type === 'income').reduce((v, x) => v + x.amount, 0);
+          return { a, out, inn, n: own.length };
+        })
+        .filter((r) => r.n)
+        .sort((x, y) => y.out - x.out);
+      const maxOut = Math.max(1, ...rows.map((r) => r.out));
+      return `${head}
+        <section class="mt-card">
+          <div class="mt-card-h"><h3>ใช้จ่ายจากบัญชีไหน</h3><span class="mt-sub">${esc(range.label)}</span></div>
+          ${
+            rows.length
+              ? `<ul class="mt-rp-list">${rows
+                  .map((r) => `<li><button data-act="acctlist" data-id="${r.a.id}">${acctImg(r.a.icon)}<span class="mt-tx-main"><b>${esc(r.a.name)}</b><span class="mt-sub">${r.n} รายการ${r.inn ? ` · รับ ${money(r.inn)}` : ''}</span>${bar(r.out / maxOut, r.a.color)}</span><b class="num">${money(r.out)}</b></button></li>`)
+                  .join('')}</ul>`
+              : '<p class="mt-empty">ไม่มีรายการในช่วงนี้</p>'
+          }
+        </section>`;
+    }
+
+    if (rp.tab === 'transfer') {
+      const kinds = {};
+      for (const x of xfers) (kinds[transferKind(x)] ||= { total: 0, n: 0 }).total += x.amount, kinds[transferKind(x)].n++;
+      return `${head}
+        <section class="mt-card">
+          <div class="mt-card-h"><h3>โอน · จ่ายบัตร · จ่ายหนี้</h3><span class="mt-sub">ไม่นับเป็นรายรับรายจ่าย</span></div>
+          <div class="mt-big"><b class="num" style="color:${TYPE_COLOR.transfer}">${money(xferTotal)}</b><span class="mt-sub">${xfers.length} รายการ</span></div>
+          ${Object.keys(kinds).length ? `<dl class="mt-kv">${Object.entries(kinds).sort((a, b) => b[1].total - a[1].total).map(([k, v]) => `<div><dt>${k} (${v.n})</dt><dd class="num">${money(v.total)}</dd></div>`).join('')}</dl>` : '<p class="mt-empty">ไม่มีการโอนในช่วงนี้</p>'}
+        </section>
+        ${
+          xfers.length
+            ? `<section class="mt-card"><ul class="mt-txs">${[...xfers]
+                .sort(byNewest)
+                .map((x) => `<li><div class="mt-tx"><span class="mt-xfer">${acctImg(wallet(x.from).icon || 'bank', 'is-xs')}<i>→</i>${acctImg(wallet(x.to).icon || 'bank', 'is-xs')}</span><span class="mt-tx-main"><span class="mt-tx-note">${esc(x.note)}</span><span class="mt-sub">${thaiDate(x.date)} · ${esc(transferKind(x))}</span></span><span class="num mt-amt">${money(x.amount)}</span></div></li>`)
+                .join('')}</ul></section>`
+            : ''
+        }`;
+    }
+
+    // ทั่วไป
+    const segs = [];
+    if (rp.show.income) segs.push({ v: s.income, color: TYPE_COLOR.income, label: 'รายรับ' });
+    if (rp.show.expense) segs.push({ v: s.expense, color: TYPE_COLOR.expense, label: 'รายจ่าย' });
+    if (rp.show.transfer) segs.push({ v: xferTotal, color: TYPE_COLOR.transfer, label: 'โอน (เป็นกลาง)' });
+    if (rp.show.debt) segs.push({ v: t.debt, color: TYPE_COLOR.debt, label: 'หนี้สิน' });
+    const segTotal = segs.reduce((a, x) => a + x.v, 0);
+    const card = (k, title, n, v, extra = '') => `<div class="mt-rp-card is-${k}"><div><b>${title}</b><span>${n}</span></div><b class="num">${v}</b>${extra}</div>`;
+    return `${head}
+      <section class="mt-card">
+        <div class="mt-card-h"><h3>${esc(range.label)}</h3>
+          <div class="mt-seg-ic"><button class="${rp.chart === 'donut' ? 'is-on' : ''}" data-act="rpchart" data-v="donut" aria-label="แผนภูมิวงกลม">${icon('report')}</button><button class="${rp.chart === 'bar' ? 'is-on' : ''}" data-act="rpchart" data-v="bar" aria-label="กราฟแท่ง">${icon('analysis')}</button></div></div>
+        <div class="mt-chips"><span class="mt-chip-s">${txs.length} รายการ</span><span class="mt-chip-s num ${s.net < 0 ? 'is-bad' : 'is-good'}">${s.net >= 0 ? '+' : ''}${money(s.net)}</span></div>
+        <div class="mt-chips">${toggle('income', 'รายรับ')}${toggle('expense', 'รายจ่าย')}${toggle('transfer', 'โอน')}${toggle('debt', 'หนี้สิน')}</div>
+        ${
+          rp.chart === 'bar' && rp.period !== 'day'
+            ? barsChart(periodBuckets(range, txs), `รายรับรายจ่าย ${range.label}`)
+            : `<div class="mt-rp-donut">${donutParts(segs, 'สุทธิ', short(s.net), 'สัดส่วนรายรับรายจ่าย', true)}
+              <ul class="mt-rp-legend">${segs.map((x) => `<li><i style="background:${x.color}"></i><span>${x.label}</span><b class="num">${segTotal ? Math.round((x.v / segTotal) * 1000) / 10 : 0}%</b></li>`).join('')}</ul></div>`
+        }
+      </section>
+      <section class="mt-rp-cards">
+        ${card('income', 'รายรับ', `${incCount} รายการ`, money(s.income))}
+        ${card('expense', 'รายจ่าย', `${expCount} รายการ`, money(s.expense))}
+        ${card('transfer', 'โอน · จ่ายบัตร · จ่ายหนี้', `${xfers.length} รายการ`, money(xferTotal))}
+        ${card('debt', 'หนี้สินคงค้าง (ตอนนี้)', `${debtAccts.length} บัญชี`, money(t.debt))}
+      </section>
+      <section class="mt-card">
+        <div class="mt-card-h"><h3>สรุปตามช่วงเวลา</h3></div>
+        <div class="mt-quick">${[
+          ['day', 'สรุปรายวัน', '#F97316'],
+          ['week', 'สรุปรายสัปดาห์', '#16A34A'],
+          ['cycle', 'สรุปรายเดือน', '#2563EB'],
+          ['quarter', 'สรุปรายไตรมาส', '#6366F1'],
+          ['year', 'สรุปรายปี', '#9333EA'],
+        ]
+          .map(([v, l, c]) => `<button data-act="rpperiod" data-v="${v}" style="--c:${c}"><i>${icon('analysis')}</i>${l}</button>`)
+          .join('')}<button data-act="opencal" style="--c:#8A5A00"><i>${icon('cal')}</i>ปฏิทิน</button></div>
+      </section>`;
   }
 
   function insightsBlock() {
@@ -644,9 +867,11 @@ export function mountDashboard(root, backend, opts = {}) {
     { key: 'card', label: 'บัตรเครดิต', types: ['card'] },
   ];
   const isLiab = (a) => a.type === 'card' || a.type === 'loan';
-  /** ไอคอนธนาคาร: บนเซิร์ฟเวอร์ใช้ PNG (วางโลโก้จริงทับได้) ในเดโมใช้ SVG ที่วาดเอง */
-  const acctImg = (key, cls = '') =>
-    opts.iconBase ? `<img class="mt-ico ${cls}" src="${esc(opts.iconBase)}/${esc(key)}.png" alt="" loading="lazy">` : `<span class="mt-ico ${cls}">${badgeSvg(key)}</span>`;
+  /** ไอคอนธนาคาร: PNG จาก /assets/banks (โลโก้จริง) · เดโมใช้รูปที่ฝังไว้ (iconMap) · ไม่มีทั้งคู่ใช้ SVG ที่วาดเอง */
+  const acctImg = (key, cls = '') => {
+    const src = opts.iconMap?.[key] || (opts.iconBase ? `${opts.iconBase}/${key}.png` : '');
+    return src ? `<img class="mt-ico ${cls}" src="${esc(src)}" alt="" loading="lazy">` : `<span class="mt-ico ${cls}">${badgeSvg(key)}</span>`;
+  };
 
   /** ตัวเลขหลักของบัญชี: ยอดคงเหลือ / บัตร-หนี้ = ยอดค้าง */
   function acctFigure(a) {
@@ -837,7 +1062,20 @@ export function mountDashboard(root, backend, opts = {}) {
       ['ส่งออก', 'ดาวน์โหลด CSV'],
       ['ลบข้อมูล', 'ล้างรายการ / ลบบัญชี'],
     ];
+    const menu = [
+      ['tab', 'budget', 'budget', 'งบประมาณ', 'งบรวม · งบรายหมวด'],
+      ['tab', 'budget', 'cal', 'เป้าหมายออม', 'กระปุก · รายการประจำ'],
+      ['tab', 'wallets', 'wallets', 'กระเป๋าเงิน', 'บัญชี · บัตร · หนี้'],
+      ['tab', 'report', 'report', 'รายงาน', 'วัน · เดือน · ไตรมาส · ปี'],
+      ['opencal', '', 'cal', 'ปฏิทิน', 'รายรับรายจ่ายรายวัน'],
+      ['tab', 'analysis', 'analysis', 'ข้อมูลเชิงลึก', 'สุขภาพการเงิน'],
+      ['export', '', 'list', 'ส่งออกข้อมูล', 'CSV · Excel'],
+    ];
     return `
+      <div class="mt-row-h"><h2>เมนู</h2></div>
+      <section class="mt-menu">${menu
+        .map(([act, tab, ic, title, sub]) => `<button data-act="${act}" ${tab ? `data-tab="${tab}"` : ''}><i>${icon(ic)}</i><span><b>${title}</b><small>${sub}</small></span></button>`)
+        .join('')}</section>
       <div class="mt-row-h"><h2>ตั้งค่า</h2></div>
       <section class="mt-card">
         <form class="mt-form" data-form="settings">
@@ -1083,9 +1321,9 @@ export function mountDashboard(root, backend, opts = {}) {
   }
 
   function nav() {
-    const on = st.tab;
+    const on = st.tab === 'budget' ? 'settings' : st.tab;
     const item = (tab, label) => `<button class="${on === tab ? 'is-on' : ''}" data-act="tab" data-tab="${tab}" aria-label="${label}">${icon(tab)}<span>${label}</span></button>`;
-    return `<nav class="mt-nav">${item('home', 'สรุป')}${item('wallets', 'กระเป๋า')}${item('analysis', 'เชิงลึก')}${item('budget', 'งบ')}${item('list', 'รายการ')}${item('settings', 'เมนู')}</nav>`;
+    return `<nav class="mt-nav">${item('home', 'สรุป')}${item('wallets', 'กระเป๋า')}${item('report', 'รายงาน')}${item('analysis', 'เชิงลึก')}${item('list', 'รายการ')}${item('settings', 'เมนู')}</nav>`;
   }
 
   function render() {
@@ -1098,7 +1336,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const searchFocused = document.activeElement?.id === 'mt-search';
     const scroller = root.querySelector('.mt-main');
     const scrollTop = scroller?.scrollTop || 0;
-    const views = { home: homeView, analysis: analysisView, budget: budgetView, list: listView, settings: settingsView, wallets: walletsView };
+    const views = { home: homeView, analysis: analysisView, budget: budgetView, list: listView, settings: settingsView, wallets: walletsView, report: reportView };
     root.innerHTML = `<main class="mt-main">${views[st.tab]()}</main>${nav()}${sheetView()}${st.toast ? `<div class="mt-toast" role="status">${esc(st.toast)}</div>` : ''}`;
     const main = root.querySelector('.mt-main');
     if (main && root.dataset.tab === st.tab) main.scrollTop = scrollTop;
@@ -1151,6 +1389,37 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'type':
         st.type = b.dataset.v;
         render();
+        break;
+      case 'rptab':
+        st.rp.tab = b.dataset.v;
+        render();
+        break;
+      case 'rpperiod':
+        st.rp.period = b.dataset.v;
+        st.rp.offset = 0;
+        if (b.closest('.mt-quick')) {
+          st.rp.tab = 'overview';
+          root.querySelector('.mt-main')?.scrollTo(0, 0);
+        }
+        render();
+        break;
+      case 'rpnav':
+        st.rp.offset = Math.min(0, st.rp.offset + Number(b.dataset.d));
+        render();
+        break;
+      case 'rpshow':
+        st.rp.show[b.dataset.v] = !st.rp.show[b.dataset.v];
+        render();
+        break;
+      case 'rpchart':
+        st.rp.chart = b.dataset.v;
+        render();
+        break;
+      case 'opencal':
+        st.tab = 'list';
+        st.listMode = 'cal';
+        render();
+        root.querySelector('.mt-main')?.scrollTo(0, 0);
         break;
       case 'listmode':
         st.listMode = b.dataset.v;

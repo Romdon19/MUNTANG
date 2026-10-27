@@ -315,11 +315,11 @@ button.mt-tx:hover { background: var(--bg); }
 .mt-form .mt-amount.is-sm input { font-size: 26px; }
 
 /* ---------- ไอคอนธนาคาร / ความมั่งคั่ง / กลุ่มบัญชี ---------- */
-.mt-ico { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 11px; display: inline-block; overflow: hidden; object-fit: cover; vertical-align: middle; }
+.mt-ico { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; display: inline-block; overflow: hidden; object-fit: cover; vertical-align: middle; }
 .mt-ico svg { width: 100%; height: 100%; display: block; }
-.mt-ico.is-xs { flex-basis: 20px; width: 20px; height: 20px; border-radius: 6px; }
-.mt-ico.is-sm { flex-basis: 26px; width: 26px; height: 26px; border-radius: 8px; }
-.mt-ico.is-lg { flex-basis: 52px; width: 52px; height: 52px; border-radius: 15px; }
+.mt-ico.is-xs { flex-basis: 20px; width: 20px; height: 20px; }
+.mt-ico.is-sm { flex-basis: 26px; width: 26px; height: 26px; }
+.mt-ico.is-lg { flex-basis: 52px; width: 52px; height: 52px; }
 .mt-card-h h3 .mt-ico { margin-right: 4px; }
 .mt-worth {
   position: relative; overflow: hidden; border-radius: var(--r-lg); padding: 16px 18px 14px;
@@ -424,3 +424,59 @@ button.mt-tx:hover { background: var(--bg); }
 .mt-slip-b b { font-family: var(--font-num); font-size: 16px; font-weight: 600; }
 .mt-slip-b b.is-inc { color: var(--green); }
 .mt-slip-b small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- รายงาน ---------- */
+.mt-pills { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px; }
+.mt-pills::-webkit-scrollbar { display: none; }
+.mt-pill { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.mt-pill i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.mt-pill.is-on { background: var(--ink); border-color: var(--ink); color: var(--gold); }
+.mt-pills.is-tabs .mt-pill.is-on { background: var(--gold-tint); border-color: var(--gold); color: var(--gold-text); }
+.mt-range button[disabled] { opacity: 0.3; }
+.mt-seg-ic { display: flex; background: var(--track); border-radius: 10px; padding: 2px; }
+.mt-seg-ic button { border: 0; background: none; border-radius: 8px; padding: 3px 9px; font-size: 13px; color: var(--muted); }
+.mt-seg-ic button.is-on { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); }
+.mt-chip-s.is-bad { color: var(--red); background: var(--red-tint); border-color: #f6c3c4; }
+.mt-chip-s.is-good { color: var(--green); background: var(--mint-tint); border-color: var(--mint-line); }
+.mt-check-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 5px 12px 5px 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.mt-check-chip i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--faint); display: inline-grid; place-items: center; }
+.mt-check-chip.is-on { color: var(--ink); border-color: var(--c); background: color-mix(in srgb, var(--c) 10%, white); }
+.mt-check-chip.is-on i { background: var(--c); border-color: var(--c); }
+.mt-check-chip.is-on i::after { content: ''; width: 6px; height: 3px; border: solid #fff; border-width: 0 0 2px 2px; transform: rotate(-45deg) translate(1px, -1px); }
+.mt-rp-donut { display: flex; align-items: center; justify-content: center; gap: 18px; flex-wrap: wrap; }
+.mt-donut.is-big { width: 170px; height: 170px; }
+.mt-rp-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13.5px; min-width: 140px; }
+.mt-rp-legend li { display: flex; align-items: center; gap: 8px; }
+.mt-rp-legend i { width: 12px; height: 12px; border-radius: 4px; }
+.mt-rp-legend span { flex: 1; }
+.mt-rp-cards { display: grid; gap: 10px; }
+.mt-rp-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-radius: var(--r-md); padding: 14px 16px; border: 1px solid transparent; }
+.mt-rp-card > div { display: flex; flex-direction: column; }
+.mt-rp-card > div b { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.mt-rp-card > div span { font-size: 12.5px; opacity: 0.75; }
+.mt-rp-card > b { font-family: var(--font-num); font-size: 22px; font-weight: 600; white-space: nowrap; }
+.mt-rp-card.is-income { background: var(--mint-tint); border-color: var(--mint-line); color: var(--green); }
+.mt-rp-card.is-expense { background: var(--gold-tint); border-color: var(--gold-line); color: var(--gold-text); }
+.mt-rp-card.is-transfer { background: #edf3fe; border-color: #cddcfb; color: #3567c9; }
+.mt-rp-card.is-debt { background: var(--red-tint); border-color: #f6c3c4; color: var(--red); }
+.mt-rp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mt-rp-list button { display: flex; align-items: center; gap: 12px; width: 100%; background: none; border: 0; border-bottom: 1px solid var(--border); padding: 10px 2px; text-align: left; }
+.mt-rp-list li:last-child button { border-bottom: 0; }
+.mt-rp-list .mt-tx-main b { font-size: 14.5px; font-weight: 600; }
+.mt-rp-list > li > button > b { font-family: var(--font-num); font-weight: 600; white-space: nowrap; }
+.mt-rp-list b.is-inc { color: var(--green); }
+.mt-catic { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; }
+.mt-quick { display: flex; flex-wrap: wrap; gap: 8px; }
+.mt-quick button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 12px; padding: 8px 12px; font-size: 13.5px; font-weight: 600; color: var(--c); background: color-mix(in srgb, var(--c) 12%, white); }
+.mt-quick i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--c); }
+.mt-quick i .mt-ic { width: 14px; height: 14px; color: #fff; }
+
+/* ---------- เมนู ---------- */
+.mt-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mt-menu button { display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--border); background: var(--card); border-radius: var(--r-md); padding: 12px; box-shadow: var(--shadow); min-width: 0; }
+.mt-menu i { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--gold-tint); }
+.mt-menu i .mt-ic { width: 20px; height: 20px; color: var(--gold-text); }
+.mt-menu span { display: flex; flex-direction: column; min-width: 0; }
+.mt-menu b { font-size: 14px; font-weight: 600; }
+.mt-menu small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-seg-ic .mt-ic { width: 17px; height: 17px; display: block; }

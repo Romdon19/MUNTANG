@@ -5,7 +5,8 @@ import { mountDashboard } from '../../public/js/dashboard.js';
 
 const logo = document.getElementById('mt-logo-src').getAttribute('src');
 const moods = JSON.parse(document.getElementById('mt-moods').textContent);
-const backend = localBackend({ logoUrl: logo, moods });
+const iconMap = JSON.parse(document.getElementById('mt-icons').textContent);
+const backend = localBackend({ logoUrl: logo, moods, iconMap });
 const shell = document.querySelector('.demo');
 
 function showPane(name) {
@@ -14,7 +15,7 @@ function showPane(name) {
 }
 
 backend.authenticate().then(() => {
-  const dash = mountDashboard(document.getElementById('demo-dash'), backend, { logoUrl: logo, moods });
+  const dash = mountDashboard(document.getElementById('demo-dash'), backend, { logoUrl: logo, moods, iconMap });
   const openDash = async (view, editId) => {
     await dash.refresh();
     if (view) dash.show(view, editId);
