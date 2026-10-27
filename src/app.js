@@ -43,6 +43,7 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
     return {
       logoUrl: `${base}/assets/logo-256.png`,
       moods: moodPics(`${base}/assets`),
+      iconUrl: (k) => `${base}/assets/banks/${k}.png`,
       links: {
         dashboard: page(''),
         export: `${base}/api/export.csv?t=${exportToken}`,
@@ -61,6 +62,7 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
       ai,
       logoUrl: ctx.logoUrl,
       moods: ctx.moods,
+      iconUrl: ctx.iconUrl,
       links: { dashboard: () => ctx.links.dashboard, export: () => ctx.links.export, view: ctx.links.view, edit: ctx.links.edit },
       getProfile: hasLine ? (id) => (id.startsWith('U') ? line.profile(id) : null) : undefined,
       getGroupName: hasLine ? (id) => line.groupName(id) : undefined,

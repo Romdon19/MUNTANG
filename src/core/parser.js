@@ -4,7 +4,7 @@
 //   "+เงินเดือน 25,000"         "รับ ขายของ 1.2k"        "เมื่อวาน แท็กซี่ 120"
 //   "12/10 ค่าไฟ 850"           "ชาบู 459 บาท บัตร"      (หลายบรรทัด = หลายรายการ)
 import { guessCategory, guessWallet } from './categories.js';
-import { guessAccount } from './accounts.js';
+import { guessAccount, SPENDABLE } from './accounts.js';
 import { todayStr, addDays } from './dates.js';
 
 const AMOUNT_RE = /(?<![a-zA-Z\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?\s*(k|K|พัน|หมื่น)?(?![\d/:a-zA-Z])/g;
@@ -132,7 +132,7 @@ export function parseEntries(text, opts = {}) {
     let wallet = defaultWallet;
     let line = withoutTime;
     if (accounts) {
-      const hit = guessAccount(withoutTime, accounts, { defaultWallet });
+      const hit = guessAccount(withoutTime, accounts, { defaultWallet, types: SPENDABLE });
       if (hit) wallet = hit.id;
       // ตัดชื่อบัญชีออกจากชื่อรายการ: "ข้าว 50 กสิกร" → "ข้าว"
       if (hit?.word) line = line.replace(new RegExp(hit.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');

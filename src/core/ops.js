@@ -1,6 +1,7 @@
 // การจัดการข้อมูลผู้ใช้ (ทำงานกับ user document ตรงๆ — ใช้ร่วมกันทั้งเซิร์ฟเวอร์และโหมดเดโมในเบราว์เซอร์)
 import { CATEGORIES, CATEGORY_MAP } from './categories.js';
-import { ACCOUNT_TYPES, PROVIDER_MAP, defaultAccounts, activeAccounts, findAccount, resolveWallet, accountBalances, accountTotals, decorate, guessProvider } from './accounts.js';
+import { ACCOUNT_TYPES, PROVIDER_MAP, LIABILITY, SPENDABLE, defaultAccounts, activeAccounts, findAccount, resolveWallet, accountBalances, accountTotals, decorate, guessProvider } from './accounts.js';
+import { insights } from './insights.js';
 import { todayStr, monthKey, rangeFor, daysInMonth, addDays, diffDays } from './dates.js';
 
 export function newId(prefix = '') {
@@ -358,20 +359,24 @@ export const filesPrefix = (userId) => `${String(userId).replace(/[^\w-]/g, '_')
 
 /** ข้อมูลที่ส่งให้แดชบอร์ด */
 export function publicState(user, { aiEnabled = false, now = new Date() } = {}) {
+  const budget = budgetStatus(user, now);
+  const balances = accountBalances(user, budget);
+  const totals = accountTotals(balances);
   return {
     user: { id: user.id, name: user.name, pictureUrl: user.pictureUrl },
     settings: { ...user.settings, customKeywords: undefined },
     txs: user.txs,
     goals: user.goals,
     recurring: user.recurring,
-    budget: budgetStatus(user, now),
+    budget,
     streak: streak(user, now),
     tier: tierFor(streak(user, now)),
     catStatus: catStatusMap(user, now),
     categories: CATEGORIES.map(({ keywords, ...c }) => c),
     wallets: (user.accounts || []).map(decorate),
-    accounts: accountBalances(user, budgetStatus(user, now)),
-    accountTotals: accountTotals(accountBalances(user)),
+    accounts: balances,
+    accountTotals: totals,
+    insights: insights(user, now, { budget, balances, totals }),
     accountTypes: ACCOUNT_TYPES,
     providers: Object.values(PROVIDER_MAP).map(({ words, ...p }) => p),
     transfers: user.transfers,
@@ -390,7 +395,7 @@ export function applySettings(user, b = {}) {
     );
   }
   if (b.reminder !== undefined) user.settings.reminder = /^\d{2}:\d{2}$/.test(b.reminder || '') ? b.reminder : null;
-  if (b.defaultWallet && activeAccounts(user).some((a) => a.id === b.defaultWallet)) user.settings.defaultWallet = b.defaultWallet;
+  if (b.defaultWallet && activeAccounts(user).some((a) => a.id === b.defaultWallet && SPENDABLE.includes(a.type))) user.settings.defaultWallet = b.defaultWallet;
   if (b.name) user.name = String(b.name).slice(0, 40);
   if (b.cycleStartDay !== undefined) user.settings.cycleStartDay = Math.min(31, Math.max(1, Number(b.cycleStartDay) || 1));
   if (b.monthlyReport !== undefined) user.settings.monthlyReport = !!b.monthlyReport;
@@ -419,13 +424,18 @@ function cleanAccount(input, prev = {}) {
   if (provider && !PROVIDER_MAP[provider]) provider = null;
   if (!provider && !('provider' in input)) provider = guessProvider(name, type);
   const out = { ...prev, type, name: name || PROVIDER_MAP[provider]?.name || ACCOUNT_TYPES[type].name, provider: provider || null };
-  if (type === 'card') {
-    if (input.limit !== undefined) out.limit = Math.max(0, money2(input.limit));
-    if (input.dueDay !== undefined) out.dueDay = Number(input.dueDay) >= 1 && Number(input.dueDay) <= 31 ? Number(input.dueDay) : null;
-  } else {
-    delete out.limit;
-    delete out.dueDay;
+  const day = (v) => (Number(v) >= 1 && Number(v) <= 31 ? Number(v) : null);
+  if (type === 'card' && input.limit !== undefined) out.limit = Math.max(0, money2(input.limit));
+  if (LIABILITY.includes(type) && input.dueDay !== undefined) out.dueDay = day(input.dueDay);
+  if (type === 'loan') {
+    // หนี้: ยอดกู้ตั้งต้น (ไว้ดู % ที่จ่ายไปแล้ว) ค่างวดต่อเดือน ดอกเบี้ยต่อปี
+    if (input.principal !== undefined) out.principal = Math.max(0, money2(input.principal));
+    if (input.monthlyPayment !== undefined) out.monthlyPayment = Math.max(0, money2(input.monthlyPayment));
+    if (input.rate !== undefined) out.rate = Math.max(0, Math.min(100, Number(input.rate) || 0));
   }
+  if (type !== 'card') delete out.limit;
+  if (!LIABILITY.includes(type)) delete out.dueDay;
+  if (type !== 'loan') for (const k of ['principal', 'monthlyPayment', 'rate']) delete out[k];
   return out;
 }
 
@@ -451,6 +461,7 @@ export function addAccount(user, input = {}, now = new Date()) {
     return holder;
   }
   const a = { id: newId('a'), ...clean, createdAt: now.toISOString() };
+  if (a.type === 'loan' && !a.principal) a.principal = money2(input.balance ?? input.used ?? 0);
   user.accounts.push(a);
   setBalance(user, a.id, input.balance ?? input.used ?? 0, now);
   return a;
@@ -463,7 +474,7 @@ export function updateAccount(user, id, input = {}, now = new Date()) {
   const bal = input.balance ?? input.used;
   if (bal !== undefined && bal !== '' && bal !== null) {
     const cur = accountBalances(user).find((x) => x.id === id);
-    const curVal = a.type === 'card' ? cur.used : cur.balance;
+    const curVal = LIABILITY.includes(a.type) ? cur.used : cur.balance;
     if (!a.since || money2(bal) !== curVal) setBalance(user, id, bal, now);
   }
   return a;
@@ -473,12 +484,23 @@ export function updateAccount(user, id, input = {}, now = new Date()) {
 export function deleteAccount(user, id) {
   const a = findAccount(user, id);
   if (!a) return null;
-  if (activeAccounts(user).filter((x) => x.id !== id).length === 0) throw new Error('ต้องมีอย่างน้อย 1 บัญชี');
+  if (SPENDABLE.includes(a.type) && !activeAccounts(user).some((x) => x.id !== id && SPENDABLE.includes(x.type))) throw new Error('ต้องมีบัญชีที่ใช้จ่ายอย่างน้อย 1 บัญชี');
   const used = user.txs.some((t) => t.wallet === id) || user.transfers.some((x) => x.from === id || x.to === id) || user.recurring.some((r) => r.wallet === id);
   if (used) a.archived = true;
   else user.accounts.splice(user.accounts.indexOf(a), 1);
-  if (user.settings.defaultWallet === id) user.settings.defaultWallet = activeAccounts(user)[0].id;
+  if (user.settings.defaultWallet === id) user.settings.defaultWallet = activeAccounts(user).find((x) => SPENDABLE.includes(x.type)).id;
   return a;
+}
+
+function transferNote(fromAcc, toAcc) {
+  const n = (a) => decorate(a).name;
+  if (toAcc.type === 'card') return `จ่ายบัตร ${n(toAcc)}`;
+  if (toAcc.type === 'loan') return `จ่ายหนี้ ${n(toAcc)}`;
+  if (fromAcc.type === 'loan') return `ยืมเงิน ${n(fromAcc)}`;
+  if (toAcc.type === 'receivable') return `ให้ ${n(toAcc)} ยืม`;
+  if (fromAcc.type === 'receivable') return `${n(fromAcc)} คืนเงิน`;
+  if (toAcc.type === 'cash') return 'กดเงินสด';
+  return `โอนเข้า ${n(toAcc)}`;
 }
 
 /** โอนเงินระหว่างบัญชี / จ่ายบัตรเครดิต / เติม e-Wallet (ไม่นับเป็นรายรับรายจ่าย) */
@@ -494,7 +516,7 @@ export function addTransfer(user, { from, to, amount, date, note } = {}, now = n
     to,
     amount: amt,
     date: /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : todayStr(now),
-    note: String(note || (toAcc.type === 'card' ? `จ่ายบัตร ${decorate(toAcc).name}` : `โอนเข้า ${decorate(toAcc).name}`)).slice(0, 80),
+    note: String(note || transferNote(findAccount(user, from), toAcc)).slice(0, 80),
     createdAt: now.toISOString(),
   };
   user.transfers.push(x);
@@ -504,4 +526,11 @@ export function addTransfer(user, { from, to, amount, date, note } = {}, now = n
 export function deleteTransfer(user, id) {
   const i = user.transfers.findIndex((x) => x.id === id);
   return i < 0 ? null : user.transfers.splice(i, 1)[0];
+}
+
+/** ข้อมูลเชิงลึก (ใช้ในแชท "สุขภาพการเงิน") */
+export function insightsFor(user, now = new Date()) {
+  const budget = budgetStatus(user, now);
+  const balances = accountBalances(user, budget);
+  return insights(user, now, { budget, balances, totals: accountTotals(balances) });
 }

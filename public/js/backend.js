@@ -4,6 +4,7 @@
 import { createBot } from '../core/bot.js';
 import * as ops from '../core/ops.js';
 import { seedDemo } from '../core/demo.js';
+import { badgeSvg } from '../core/accounts.js';
 
 const cfg = () => window.MUNTANG_CONFIG || {};
 
@@ -134,6 +135,7 @@ export function localBackend({ logoUrl, moods, onOpenDashboard } = {}) {
     ai: null,
     logoUrl,
     moods,
+    iconUrl: (k) => `data:image/svg+xml,${encodeURIComponent(badgeSvg(k))}`,
     links: { dashboard: () => '#dashboard', export: () => '#export', view: (name) => `#view-${name}`, edit: (id) => `#edit-${id}` },
   });
 

@@ -12,6 +12,7 @@
     "dev": "node --watch src/server.js",
     "test": "node --test test/*.test.js",
     "richmenu:image": "node scripts/build-richmenu-image.js",
+    "icons": "node scripts/build-bank-icons.js",
     "richmenu:setup": "node scripts/setup-richmenu.js",
     "build:demo": "node scripts/build-demo.js",
     "cf:dev": "wrangler dev",

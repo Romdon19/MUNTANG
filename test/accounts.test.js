@@ -86,3 +86,30 @@ test('deleting a used account hides it but keeps history', () => {
   ops.deleteAccount(u, b.id);
   assert.equal(u.accounts.some((x) => x.id === b.id), false);
 });
+
+test('loans and receivables move through transfers and count in net worth', async () => {
+  const store = memStore();
+  const bot = createBot({ store, now: () => now, links: {} });
+  await say(bot, 'เพิ่มบัญชี กสิกร 20000');
+  await say(bot, 'เพิ่มหนี้ ผ่อนรถ 100000 ผ่อน 5000');
+  await say(bot, 'จ่ายหนี้ ผ่อนรถ'); // ค่างวดจากธนาคาร
+  await say(bot, 'ยืม แม่ 3000');
+  await say(bot, 'ให้ยืม ต้น 800');
+  await say(bot, 'ต้น คืน 300');
+  await say(bot, 'ข้าว 50 ให้แม่'); // ชื่อหนี้ "แม่" ต้องไม่กลายเป็นช่องทางจ่าย
+  const u = store.db.U1;
+  const list = ops.accountList(u, now);
+  const by = (name) => list.find((a) => a.name === name);
+  assert.equal(by('ผ่อนรถ').used, 95000);
+  assert.equal(by('ผ่อนรถ').monthsLeft, 19);
+  assert.equal(by('กสิกร').balance, 15000);
+  assert.equal(by('แม่').used, 3000);
+  assert.equal(by('ต้น').balance, 500);
+  assert.notEqual(u.txs.at(-1).wallet, by('แม่').id);
+  assert.equal(ops.summaryFor(u, 'today', now).expense, 50);
+  const ins = ops.insightsFor(u, now);
+  assert.ok(ins.health.score >= 0 && ins.health.score <= 100);
+  assert.equal(ins.debts.length, 2);
+  const r = await say(bot, 'สุขภาพการเงิน');
+  assert.match(r.messages[0].altText, /สุขภาพการเงิน \d+\/100/);
+});

@@ -223,14 +223,14 @@ button.mt-tx:hover { background: var(--bg); }
 .mt-cmds dt { font-weight: 600; background: var(--gold-tint); padding: 0 6px; border-radius: 6px; align-self: flex-start; }
 .mt-cmds dd { margin: 0; color: var(--muted); text-align: right; }
 
-/* ---------- แถบนำทาง 5 แท็บ ---------- */
+/* ---------- แถบนำทาง 6 แท็บ ---------- */
 .mt-nav {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   padding: 6px max(6px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
   background: rgba(255, 255, 255, 0.96); border-top: 1px solid var(--border); backdrop-filter: blur(8px);
 }
-.mt-nav button { display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: 0; color: var(--faint); font-size: 11px; padding: 4px 0; }
+.mt-nav button { display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: 0; color: var(--faint); font-size: 10.5px; padding: 4px 0; white-space: nowrap; min-width: 0; }
 .mt-nav button.is-on { color: var(--ink); font-weight: 600; }
 .mt-nav button.is-on .mt-ic { color: var(--gold-text); stroke-width: 2.2; }
 .mt-ic { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -313,3 +313,114 @@ button.mt-tx:hover { background: var(--bg); }
 .mt-seg4 button { border: 1.5px solid var(--border); background: var(--card); border-radius: 12px; padding: 9px 6px; font-weight: 600; color: var(--muted); font-size: 14px; }
 .mt-seg4 button.is-on { background: var(--gold-tint); border-color: var(--gold); color: var(--gold-text); }
 .mt-form .mt-amount.is-sm input { font-size: 26px; }
+
+/* ---------- ไอคอนธนาคาร / ความมั่งคั่ง / กลุ่มบัญชี ---------- */
+.mt-ico { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 11px; display: inline-block; overflow: hidden; object-fit: cover; vertical-align: middle; }
+.mt-ico svg { width: 100%; height: 100%; display: block; }
+.mt-ico.is-xs { flex-basis: 20px; width: 20px; height: 20px; border-radius: 6px; }
+.mt-ico.is-sm { flex-basis: 26px; width: 26px; height: 26px; border-radius: 8px; }
+.mt-ico.is-lg { flex-basis: 52px; width: 52px; height: 52px; border-radius: 15px; }
+.mt-card-h h3 .mt-ico { margin-right: 4px; }
+.mt-worth {
+  position: relative; overflow: hidden; border-radius: var(--r-lg); padding: 16px 18px 14px;
+  background: radial-gradient(120% 140% at 100% 0%, #3a3000 0%, #1a1a1a 55%); color: #fff; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.mt-worth-top { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: rgba(255, 255, 255, 0.7); }
+.mt-worth-top img { width: 64px; height: 64px; object-fit: contain; margin: -10px -6px -26px 0; }
+.mt-worth > b { font-family: var(--font-num); font-size: 32px; font-weight: 600; color: var(--gold); line-height: 1.15; }
+.mt-worth > b.is-neg { color: #ff8a8d; }
+.mt-worth-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.mt-worth-row div { display: flex; flex-direction: column; min-width: 0; }
+.mt-worth-row span { font-size: 11.5px; color: rgba(255, 255, 255, 0.6); }
+.mt-worth-row b { font-family: var(--font-num); font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-worth-row b.is-debt { color: #ff8a8d; }
+.mt-groups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mt-group { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; border-radius: 14px; padding: 8px 12px 8px 8px; text-align: left; background: var(--bg); }
+.mt-group.is-cash { background: #eef8ea; }
+.mt-group.is-bank { background: #e9f1fb; }
+.mt-group.is-ewallet { background: #fff1e4; }
+.mt-group.is-receivable { background: #e6f6f5; }
+.mt-group.is-loan { background: #fdecec; }
+.mt-group.is-card { background: #f1ecf8; }
+.mt-group-n { flex: 1; min-width: 0; font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-group-n small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.mt-group-icons { display: flex; }
+.mt-group-icons .mt-ico { margin-left: -6px; box-shadow: 0 0 0 2px #fff; }
+.mt-group b { font-family: var(--font-num); font-size: 16px; font-weight: 600; white-space: nowrap; }
+.mt-group.is-loan b, .mt-group.is-card b { color: var(--red); }
+.mt-gsec .mt-card-h h3 { display: flex; align-items: center; gap: 6px; }
+.mt-gsec > .mt-link { align-self: flex-start; }
+.mt-note { padding: 0 4px; }
+.mt-xfer { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.mt-xfer i { font-style: normal; color: var(--muted); font-size: 11px; }
+.mt-seg4 { grid-template-columns: repeat(3, 1fr); }
+
+/* ---------- ข้อมูลเชิงลึก ---------- */
+.mt-health-top { display: flex; align-items: center; gap: 12px; }
+.mt-gauge { width: 96px; height: 96px; flex: 0 0 96px; }
+.mt-gauge-v { font-family: var(--font-num); font-size: 30px; font-weight: 600; fill: var(--ink); }
+.mt-gauge-l { font-size: 11px; fill: var(--muted); }
+.mt-health-g { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mt-health-g b { font-family: var(--font-display); font-size: 20px; font-weight: 600; }
+.mt-grade { align-self: flex-start; color: #fff; font-family: var(--font-num); font-weight: 600; border-radius: 8px; padding: 0 9px; font-size: 15px; }
+.mt-health-pic { width: 70px; height: 70px; object-fit: contain; flex: 0 0 70px; }
+.mt-parts { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 10px; }
+.mt-parts li { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; font-size: 13.5px; }
+.mt-parts li .mt-bar-t { grid-column: 1 / -1; }
+.mt-parts small { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }
+.mt-pace { position: relative; }
+.mt-pace i { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink); border-radius: 1px; }
+.mt-kv { margin: 0; display: grid; gap: 6px; font-size: 13.5px; }
+.mt-kv div { display: flex; justify-content: space-between; gap: 8px; }
+.mt-kv dt { color: var(--muted); }
+.mt-kv dd { margin: 0; font-weight: 600; }
+.mt-kv.is-row { grid-template-columns: repeat(3, 1fr); }
+.mt-kv.is-row div { flex-direction: column; align-items: center; gap: 0; }
+.mt-kv .is-bad, .mt-big.is-bad b { color: var(--red); }
+.mt-kv .is-inc, .mt-big.is-inc b { color: var(--green); }
+.mt-big { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.mt-big b { font-family: var(--font-num); font-size: 30px; font-weight: 600; }
+.mt-sbars { position: relative; height: 110px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; align-items: end; margin-top: 18px; border-bottom: 1px solid var(--border); }
+.mt-sbars > div { height: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.mt-sbars i { position: relative; display: block; width: 70%; max-width: 34px; border-radius: 6px 6px 0 0; }
+.mt-sbars i span { position: absolute; left: 50%; transform: translateX(-50%); top: -17px; font-size: 11px; color: var(--muted); white-space: nowrap; font-style: normal; }
+.mt-sbars-line { position: absolute; left: 0; right: 0; height: 0; border-top: 1.5px dashed var(--ink); opacity: 0.55; z-index: 1; }
+.mt-sbars-line span { position: absolute; right: 0; top: -16px; font-size: 10.5px; background: var(--card); padding: 0 4px; }
+.mt-sbars-x { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; text-align: center; font-size: 11.5px; color: var(--muted); }
+.mt-util { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.mt-util li { display: flex; gap: 10px; align-items: flex-start; }
+.mt-util li > div { flex: 1; min-width: 0; }
+.mt-util-h { display: flex; justify-content: space-between; gap: 8px; font-size: 13.5px; }
+.mt-util-h .is-bad { color: var(--red); }
+.mt-util-h .is-inc { color: var(--green); }
+.mt-legend-i { display: flex; gap: 14px; justify-content: center; font-size: 12px; color: var(--muted); }
+.mt-legend-i i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+/* ---------- รายการ: โหมด / ปฏิทิน / สลิป ---------- */
+.mt-seg3 { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--track); border-radius: 12px; padding: 3px; gap: 3px; }
+.mt-seg3 button { border: 0; background: none; border-radius: 10px; padding: 7px 4px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.mt-seg3 button.is-on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+.mt-cal-h, .mt-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.mt-cal-h span { text-align: center; font-size: 12px; color: var(--muted); }
+.mt-cal button, .mt-cal span { min-height: 52px; border-radius: 10px; }
+.mt-cal button { border: 1px solid var(--border); background: var(--card); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 0; padding: 4px 1px; min-width: 0; }
+.mt-cal button b { font-size: 13px; font-weight: 600; }
+.mt-cal button small { font-size: 10.5px; line-height: 1.25; max-width: 100%; overflow: hidden; }
+.mt-cal small.is-exp { color: var(--gold-text); }
+.mt-cal small.is-inc { color: var(--green); }
+.mt-cal button.is-today { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.mt-cal button.is-on { background: var(--ink); border-color: var(--ink); }
+.mt-cal button.is-on b, .mt-cal button.is-on small { color: #fff; }
+.mt-cal button.is-on small.is-exp { color: var(--gold); }
+.mt-cal button.is-future { opacity: 0.45; }
+.mt-cal .is-pad { background: transparent; }
+.mt-slips { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.mt-slip { display: flex; flex-direction: column; border: 1px solid var(--border); background: var(--card); border-radius: 14px; overflow: hidden; padding: 0; text-align: left; box-shadow: var(--shadow); }
+.mt-slip img, .mt-slip-ph { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block; background: var(--bg); }
+.mt-slip-ph { aspect-ratio: 4 / 3; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 34px; gap: 4px; background: var(--gold-tint); }
+.mt-slip-ph small { font-size: 12px; color: var(--gold-text); }
+.mt-slip-b { display: flex; flex-direction: column; padding: 8px 10px; gap: 1px; }
+.mt-slip-b b { font-family: var(--font-num); font-size: 16px; font-weight: 600; }
+.mt-slip-b b.is-inc { color: var(--green); }
+.mt-slip-b small { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

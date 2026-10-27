@@ -30,6 +30,7 @@ const SUMMARY_WORDS = {
  *   getProfile?: (userId) -> { name, pictureUrl }
  *   links: { dashboard(userId), export(userId), view?(name), edit?(txId) }  (view/edit = หน้าเฉพาะใน LIFF)
  *   moods?: {idle,calm,ok,dizzy,spin}  รูปนายหัวหมุนตามอารมณ์งบ
+ *   iconUrl?: (key) -> string  รูปไอคอนธนาคาร/ประเภทบัญชี (PNG) สำหรับการ์ดในแชท
  *   logoUrl?: string
  *   now?: () => Date
  */
@@ -57,6 +58,7 @@ export function createBot(deps) {
     return {
       logoUrl: deps.logoUrl,
       moods: deps.moods,
+      iconUrl: deps.iconUrl,
       accounts: ops.accountList(user, now()),
       links: {
         dashboard: deps.links?.dashboard?.(user.id),
@@ -99,7 +101,8 @@ export function createBot(deps) {
   }
 
   // ---------------- กระเป๋าเงิน: บัญชี / บัตร / โอน ----------------
-  const ACCOUNT_WORDS = ['บัญชี', 'บัญชีของฉัน', 'บัญชีทั้งหมด', 'กระเป๋า', 'กระเป๋าเงิน', 'ยอดเงิน', 'เงินในบัญชี', 'ยอดในบัญชี', 'บัตร', 'บัตรเครดิต', 'วงเงิน', 'wallet', 'accounts'];
+  const ACCOUNT_WORDS = ['บัญชี', 'บัญชีของฉัน', 'บัญชีทั้งหมด', 'กระเป๋า', 'กระเป๋าเงิน', 'ยอดเงิน', 'เงินในบัญชี', 'ยอดในบัญชี', 'บัตร', 'บัตรเครดิต', 'วงเงิน', 'หนี้', 'หนี้สิน', 'ค้างรับ', 'ความมั่งคั่ง', 'ความมั่งคั่งสุทธิ', 'wallet', 'accounts'];
+  const HEALTH_WORDS = ['สุขภาพการเงิน', 'คะแนนการเงิน', 'เช็คสุขภาพการเงิน', 'คะแนนสุขภาพการเงิน', 'health'];
   const AMT = '([\\d,]+(?:\\.\\d+)?)\\s*(k|พัน)?';
   const num = (v, k) => Number(String(v).replace(/,/g, '')) * (k ? 1000 : 1);
 
@@ -112,15 +115,19 @@ export function createBot(deps) {
   /** คำสั่งเกี่ยวกับบัญชี คืน null ถ้าไม่ใช่ (ให้ไปจดรายการตามปกติ) */
   function handleAccounts(user, raw, t, ctx) {
     if (ACCOUNT_WORDS.includes(t)) return accountsReply(user, ctx);
+    if (HEALTH_WORDS.includes(t)) return [ui.healthMessage(ops.insightsFor(user, now()), ctx)];
     const find = (s, o) => (s ? guessAccount(s, user.accounts, { strict: true, ...o }) : null);
     const accName = (id) => ops.accountName(user, id);
     const line = raw.trim().replace(/\s+/g, ' ');
 
     // เพิ่มบัญชี / เพิ่มบัตร / เพิ่มวอลเล็ท
-    let m = line.match(/^เพิ่ม\s*(บัญชี|บัตรเครดิต|บัตร|วอลเล็ท|วอลเลท|wallet|e-?wallet|อีวอลเล็ท|กระเป๋า)\s*(.*)$/i);
+    let m = line.match(/^เพิ่ม\s*(บัญชี|บัตรเครดิต|บัตร|วอลเล็ท|วอลเลท|wallet|e-?wallet|อีวอลเล็ท|กระเป๋า|หนี้สิน|หนี้|ค้างรับ|ลูกหนี้)\s*(.*)$/i);
     if (m) {
-      const kind = /บัตร/.test(m[1]) ? 'card' : /บัญชี/.test(m[1]) ? 'bank' : /กระเป๋า/.test(m[1]) ? null : 'ewallet';
+      const kind = /บัตร/.test(m[1]) ? 'card' : /บัญชี/.test(m[1]) ? 'bank' : /กระเป๋า/.test(m[1]) ? null : /^หนี้/.test(m[1]) ? 'loan' : /ค้างรับ|ลูกหนี้/.test(m[1]) ? 'receivable' : 'ewallet';
       let rest = m[2];
+      const pay = rest.match(new RegExp(`(?:ผ่อน|งวดละ|ค่างวด)\\s*${AMT}`, 'i'));
+      const rate = rest.match(/ดอก(?:เบี้ย)?\s*([\d.]+)\s*%?/);
+      rest = rest.replace(pay?.[0] || '\u0000', ' ').replace(rate?.[0] || '\u0000', ' ');
       const lim = rest.match(new RegExp(`วงเงิน\\s*${AMT}`, 'i'));
       const used = rest.match(new RegExp(`(?:ใช้ไป|ค้าง(?:จ่าย)?|ยอดค้าง)\\s*${AMT}`, 'i'));
       rest = rest.replace(lim?.[0] || '\u0000', ' ').replace(used?.[0] || '\u0000', ' ');
@@ -130,14 +137,24 @@ export function createBot(deps) {
       const prov = guessProvider(name, kind);
       const type = kind || (prov && PROVIDER_MAP[prov].types[0]) || 'bank';
       if (!name) return [ui.addAccountHelp(type, ctx)];
+      if (['loan', 'receivable'].includes(type) && user.accounts.some((x) => !x.archived && x.type === type && x.name === name)) {
+        return [ui.textMsg(`มี "${name}" อยู่แล้ว ถ้าจะแก้ยอดพิมพ์ "ยอด ${name} <ยอดใหม่>"`)];
+      }
       const a = ops.addAccount(user, {
         type: kind === 'bank' && prov && PROVIDER_MAP[prov].types[0] === 'ewallet' ? 'ewallet' : type,
         name,
         limit: lim ? num(lim[1], lim[2]) : undefined,
-        balance: type === 'card' ? (used ? num(used[1], used[2]) : 0) : bal ? num(bal[1], bal[2]) : 0,
+        balance: type === 'card' ? (used ? num(used[1], used[2]) : 0) : bal ? num(bal[1], bal[2]) : used ? num(used[1], used[2]) : 0,
+        ...(type === 'loan' ? { monthlyPayment: pay ? num(pay[1], pay[2]) : 0, rate: rate ? Number(rate[1]) : 0 } : {}),
       }, now());
       const w = ops.accountList(user, now()).find((x) => x.id === a.id);
-      return accountsReply(user, ctx, `✅ เพิ่ม ${w.emoji} ${w.name} แล้ว\n${ui.balanceText(w)}\nจดรายการแล้วใส่ชื่อ "${w.name}" ต่อท้าย เช่น "ข้าว 50 ${w.name}" จะตัดจากบัญชีนี้ให้`);
+      const tip =
+        w.type === 'loan'
+          ? `จ่ายงวดพิมพ์ "จ่ายหนี้ ${w.name}${w.monthlyPayment ? '' : ' 3000'}"`
+          : w.type === 'receivable'
+            ? `ได้คืนพิมพ์ "รับคืน ${w.name} <ยอด>"`
+            : `จดรายการแล้วใส่ชื่อ "${w.name}" ต่อท้าย เช่น "ข้าว 50 ${w.name}" จะตัดจากบัญชีนี้ให้`;
+      return accountsReply(user, ctx, `✅ เพิ่ม ${w.emoji} ${w.name} แล้ว\n${ui.balanceText(w)}\n${tip}`);
     }
 
     // ตั้งยอด: "ยอด กสิกร 12000"
@@ -212,6 +229,65 @@ export function createBot(deps) {
             return accountsReply(user, ctx, `📱 เติม ${accName(to.id)} ${money(amount)} จาก ${accName(from)} แล้ว`);
           }
         }
+      }
+    }
+    // หนี้สิน / ค้างรับ
+    // บัญชีที่เงินเข้า/ออก: ที่พิมพ์มา > บัญชีเริ่มต้น (preferBank = จ่ายหนี้มักจ่ายจากธนาคาร)
+    const spendFrom = (text, preferBank = false) => {
+      const hit = find(text, { types: ['cash', 'bank', 'ewallet'] });
+      if (hit) return hit.id;
+      const live = user.accounts.filter((a) => !a.archived);
+      const def = live.find((a) => a.id === user.settings.defaultWallet && (preferBank ? ['bank', 'ewallet'] : ['cash', 'bank', 'ewallet']).includes(a.type));
+      return def?.id || live.find((a) => a.type === 'bank')?.id || live.find((a) => a.type === 'cash')?.id;
+    };
+    const namedOf = (type, name) => find(name, { types: [type] }) || (user.accounts.find((a) => !a.archived && a.type === type && a.name === name.trim()) ? { id: user.accounts.find((a) => !a.archived && a.type === type && a.name === name.trim()).id } : null);
+    // ยืมเงิน: "ยืม แม่ 5000 เข้า กสิกร" → หนี้ "แม่" เพิ่ม, เงินเข้าบัญชี
+    m = line.match(new RegExp(`^ยืม(?:เงิน)?\\s*(.+?)\\s*${AMT}\\s*(?:บาท)?(?:\\s*(?:เข้า|ใส่)\\s*(.+))?$`, 'i'));
+    if (m) {
+      const name = m[1].replace(/^จาก\s*/, '').trim();
+      const amount = num(m[2], m[3]);
+      const to = spendFrom(m[4]);
+      let loan = namedOf('loan', name);
+      if (!loan) loan = ops.addAccount(user, { type: 'loan', name, balance: 0, principal: amount }, now());
+      ops.addTransfer(user, { from: loan.id, to, amount }, now());
+      return accountsReply(user, ctx, `🧾 ยืม ${accName(loan.id)} ${money(amount)} เข้า ${accName(to)} แล้ว\nคืนเมื่อไรพิมพ์ "จ่ายหนี้ ${accName(loan.id)} ${amount}"`);
+    }
+    // จ่ายหนี้: "จ่ายหนี้ ผ่อนรถ 6500 จาก กสิกร" (ไม่ใส่ยอด = ค่างวด)
+    m = line.match(new RegExp(`^(?:จ่ายหนี้|ชำระหนี้|คืนเงิน|คืนหนี้|ผ่อน|จ่ายงวด)\\s*(.+?)\\s*(?:${AMT})?\\s*(?:บาท)?(?:\\s*จาก\\s*(.+))?$`, 'i'));
+    if (m) {
+      // ชื่อหนี้อาจขึ้นต้นด้วยคำสั่งเอง เช่น หนี้ชื่อ "ผ่อนบ้าน" + พิมพ์ "ผ่อนบ้าน 8000"
+      const loan = namedOf('loan', m[1]) || find(line.replace(/จาก.*$/, ''), { types: ['loan'] });
+      if (loan) {
+        const acc = user.accounts.find((a) => a.id === loan.id);
+        const amount = m[2] ? num(m[2], m[3]) : acc.monthlyPayment || 0;
+        if (!(amount > 0)) return [ui.textMsg(`ใส่ยอดที่จ่ายด้วยนะ เช่น "จ่ายหนี้ ${acc.name} 3000"`)];
+        const from = spendFrom(m[4], true);
+        ops.addTransfer(user, { from, to: loan.id, amount }, now());
+        const w = ops.accountList(user, now()).find((x) => x.id === loan.id);
+        return accountsReply(user, ctx, `✅ จ่ายหนี้ ${w.name} ${money(amount)} จาก ${accName(from)} แล้ว\nคงเหลือ ${money(w.used)}${w.monthsLeft ? ` · อีก ${w.monthsLeft} งวด` : w.used <= 0 ? ' 🎉 ปลดหนี้แล้ว!' : ''}`);
+      }
+    }
+    // ให้ยืม: "ให้ยืม ต้น 500" / "ให้ ต้น ยืม 500"
+    m = line.match(new RegExp(`^ให้ยืม(?:เงิน)?\\s*(.+?)\\s*${AMT}\\s*(?:บาท)?(?:\\s*จาก\\s*(.+))?$`, 'i')) || line.match(new RegExp(`^ให้\\s*(.+?)\\s*ยืม(?:เงิน)?\\s*${AMT}\\s*(?:บาท)?(?:\\s*จาก\\s*(.+))?$`, 'i'));
+    if (m) {
+      const name = m[1].trim();
+      const amount = num(m[2], m[3]);
+      const from = spendFrom(m[4]);
+      let rec = namedOf('receivable', name);
+      if (!rec) rec = ops.addAccount(user, { type: 'receivable', name, balance: 0 }, now());
+      ops.addTransfer(user, { from, to: rec.id, amount }, now());
+      return accountsReply(user, ctx, `🤝 ให้ ${accName(rec.id)} ยืม ${money(amount)} จาก ${accName(from)} แล้ว\nได้คืนเมื่อไรพิมพ์ "รับคืน ${accName(rec.id)} ${amount}"`);
+    }
+    // ได้เงินคืน: "รับคืน ต้น 500 เข้า กสิกร" / "ต้น คืน 500"
+    m = line.match(new RegExp(`^(?:รับคืน|ได้คืน|ได้เงินคืน)\\s*(?:จาก\\s*)?(.+?)\\s*${AMT}\\s*(?:บาท)?(?:\\s*เข้า\\s*(.+))?$`, 'i')) || line.match(new RegExp(`^(.+?)\\s*คืน(?:เงิน)?\\s*${AMT}\\s*(?:บาท)?(?:\\s*เข้า\\s*(.+))?$`, 'i'));
+    if (m) {
+      const rec = namedOf('receivable', m[1]);
+      if (rec) {
+        const amount = num(m[2], m[3]);
+        const to = spendFrom(m[4]);
+        ops.addTransfer(user, { from: rec.id, to, amount }, now());
+        const w = ops.accountList(user, now()).find((x) => x.id === rec.id);
+        return accountsReply(user, ctx, `💚 ${w.name} คืน ${money(amount)} เข้า ${accName(to)} แล้ว${w.balance > 0 ? `\nยังค้างอีก ${money(w.balance)}` : '\nคืนครบแล้ว 🎉'}`);
       }
     }
     return null;

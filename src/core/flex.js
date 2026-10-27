@@ -1,7 +1,7 @@
 // ข้อความ Flex Message ของ "หมุนตังค์" — โครงแบบป้านวล (หัวการ์ดมีมาสคอตแอบมอง · แท็กประเภท · ปุ่มแก้/ลบ · แถบงบหมวด · คอมเมนต์มาสคอต)
 // ในโทนแบรนด์: เหลืองโลโก้ + ดำ บนการ์ดขาวสะอาด
 import { getCategory, categoriesOf, CATEGORY_MAP } from './categories.js';
-import { decorate, ACCOUNT_TYPES } from './accounts.js';
+import { decorate, ACCOUNT_TYPES, SPENDABLE } from './accounts.js';
 import { money, pct, truncate } from './format.js';
 import { thaiDate } from './dates.js';
 import { moodFor } from './mood.js';
@@ -198,6 +198,8 @@ export function mascotComment(info, tx) {
 /** บรรทัดยอดของบัญชี: "คงเหลือ ฿x" หรือบัตร "ใช้ไป ฿x / วงเงิน ฿y" */
 export function balanceText(a) {
   if (!a) return '';
+  if (a.type === 'loan') return `ค้างจ่าย ${money(a.used)}${a.monthlyPayment ? ` · ผ่อน ${money(a.monthlyPayment)}/เดือน` : ''}${a.monthsLeft ? ` · อีก ${a.monthsLeft} งวด` : ''}`;
+  if (a.type === 'receivable') return `ค้างรับ ${money(a.balance)}`;
   if (a.type === 'card') {
     if (!a.known) return `รอบนี้รูดไป ${money(a.spent || 0)}`;
     return a.limit ? `ใช้ไป ${money(a.used)} / วงเงิน ${money(a.limit)} · เหลือ ${money(a.available)}` : `ยอดค้างจ่าย ${money(a.used)}`;
@@ -206,8 +208,8 @@ export function balanceText(a) {
 }
 
 /** ชิปเลือกบัญชีใต้การ์ดจดสำเร็จ: 3 บัญชีที่น่าจะใช้ + ปุ่ม "อื่นๆ" ถ้ามีมากกว่านั้น */
-function walletChips(tx, accounts = [], defaultWallet) {
-  const active = accounts.filter((a) => !a.archived);
+function walletChips(tx, accounts = [], defaultWallet, ctx) {
+  const active = accounts.filter((a) => !a.archived && SPENDABLE.includes(a.type));
   const ordered = [
     ...active.filter((a) => a.id === tx.wallet),
     ...active.filter((a) => a.id === defaultWallet && a.id !== tx.wallet),
@@ -216,8 +218,13 @@ function walletChips(tx, accounts = [], defaultWallet) {
   const more = ordered.length > 4;
   const shown = ordered.slice(0, more ? 3 : 4);
   // ชิป: จุดสีประจำบัญชี + ชื่อสั้น (ไม่ใส่ emoji ให้ชื่อมีที่พอ)
-  const chip = (label, on, action, color) =>
-    box('vertical', [text(label, { size: 'xxs', align: 'center', weight: on ? 'bold' : 'regular', wrap: false, ...(color ? { contents: [{ type: 'span', text: '● ', color }, { type: 'span', text: label }] } : {}) })], {
+  const chip = (label, on, action, w) =>
+    box(w && ctx?.iconUrl ? 'horizontal' : 'vertical', [
+      ...(w && ctx?.iconUrl ? [acctIcon(w, ctx, 16)] : []),
+      text(label, { size: 'xxs', align: 'center', weight: on ? 'bold' : 'regular', wrap: false, ...(w && !ctx?.iconUrl ? { contents: [{ type: 'span', text: '● ', color: w.color }, { type: 'span', text: label }] } : { margin: w ? 'xs' : 'none' }) }),
+    ], {
+      alignItems: 'center',
+      justifyContent: 'center',
       backgroundColor: on ? C.tint : C.chip,
       cornerRadius: '12px',
       paddingAll: '6px',
@@ -230,7 +237,7 @@ function walletChips(tx, accounts = [], defaultWallet) {
     box(
       'horizontal',
       [
-        ...shown.map((w) => chip(w.short || w.name, w.id === tx.wallet, postback(`action=wallet&id=${tx.id}&w=${w.id}`, `จ่ายด้วย ${w.name}`), w.color)),
+        ...shown.map((w) => chip(w.short || w.name, w.id === tx.wallet, postback(`action=wallet&id=${tx.id}&w=${w.id}`, `จ่ายด้วย ${w.name}`), w)),
         ...(more ? [chip('อื่นๆ ▾', false, postback(`action=wallets&id=${tx.id}`, 'เลือกบัญชีอื่น'))] : []),
       ],
       { spacing: 'sm', margin: 'sm' }
@@ -275,7 +282,8 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
           'horizontal',
           [
             text(`${thaiDate(t.date)} ${timeOf(t)}${t.by ? ` · โดย ${t.by}` : ''}`, { size: 'xxs', color: C.muted, flex: 0, wrap: false, gravity: 'center' }),
-            box('vertical', [text(`${w.emoji} ${w.name}`, { size: 'xxs', wrap: false })], {
+            box(ctx?.iconUrl ? 'horizontal' : 'vertical', [...(ctx?.iconUrl && w.icon ? [acctIcon(w, ctx, 14)] : []), text(ctx?.iconUrl && w.icon ? w.name : `${w.emoji} ${w.name}`, { size: 'xxs', wrap: false, margin: ctx?.iconUrl && w.icon ? 'xs' : 'none' })], {
+              alignItems: 'center',
               flex: 0,
               backgroundColor: C.chip,
               cornerRadius: '6px',
@@ -331,7 +339,7 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
       borderWidth: 'none',
     })
   );
-  if (txs.length === 1) body.push(sep({ margin: 'md' }), ...walletChips(main, info.accounts || ctx?.accounts, info.defaultWallet));
+  if (txs.length === 1) body.push(sep({ margin: 'md' }), ...walletChips(main, info.accounts || ctx?.accounts, info.defaultWallet, ctx));
 
   return bubble({ title, subtitle, body, ctx });
 }
@@ -757,64 +765,136 @@ export function wipeConfirmMessage(count, now) {
 }
 
 // ---------- กระเป๋าเงิน ----------
+/** ไอคอนธนาคาร/ประเภทบัญชี (ถ้าไม่มี URL ใช้จุดสีแทน) */
+function acctIcon(a, ctx, px = 28) {
+  if (ctx?.iconUrl) {
+    return box('vertical', [{ type: 'image', url: ctx.iconUrl(a.icon), size: 'full', aspectRatio: '1:1', aspectMode: 'cover' }], {
+      flex: 0,
+      width: `${px}px`,
+      height: `${px}px`,
+      cornerRadius: `${Math.round(px * 0.25)}px`,
+    });
+  }
+  return box('vertical', [{ type: 'filler' }], { flex: 0, width: '10px', height: '10px', cornerRadius: '5px', backgroundColor: a.color });
+}
+
+const SECTION_LABEL = { money: 'บัญชี · เงินสด · e-Wallet', receivable: 'ค้างรับ (คนอื่นติดเรา)', card: 'บัตรเครดิต', loan: 'หนี้สิน' };
+
 function accountRow(a, ctx) {
-  const isCard = a.type === 'card';
-  const right = isCard ? (a.known || a.spent ? money(a.known ? a.used : a.spent) : '-') : a.known ? money(a.balance) : 'ตั้งยอด';
-  const sub = isCard
-    ? a.known && a.limit
-      ? `วงเงิน ${money(a.limit)} · เหลือ ${money(a.available)}${a.dueDay ? ` · จ่ายทุกวันที่ ${a.dueDay}` : ''}`
-      : a.known
-        ? 'ยอดค้างจ่าย'
-        : 'รอบนี้รูดไป (ยังไม่ได้ตั้งยอด)'
-    : `${a.typeName} · รอบนี้ใช้ ${money(a.spent || 0)}`;
+  const liab = a.type === 'card' || a.type === 'loan';
+  const right = liab ? (a.known || a.spent ? money(a.known ? a.used : a.spent) : '-') : a.known ? money(a.balance) : 'ตั้งยอด';
+  let sub;
+  if (a.type === 'card') {
+    sub = a.known && a.limit ? `วงเงิน ${money(a.limit)} · เหลือ ${money(a.available)}${a.dueDay ? ` · จ่ายวันที่ ${a.dueDay}` : ''}` : a.known ? 'ยอดค้างจ่าย' : 'รอบนี้รูดไป (ยังไม่ได้ตั้งยอด)';
+  } else if (a.type === 'loan') {
+    sub = [a.monthlyPayment ? `ผ่อน ${money(a.monthlyPayment)}/เดือน` : 'ยอดค้าง', a.monthsLeft ? `อีก ${a.monthsLeft} งวด` : ''].filter(Boolean).join(' · ');
+  } else if (a.type === 'receivable') sub = 'ยังไม่ได้คืน';
+  else sub = `${a.typeName} · รอบนี้ใช้ ${money(a.spent || 0)}`;
   const tap = ctx?.links?.view ? { action: uri(ctx.links.view(`wallets&acct=${a.id}`)) } : {};
+  const color = !a.known && !liab ? C.goldText : a.type === 'card' && a.pctUsed >= 0.8 ? C.red : a.type === 'loan' ? C.red : a.balance < 0 ? C.red : C.ink;
   const out = [
     box(
       'horizontal',
       [
-        box('vertical', [{ type: 'filler' }], { flex: 0, width: '10px', height: '10px', cornerRadius: '5px', backgroundColor: a.color }),
-        box('vertical', [text(`${a.emoji} ${a.name}`, { weight: 'bold', size: 'sm' }), text(sub, { size: 'xxs', color: C.muted })], { flex: 6, paddingStart: 'md' }),
-        text(right, { flex: 4, align: 'end', weight: 'bold', color: !a.known && !isCard ? C.goldText : isCard && a.pctUsed >= 0.8 ? C.red : a.balance < 0 ? C.red : C.ink, gravity: 'center', size: right === 'ตั้งยอด' ? 'xs' : 'sm' }),
+        acctIcon(a, ctx),
+        box('vertical', [text(a.name, { weight: 'bold', size: 'sm' }), text(sub, { size: 'xxs', color: C.muted })], { flex: 6, paddingStart: 'md' }),
+        text(right, { flex: 4, align: 'end', weight: 'bold', color, gravity: 'center', size: right === 'ตั้งยอด' ? 'xs' : 'sm' }),
       ],
       { alignItems: 'center', margin: 'lg', ...tap }
     ),
   ];
-  if (isCard && a.known && a.limit) out.push(bar(a.pctUsed, budgetColor(a.pctUsed)));
+  if (a.type === 'card' && a.known && a.limit) out.push(bar(a.pctUsed, budgetColor(a.pctUsed)));
+  if (a.type === 'loan' && a.principal) out.push(bar(a.pctPaid, C.green));
   return out;
 }
 
-/** สรุปยอดทุกบัญชี/บัตร (พิมพ์ "บัญชี") */
+/** สรุปยอดทุกบัญชี/บัตร/หนี้ (พิมพ์ "บัญชี") */
 export function accountsMessage(accs, totals, ctx) {
   const active = accs.filter((a) => !a.archived);
-  const money_ = active.filter((a) => a.type !== 'card');
-  const cards = active.filter((a) => a.type === 'card');
+  const groups = {
+    money: active.filter((a) => ['cash', 'bank', 'ewallet'].includes(a.type)),
+    receivable: active.filter((a) => a.type === 'receivable'),
+    card: active.filter((a) => a.type === 'card'),
+    loan: active.filter((a) => a.type === 'loan'),
+  };
   const body = [
     text('เงินในบัญชีรวม', { size: 'xs', color: C.muted }),
     text(money(totals.cash), { size: 'xxl', weight: 'bold', color: totals.cash < 0 ? C.red : C.ink }),
-    ...(totals.debt ? [text(`ยอดบัตรเครดิตค้างจ่าย ${money(totals.debt)} · สุทธิ ${money(totals.net)}`, { size: 'xxs', color: C.muted })] : []),
+    box(
+      'horizontal',
+      [
+        box('vertical', [text('หนี้รวม', { size: 'xxs', color: C.muted }), text(money(totals.debt || 0), { size: 'sm', weight: 'bold', color: totals.debt ? C.red : C.ink })], { flex: 1 }),
+        box('vertical', [text('ค้างรับ', { size: 'xxs', color: C.muted }), text(money(totals.receivable || 0), { size: 'sm', weight: 'bold' })], { flex: 1 }),
+        box('vertical', [text('ความมั่งคั่งสุทธิ', { size: 'xxs', color: C.muted }), text(money(totals.net), { size: 'sm', weight: 'bold', color: totals.net < 0 ? C.red : C.green })], { flex: 1 }),
+      ],
+      { margin: 'md', backgroundColor: C.chip, cornerRadius: '12px', paddingAll: 'md' }
+    ),
   ];
-  if (money_.length) body.push(sep({ margin: 'lg' }), text('บัญชี / เงินสด / e-Wallet', { size: 'xs', weight: 'bold', color: C.goldText, margin: 'lg' }), ...money_.flatMap((a) => accountRow(a, ctx)));
-  if (cards.length) body.push(sep({ margin: 'lg' }), text('บัตรเครดิต', { size: 'xs', weight: 'bold', color: C.goldText, margin: 'lg' }), ...cards.flatMap((a) => accountRow(a, ctx)));
+  for (const [k, list] of Object.entries(groups)) {
+    if (!list.length) continue;
+    body.push(sep({ margin: 'lg' }), text(SECTION_LABEL[k], { size: 'xs', weight: 'bold', color: C.goldText, margin: 'lg' }), ...list.flatMap((a) => accountRow(a, ctx)));
+  }
   if (active.some((a) => !a.known)) {
     body.push(text('บัญชีที่ขึ้น "ตั้งยอด" พิมพ์ยอดปัจจุบันก่อน เช่น "ยอด กสิกร 12000" แล้วระบบจะคิดยอดคงเหลือให้ทุกครั้งที่จด', { size: 'xxs', color: C.muted, margin: 'lg' }));
   }
-  body.push(sep({ margin: 'lg' }), text('โอนระหว่างบัญชี: "โอน 500 กสิกร ไป ทรู"\nจ่ายบัตร: "จ่ายบัตร ktc 3000 จาก กสิกร"\nกดเงินสด: "กดเงิน 2000 กสิกร"', { size: 'xxs', color: C.muted, margin: 'md' }));
-  const footer = ctx?.links?.view ? [btn('จัดการบัญชีและบัตร', uri(ctx.links.view('wallets')))] : [];
+  body.push(
+    sep({ margin: 'lg' }),
+    text('โอน: "โอน 500 กสิกร ไป ทรู" · จ่ายบัตร: "จ่ายบัตร ktc 3000"\nหนี้: "จ่ายหนี้ ผ่อนรถ 6500" · "ยืม แม่ 5000"\nค้างรับ: "ให้ยืม ต้น 500" · "รับคืน ต้น 500"', { size: 'xxs', color: C.muted, margin: 'md' })
+  );
+  const footer = ctx?.links?.view ? [btn('เปิดกระเป๋าเงิน', uri(ctx.links.view('wallets')))] : [];
   return flex(
     `กระเป๋าเงิน: รวม ${money(totals.cash)}`,
-    bubble({ title: 'กระเป๋าเงิน', subtitle: 'ยอดแต่ละบัญชีและบัตรเครดิต', body, footer, ctx }),
+    bubble({ title: 'กระเป๋าเงิน', subtitle: 'บัญชี · บัตร · หนี้ · ค้างรับ', body, footer, ctx }),
     quickReplies([
       { label: '🏦 เพิ่มบัญชี', text: 'เพิ่มบัญชี' },
       { label: '💳 เพิ่มบัตร', text: 'เพิ่มบัตร' },
       { label: '📱 เพิ่ม e-Wallet', text: 'เพิ่มวอลเล็ท' },
-      { label: '📊 สรุปเดือนนี้', text: 'สรุปเดือนนี้' },
+      { label: '🧾 เพิ่มหนี้', text: 'เพิ่มหนี้' },
+      { label: '💚 สุขภาพการเงิน', text: 'สุขภาพการเงิน' },
     ])
   );
 }
 
+/** คะแนนสุขภาพการเงิน (พิมพ์ "สุขภาพการเงิน") */
+export function healthMessage(ins, ctx) {
+  const h = ins.health;
+  const gradeColor = { A: C.green, B: C.green, C: C.amber, D: C.amber, F: C.red }[h.grade];
+  const pic = ctx?.moods?.[h.mood] || ctx?.logoUrl;
+  const body = [
+    box(
+      'horizontal',
+      [
+        ...(pic ? [box('vertical', [{ type: 'image', url: pic, size: 'full', aspectRatio: '1:1', aspectMode: 'fit' }], { flex: 0, width: '76px', height: '76px' })] : []),
+        box(
+          'vertical',
+          [
+            text('คะแนนสุขภาพการเงิน', { size: 'xs', color: C.muted }),
+            box('horizontal', [text(String(h.score), { size: '3xl', weight: 'bold', color: gradeColor, flex: 0 }), text('/100', { size: 'sm', color: C.muted, gravity: 'bottom', margin: 'sm', flex: 0 })]),
+            text(`เกรด ${h.grade} · ${h.label}`, { size: 'sm', weight: 'bold', color: gradeColor }),
+          ],
+          { paddingStart: 'md' }
+        ),
+      ],
+      { alignItems: 'center' }
+    ),
+    bar(h.score / 100, gradeColor, 8),
+    sep({ margin: 'lg' }),
+    ...h.parts.flatMap((p) => [
+      box('horizontal', [text(p.label, { size: 'sm', weight: 'bold', flex: 5 }), text(`${p.score}/${p.max}`, { size: 'sm', align: 'end', flex: 2, color: p.score / p.max >= 0.7 ? C.green : p.score / p.max >= 0.4 ? C.amber : C.red })], { margin: 'md' }),
+      text(p.detail, { size: 'xxs', color: C.muted }),
+    ]),
+  ];
+  if (ins.allowance) body.push(sep({ margin: 'lg' }), row('วันนี้ใช้ได้อีก', `${money(ins.allowance.perDay)}/วัน`, { margin: 'lg' }));
+  if (ins.pace.pace != null) body.push(row('คาดว่าใช้ทั้งรอบ', `${money(ins.pace.forecast)} (${Math.round(ins.pace.pace * 100)}% ของปกติ)`));
+  if (ins.savings.gapPerMonth) body.push(text(`💡 ออมเพิ่มอีก ~${money(ins.savings.gapPerMonth)}/เดือน จะถึงเป้า 20%`, { size: 'xs', margin: 'md', color: C.goldText }));
+  if (ins.debtFreeMonths) body.push(text(`🏁 ปลดหนี้ได้ในอีก ${ins.debtFreeMonths} เดือน ถ้าผ่อนตามงวด`, { size: 'xs', margin: 'sm', color: C.goldText }));
+  const footer = ctx?.links?.view ? [btn('ดูข้อมูลเชิงลึกทั้งหมด', uri(ctx.links.view('analysis')))] : [];
+  return flex(`สุขภาพการเงิน ${h.score}/100 เกรด ${h.grade}`, bubble({ title: 'สุขภาพการเงิน', subtitle: 'คำนวณจากรายรับ รายจ่าย งบ บัตร และหนี้ของคุณ', body, footer, ctx }));
+}
+
 /** เลือกบัญชีอื่นทั้งหมด (ปุ่ม "อื่นๆ" ใต้การ์ดจดสำเร็จ) */
 export function walletPickMessage(tx, accounts) {
-  const list = accounts.filter((a) => !a.archived);
+  const list = accounts.filter((a) => !a.archived && SPENDABLE.includes(a.type));
   return textMsg(
     `"${tx.note}" ${money(tx.amount)} จ่ายจากบัญชีไหน?`,
     quickReplies(list.map((a) => ({ label: `${a.emoji} ${a.name}`, data: `action=wallet&id=${tx.id}&w=${a.id}`, displayText: `จ่ายด้วย ${a.name}` })))
@@ -827,10 +907,16 @@ export function addAccountHelp(kind, ctx) {
     bank: ['เพิ่มบัญชี กสิกร 12000', 'เพิ่มบัญชี SCB เงินเก็บ 50000'],
     card: ['เพิ่มบัตร KTC วงเงิน 20000', 'เพิ่มบัตร กสิกร วงเงิน 30000 ใช้ไป 4500'],
     ewallet: ['เพิ่มวอลเล็ท TrueMoney 500', 'เพิ่มวอลเล็ท ShopeePay 200'],
+    loan: ['เพิ่มหนี้ ผ่อนรถ 150000 ผ่อน 6500', 'เพิ่มหนี้ กยศ 60000 ผ่อน 1500 ดอก 1'],
+    receivable: ['ให้ยืม ต้น 500', 'เพิ่มค้างรับ ลูกค้า A 3000'],
   }[kind] || ['เพิ่มบัญชี กสิกร 12000'];
-  const what = { bank: 'บัญชีธนาคาร', card: 'บัตรเครดิต', ewallet: 'e-Wallet' }[kind] || 'บัญชี';
+  const what = { bank: 'บัญชีธนาคาร', card: 'บัตรเครดิต', ewallet: 'e-Wallet', loan: 'หนี้สิน', receivable: 'ค้างรับ' }[kind] || 'บัญชี';
   const lines =
-    kind === 'card'
+    kind === 'loan'
+      ? 'พิมพ์ชื่อหนี้ + ยอดคงค้าง (ใส่ "ผ่อน" = ค่างวดต่อเดือน, "ดอก" = ดอกเบี้ยต่อปี %)\nจ่ายงวด: "จ่ายหนี้ ผ่อนรถ 6500"'
+      : kind === 'receivable'
+        ? 'ใครยืมเงินเรา พิมพ์ "ให้ยืม ชื่อ ยอด" (ตัดเงินจากบัญชีเริ่มต้น)\nได้คืน: "รับคืน ชื่อ ยอด"'
+        : kind === 'card'
       ? 'พิมพ์ชื่อบัตร + วงเงิน (ถ้ามียอดที่ใช้ไปแล้ว ใส่ "ใช้ไป" ต่อท้าย)'
       : 'พิมพ์ชื่อบัญชี + ยอดเงินตอนนี้ (ใส่ชื่อธนาคารในชื่อได้เลย เช่น กสิกร, SCB, กรุงไทย)';
   return textMsg(

@@ -46,17 +46,21 @@ export function seedDemo(user, now = new Date()) {
     { id: 'scb', type: 'bank', name: 'SCB เงินเก็บ', provider: 'scb' },
     { id: 'tmw', type: 'ewallet', name: 'TrueMoney', provider: 'truemoney' },
     { id: 'card', type: 'card', name: 'KTC', provider: 'ktc', limit: 20000, dueDay: 25 },
+    { id: 'kcard', type: 'card', name: 'บัตรกสิกร', provider: 'kbank', limit: 30000, dueDay: 12 },
+    { id: 'car', type: 'loan', name: 'ผ่อนรถ', provider: 'kbank', principal: 120000, monthlyPayment: 6500, rate: 3.5, dueDay: 5 },
+    { id: 'ton', type: 'receivable', name: 'ต้น (ยืมไป)' },
   ];
   user.settings.defaultWallet = 'cash';
-  const start = addDays(today, -59);
+  const DAYS = 184;
+  const start = addDays(today, -DAYS);
   const startAt = new Date(`${start}T00:00:00.000Z`);
-  for (const [id, v] of [['cash', 3000], ['bank', 15000], ['scb', 42000], ['tmw', 300], ['card', 0]]) ops.setBalance(user, id, v, startAt);
+  for (const [id, v] of [['cash', 3000], ['bank', 15000], ['scb', 30000], ['tmw', 300], ['card', 0], ['kcard', 0], ['car', 72000], ['ton', 0]]) ops.setBalance(user, id, v, startAt);
   const walletOf = (r) => (r < 0.4 ? 'cash' : r < 0.78 ? 'bank' : 'tmw');
   const add = (date, note, categoryId, amount, type = 'expense', wallet) =>
     ops.addTx(user, { date, note, categoryId, amount, type, wallet: wallet || walletOf(rand()) }, rand() > 0.85 ? 'slip' : 'chat');
   const move = (date, from, to, amount) => (ops.addTransfer(user, { from, to, amount, date }).createdAt = `${date}T12:00:00.000Z`);
 
-  for (let i = 58; i >= 0; i--) {
+  for (let i = DAYS - 1; i >= 0; i--) {
     const d = addDays(today, -i);
     const n = 2 + Math.floor(rand() * 3);
     for (let k = 0; k < n; k++) {
@@ -65,20 +69,24 @@ export function seedDemo(user, now = new Date()) {
     }
     if (rand() > 0.72) {
       const [note, cat, a, b] = pick(OCCASIONAL);
-      add(d, note, cat, between(a, b), 'expense', 'card');
+      add(d, note, cat, between(a, b), 'expense', rand() > 0.35 ? 'card' : 'kcard');
     }
     const day = Number(d.slice(8, 10));
     if (day === 1) add(d, 'ค่าห้อง', 'bills', 4500, 'expense', 'bank');
     if (day === 5) add(d, 'ค่าเน็ต', 'bills', 599, 'expense', 'bank');
-    if (day === 1) add(d, 'เงินเดือน', 'salary', 28000, 'income', 'bank');
+    if (day === 1) add(d, 'เงินเดือน', 'salary', 21000, 'income', 'bank');
     if (day === 20) add(d, 'งานฟรีแลนซ์', 'freelance', between(2000, 4000), 'income', 'bank');
     if (day === 15) add(d, 'ขายของออนไลน์', 'sales', between(1500, 3500), 'income', 'bank');
-    if (day === 2) move(d, 'bank', 'scb', 5000);
+    if (day === 2) move(d, 'bank', 'scb', 3000);
+    if (day === 5) move(d, 'bank', 'car', 6500);
+    if (i === 20) move(d, 'bank', 'ton', 1500);
+    if (i === 6) move(d, 'ton', 'cash', 500);
     // กดเงินสด/เติม TrueMoney เมื่อเหลือน้อย · จ่ายบัตรทุกวันที่ 25
     const bal = Object.fromEntries(ops.accountList(user, now).map((x) => [x.id, x]));
     if (bal.cash.balance < 600) move(d, 'bank', 'cash', 2000);
     if (bal.tmw.balance < 150) move(d, 'bank', 'tmw', 500);
     if (day === 25 && bal.card.used > 0) move(d, 'bank', 'card', bal.card.used);
+    if (day === 12 && bal.kcard.used > 0) move(d, 'bank', 'kcard', Math.round(bal.kcard.used * 0.3));
   }
   // createdAt ให้ตรงกับวันที่ (สำหรับนับ streak)
   for (const t of user.txs) t.createdAt = `${t.date}T12:00:00.000Z`;
