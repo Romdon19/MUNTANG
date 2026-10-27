@@ -27,8 +27,9 @@
     const liffState = new URLSearchParams((params.get('liff.state') || '').replace(/^[^?]*\?/, ''));
     const view = params.get('view') || liffState.get('view');
     const edit = params.get('edit') || liffState.get('edit');
+    const acct = params.get('acct') || liffState.get('acct');
     const backend = remoteBackend();
-    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-256.png', moods: moodPics('/assets'), view, edit });
+    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-256.png', moods: moodPics('/assets'), view, edit, acct });
     backend
       .authenticate()
       .then(() => dash.refresh())

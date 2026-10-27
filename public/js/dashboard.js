@@ -1,5 +1,5 @@
-// แดชบอร์ดหมุนตังค์ (LIFF) — โครงแบบป้านวล: สรุป · วิเคราะห์ · หมวด/งบ · รายการ · ตั้งค่า
-// mountDashboard(root, backend, { logoUrl, moods, view, edit })
+// แดชบอร์ดหมุนตังค์ (LIFF) — โครงแบบป้านวล: สรุป · วิเคราะห์ · หมวด/งบ · รายการ · ตั้งค่า (+ หน้ากระเป๋าเงิน)
+// mountDashboard(root, backend, { logoUrl, moods, view, edit, acct })
 import { money } from '../core/format.js';
 import { todayStr, thaiDate, TH_DAYS, weekday, cycleOf, shiftCycle, diffDays, addDays } from '../core/dates.js';
 import { summarize } from '../core/ops.js';
@@ -7,7 +7,7 @@ import { moodFor } from '../core/mood.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const SOURCE_LABEL = { chat: 'แชท', slip: 'สลิป', app: 'แอป', ai: 'AI', recurring: 'ประจำ', pdf: 'PDF' };
-const TABS = ['home', 'analysis', 'budget', 'list', 'settings'];
+const TABS = ['home', 'analysis', 'budget', 'list', 'settings', 'wallets'];
 const DAY_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
 
 // ไอคอนเส้นแบบแอปป้านวล
@@ -36,6 +36,8 @@ export function mountDashboard(root, backend, opts = {}) {
     toast: '',
     error: '',
     pendingEdit: opts.edit || null,
+    pendingAcct: opts.acct || null,
+    wallet: '', // กรองรายการตามบัญชี
   };
 
   root.classList.add('mt-app');
@@ -45,6 +47,14 @@ export function mountDashboard(root, backend, opts = {}) {
   const moodImg = (level) => opts.moods?.[level] || opts.logoUrl || '';
   const cat = (id) => st.data.categories.find((c) => c.id === id) || st.data.categories.find((c) => c.id === 'other');
   const wallet = (id) => st.data.wallets.find((w) => w.id === id) || st.data.wallets[0];
+  const acctById = (id) => st.data.accounts.find((a) => a.id === id);
+  const activeAccts = () => st.data.accounts.filter((a) => !a.archived);
+  // ตัวเลือกบัญชีในฟอร์ม (บัญชีที่ซ่อนแล้วแสดงเฉพาะถ้ารายการนั้นใช้อยู่)
+  const walletOptions = (cur) =>
+    st.data.accounts
+      .filter((a) => !a.archived || a.id === cur)
+      .map((a) => `<option value="${a.id}" ${a.id === cur ? 'selected' : ''}>${a.emoji} ${esc(a.name)}</option>`)
+      .join('');
   const isCurrentCycle = () => st.cycle.from === st.data.budget.from;
 
   async function refresh() {
@@ -57,6 +67,10 @@ export function mountDashboard(root, backend, opts = {}) {
         const tx = st.data.txs.find((t) => t.id === st.pendingEdit);
         if (tx) st.sheet = { kind: 'tx', tx };
         st.pendingEdit = null;
+      }
+      if (st.pendingAcct) {
+        if (acctById(st.pendingAcct)) st.sheet = { kind: 'acct', id: st.pendingAcct };
+        st.pendingAcct = null;
       }
     } catch (e) {
       st.error = e.message;
@@ -219,6 +233,7 @@ export function mountDashboard(root, backend, opts = {}) {
         }
         <button class="mt-more" data-act="more">${st.more ? 'ย่อ ⌃' : 'ดูเพิ่ม ⌄'}</button>
       </section>
+      ${walletStrip()}
       ${
         cur
           ? `<section class="mt-says" data-level="${m.level}">
@@ -462,6 +477,7 @@ export function mountDashboard(root, backend, opts = {}) {
     let txs = cycleTxs();
     if (st.type !== 'all') txs = txs.filter((t) => t.type === st.type);
     if (st.cat) txs = txs.filter((t) => t.categoryId === st.cat);
+    if (st.wallet) txs = txs.filter((t) => t.wallet === st.wallet);
     if (st.q) {
       const q = st.q.toLowerCase();
       txs = txs.filter((t) => t.note.toLowerCase().includes(q) || cat(t.categoryId).name.includes(q));
@@ -477,6 +493,7 @@ export function mountDashboard(root, backend, opts = {}) {
         <input id="mt-search" type="search" placeholder="ค้นหา เช่น กาแฟ" value="${esc(st.q)}" autocomplete="off">
         <div class="mt-chips">${chip('all', 'ทั้งหมด')}${chip('expense', 'รายจ่าย')}${chip('income', 'รายรับ')}
           ${st.cat ? `<button class="mt-chip is-on" data-act="filtercat" data-id="">${cat(st.cat).emoji} ${esc(cat(st.cat).name)} ✕</button>` : ''}
+          ${st.wallet ? `<button class="mt-chip is-on" data-act="acctlist" data-id="">${wallet(st.wallet).emoji} ${esc(wallet(st.wallet).name)} ✕</button>` : ''}
         </div>
       </div>
       <div class="mt-list-sum"><span class="mt-sub">${txs.length} รายการ · จ่าย <b class="num">${money(s.expense)}</b> · รับ <b class="num is-inc">${money(s.income)}</b></span><button class="mt-btn-s" data-act="add">+ จดรายการ</button></div>
@@ -490,6 +507,97 @@ export function mountDashboard(root, backend, opts = {}) {
               .join('')
           : '<p class="mt-empty">ไม่พบรายการ</p>'
       }`;
+  }
+
+  // ---------------- กระเป๋าเงิน ----------------
+  /** ตัวเลขหลักของบัญชี: ยอดคงเหลือ / บัตร = ยอดใช้ไป */
+  function acctFigure(a) {
+    if (a.type === 'card') return a.known ? money(a.used) : money(a.spent || 0);
+    return a.known ? money(a.balance) : 'ตั้งยอด';
+  }
+  function acctSub(a) {
+    if (a.type === 'card') {
+      if (!a.known) return 'รอบนี้รูดไป · ยังไม่ตั้งยอด';
+      return a.limit ? `วงเงิน ${money(a.limit)} · เหลือ ${money(a.available)}` : 'ยอดค้างจ่าย';
+    }
+    return `รอบนี้ใช้ ${money(a.spent || 0)}`;
+  }
+  const cardTone = (p) => (p >= 0.9 ? 'var(--red)' : p >= 0.7 ? 'var(--amber)' : 'var(--ink)');
+
+  function acctTile(a) {
+    const neg = a.type !== 'card' && a.known && a.balance < 0;
+    return `<button class="mt-acct ${a.known ? '' : 'is-unset'}" data-act="acct" data-id="${a.id}" style="--c:${a.color}">
+      <span class="mt-acct-n"><i class="mt-dot" style="background:${a.color}"></i>${esc(a.name)}</span>
+      <b class="num ${neg ? 'is-neg' : ''}">${acctFigure(a)}</b>
+      <small>${a.type === 'card' ? (a.known ? (a.limit ? `ใช้ไป · เหลือ ${money(a.available)}` : 'ค้างจ่าย') : 'รูดรอบนี้') : a.typeName}</small>
+      ${a.type === 'card' && a.known && a.limit ? bar(a.pctUsed, cardTone(a.pctUsed)) : ''}
+    </button>`;
+  }
+
+  /** แถบบัญชีในหน้าสรุป */
+  function walletStrip() {
+    const t = st.data.accountTotals;
+    return `<section class="mt-card">
+      <div class="mt-card-h"><h3>กระเป๋าเงิน</h3><button class="mt-link" data-act="tab" data-tab="wallets">จัดการ</button></div>
+      <div class="mt-acct-sum"><span class="mt-sub">เงินในบัญชีรวม</span><b class="num">${money(t.cash)}</b>${t.debt ? `<span class="mt-sub">บัตรค้างจ่าย <b class="num">${money(t.debt)}</b></span>` : ''}</div>
+      <div class="mt-accts">${activeAccts().map(acctTile).join('')}<button class="mt-acct is-add" data-act="newacct"><span>＋</span><small>เพิ่มบัญชี / บัตร</small></button></div>
+    </section>`;
+  }
+
+  function acctRow(a) {
+    const isCard = a.type === 'card';
+    return `<li><button class="mt-acct-row" data-act="acct" data-id="${a.id}">
+      <span class="mt-acct-ic" style="background:${a.color}">${a.emoji}</span>
+      <span class="mt-tx-main"><span class="mt-tx-note">${esc(a.name)}</span><span class="mt-sub">${esc(acctSub(a))}${isCard && a.dueDay ? ` · จ่ายวันที่ ${a.dueDay}` : ''}</span>
+        ${isCard && a.known && a.limit ? bar(a.pctUsed, cardTone(a.pctUsed)) : ''}</span>
+      <span class="num mt-amt ${!a.known && !isCard ? 'is-unset' : ''} ${!isCard && a.known && a.balance < 0 ? 'is-neg' : ''}">${acctFigure(a)}</span>
+    </button></li>`;
+  }
+
+  function walletsView() {
+    const t = st.data.accountTotals;
+    const list = activeAccts();
+    const moneyAccts = list.filter((a) => a.type !== 'card');
+    const cards = list.filter((a) => a.type === 'card');
+    const hidden = st.data.accounts.filter((a) => a.archived);
+    const xfers = [...st.data.transfers].sort(byNewest).slice(0, 8);
+    const unset = list.filter((a) => !a.known).length;
+    return `
+      <div class="mt-row-h"><h2>กระเป๋าเงิน</h2><button class="mt-btn-s" data-act="xfer">⇄ โอน / จ่ายบัตร</button></div>
+      <section class="mt-card mt-acct-hero">
+        <span class="mt-sub">เงินในบัญชีรวม</span>
+        <b class="num">${money(t.cash)}</b>
+        <div class="mt-tiles">
+          <div class="mt-tile is-exp"><span>บัตรเครดิตค้างจ่าย</span><b class="num">${money(t.debt)}</b>${t.limit ? `<small>วงเงินรวม ${money(t.limit)}</small>` : ''}</div>
+          <div class="mt-tile is-inc"><span>สุทธิ (เงิน − หนี้บัตร)</span><b class="num">${money(t.net)}</b></div>
+        </div>
+        ${unset ? `<p class="mt-sub">มี ${unset} บัญชีที่ยังไม่ได้ตั้งยอด แตะบัญชีแล้วใส่ยอดเงินตอนนี้ ระบบจะคิดยอดคงเหลือให้ทุกครั้งที่จด</p>` : ''}
+      </section>
+      <section class="mt-card">
+        <div class="mt-card-h"><h3>บัญชี · เงินสด · e-Wallet</h3><button class="mt-link" data-act="newacct" data-type="bank">+ เพิ่ม</button></div>
+        ${moneyAccts.length ? `<ul class="mt-txs">${moneyAccts.map(acctRow).join('')}</ul>` : '<p class="mt-empty">ยังไม่มีบัญชี</p>'}
+      </section>
+      <section class="mt-card">
+        <div class="mt-card-h"><h3>บัตรเครดิต</h3><button class="mt-link" data-act="newacct" data-type="card">+ เพิ่มบัตร</button></div>
+        ${cards.length ? `<ul class="mt-txs">${cards.map(acctRow).join('')}</ul>` : '<p class="mt-empty">ยังไม่มีบัตรเครดิต</p>'}
+      </section>
+      <section class="mt-card">
+        <div class="mt-card-h"><h3>โอนระหว่างบัญชี / จ่ายบัตร</h3><button class="mt-link" data-act="xfer">+ เพิ่ม</button></div>
+        ${
+          xfers.length
+            ? `<ul class="mt-txs">${xfers
+                .map(
+                  (x) => `<li><div class="mt-tx">
+                    <span class="mt-xfer-ic">⇄</span>
+                    <span class="mt-tx-main"><span class="mt-tx-note">${esc(wallet(x.from).name)} → ${esc(wallet(x.to).name)}</span><span class="mt-sub">${thaiDate(x.date)} · ${esc(x.note)}</span></span>
+                    <span class="num mt-amt">${money(x.amount)}</span>
+                    <button class="mt-x" data-act="delxfer" data-id="${x.id}" aria-label="ลบรายการโอนนี้">✕</button></div></li>`
+                )
+                .join('')}</ul>`
+            : '<p class="mt-empty">ยังไม่มี · ใช้ตอนโอนเงินเข้าบัญชีเก็บ เติม e-Wallet กดเงินสด หรือจ่ายบัตรเครดิต (ไม่นับเป็นรายจ่ายซ้ำ)</p>'
+        }
+      </section>
+      ${hidden.length ? `<p class="mt-sub">บัญชีที่ซ่อนไว้: ${hidden.map((a) => esc(a.name)).join(', ')} (ยังเก็บประวัติรายการไว้)</p>` : ''}`;
   }
 
   // ---------------- ตั้งค่า ----------------
@@ -508,6 +616,12 @@ export function mountDashboard(root, backend, opts = {}) {
       ['ตั้งค่า', 'ตั้งค่าเริ่มต้นใหม่'],
       ['เชิญบอทเข้ากลุ่ม', 'จดบัญชีร่วมกับครอบครัว'],
       ['สรุป / สรุปเดือนนี้', 'ดูสรุป'],
+      ['บัญชี', 'ดูยอดทุกบัญชีและบัตร'],
+      ['ข้าว 50 กสิกร', 'ระบุบัญชีที่จ่าย'],
+      ['ยอด กสิกร 12000', 'ตั้งยอดเงินในบัญชี'],
+      ['โอน 500 กสิกร ไป ทรู', 'โอนระหว่างบัญชี'],
+      ['จ่ายบัตร ktc 3000', 'ชำระบัตรเครดิต'],
+      ['กดเงิน 2000 กสิกร', 'กดเงินสด'],
       ['งบ 15000', 'ตั้งงบทั้งเดือน'],
       ['งบ อาหาร 5000', 'ตั้งงบรายหมวด'],
       ['เป้า เที่ยวญี่ปุ่น 50000', 'สร้างเป้าหมาย'],
@@ -532,8 +646,9 @@ export function mountDashboard(root, backend, opts = {}) {
             .map((d) => `<option value="${d}" ${(s.cycleStartDay || 1) === d ? 'selected' : ''}>วันที่ ${d}${d === 1 ? ' (ต้นเดือน)' : ''}</option>`)
             .join('')}</select>
           <label class="mt-check"><input type="checkbox" id="mt-report" name="monthlyReport" ${s.monthlyReport !== false ? 'checked' : ''}> ส่งรายงานสรุปให้ทุกวันแรกของรอบ 09:00 น.</label>
-          <label for="mt-wallet">ช่องทางจ่ายเริ่มต้น</label>
-          <select id="mt-wallet" name="defaultWallet">${st.data.wallets.map((w) => `<option value="${w.id}" ${s.defaultWallet === w.id ? 'selected' : ''}>${w.emoji} ${esc(w.name)}</option>`).join('')}</select>
+          <label for="mt-wallet">บัญชีที่ใช้จ่ายบ่อยที่สุด (ค่าเริ่มต้น)</label>
+          <select id="mt-wallet" name="defaultWallet">${walletOptions(s.defaultWallet)}</select>
+          <span class="mt-sub">จดในแชทโดยไม่บอกบัญชี จะตัดจากบัญชีนี้ · <button type="button" class="mt-link" data-act="tab" data-tab="wallets">จัดการบัญชีและบัตร</button></span>
           <button class="mt-btn" type="submit">บันทึกการตั้งค่า</button>
         </form>
       </section>
@@ -584,12 +699,89 @@ export function mountDashboard(root, backend, opts = {}) {
           <input type="hidden" name="type" value="${type}">
           <div class="mt-row2">
             <div><label for="mt-date">วันที่</label><input id="mt-date" name="date" type="date" value="${sh.date ?? t.date}" max="${todayStr()}"></div>
-            <div><label for="mt-txwallet">ช่องทางชำระ</label><select id="mt-txwallet" name="wallet">${st.data.wallets.map((w) => `<option value="${w.id}" ${(sh.wallet ?? t.wallet) === w.id ? 'selected' : ''}>${w.emoji} ${esc(w.name)}</option>`).join('')}</select></div>
+            <div><label for="mt-txwallet">${type === 'income' ? 'เข้าบัญชี' : 'จ่ายจากบัญชี'}</label><select id="mt-txwallet" name="wallet">${walletOptions(sh.wallet ?? t.wallet)}</select></div>
           </div>
           ${sh.tx?.by ? `<p class="mt-sub">จดโดย ${esc(sh.tx.by)}</p>` : ''}
           ${sh.tx?.attachment && backend.fileUrl ? `<a class="mt-attach" href="${esc(backend.fileUrl(sh.tx.attachment))}" target="_blank" rel="noopener"><img src="${esc(backend.fileUrl(sh.tx.attachment))}" alt="รูปหลักฐานของรายการนี้" loading="lazy"><span>📎 หลักฐาน · แตะเพื่อดูเต็ม</span></a>` : ''}
           <button class="mt-btn" type="submit">${sh.tx ? 'บันทึกการแก้ไข' : 'บันทึก'}</button>
           ${sh.tx ? (sh.confirmDel ? `<button class="mt-btn is-danger" type="button" data-act="deltx" data-id="${sh.tx.id}">ยืนยันลบรายการนี้</button>` : `<button class="mt-btn is-ghost" type="button" data-act="askdel">ลบรายการ</button>`) : ''}
+        </form>`;
+    } else if (sh.kind === 'acct' || sh.kind === 'newacct') {
+      const a = sh.kind === 'acct' ? acctById(sh.id) : null;
+      const type = sh.type || a?.type || 'bank';
+      const isCard = type === 'card';
+      const provs = st.data.providers.filter((p) => p.types.includes(type));
+      const prov = sh.provider ?? a?.provider ?? '';
+      const figure = a ? (isCard ? (a.known ? a.used : '') : a.known ? a.balance : '') : '';
+      const txs = a ? st.data.txs.filter((t) => t.wallet === a.id).sort(byNewest).slice(0, 6) : [];
+      const typeBtn = (v, l) => `<button type="button" class="${type === v ? 'is-on' : ''}" data-act="accttype" data-v="${v}">${l}</button>`;
+      inner = `
+        ${
+          a
+            ? `<div class="mt-acct-head" style="--c:${a.color}"><span class="mt-acct-ic" style="background:${a.color}">${a.emoji}</span>
+                <div><b class="num">${acctFigure(a)}</b><span class="mt-sub">${a.type === 'card' ? (a.known ? (a.limit ? `ใช้ไปจากวงเงิน ${money(a.limit)} · เหลือ ${money(a.available)}` : 'ยอดค้างจ่าย') : 'รูดรอบนี้ (ยังไม่ตั้งยอด)') : a.known ? 'ยอดคงเหลือ' : 'ยังไม่ได้ตั้งยอด'} · รอบนี้ใช้ ${money(a.spent || 0)}</span></div></div>
+              ${a.type === 'card' && a.known && a.limit ? bar(a.pctUsed, cardTone(a.pctUsed), 'is-lg') : ''}`
+            : ''
+        }
+        <form class="mt-form" data-form="acct">
+          <span class="mt-label">ประเภท</span>
+          <div class="mt-seg4">${typeBtn('bank', '🏦 ธนาคาร')}${typeBtn('ewallet', '📱 e-Wallet')}${typeBtn('card', '💳 บัตรเครดิต')}${typeBtn('cash', '💵 เงินสด')}</div>
+          <input type="hidden" name="type" value="${type}">
+          ${
+            type === 'cash'
+              ? ''
+              : `<label for="mt-prov">${isCard ? 'ธนาคาร/ผู้ออกบัตร' : type === 'ewallet' ? 'ผู้ให้บริการ' : 'ธนาคาร'}</label>
+          <select id="mt-prov" name="provider"><option value="">ไม่ระบุ / อื่นๆ</option>${provs.map((p) => `<option value="${p.id}" ${p.id === prov ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`
+          }
+          <label for="mt-acctname">ชื่อที่ใช้เรียก (พิมพ์ชื่อนี้ในแชทเพื่อเลือกบัญชี)</label>
+          <input id="mt-acctname" name="name" value="${esc(sh.name ?? a?.name ?? '')}" placeholder="${isCard ? 'เช่น KTC, บัตรกสิกร' : type === 'ewallet' ? 'เช่น TrueMoney' : type === 'cash' ? 'เช่น เงินสด' : 'เช่น กสิกร, SCB เงินเก็บ'}" maxlength="30" ${type === 'cash' ? '' : ''}>
+          <label for="mt-bal">${isCard ? 'ยอดที่ใช้ไปแล้วตอนนี้ (ยังไม่ได้จ่าย)' : 'ยอดเงินตอนนี้'}</label>
+          <div class="mt-amount is-sm"><span>฿</span><input id="mt-bal" name="balance" type="number" inputmode="decimal" step="0.01" value="${sh.balance ?? figure}" placeholder="0"></div>
+          ${
+            isCard
+              ? `<div class="mt-row2">
+            <div><label for="mt-limit">วงเงินบัตร</label><input id="mt-limit" name="limit" type="number" inputmode="decimal" min="0" step="1" value="${sh.limit ?? a?.limit ?? ''}" placeholder="เช่น 20000"></div>
+            <div><label for="mt-due">ครบกำหนดจ่ายทุกวันที่</label><input id="mt-due" name="dueDay" type="number" inputmode="numeric" min="1" max="31" value="${sh.dueDay ?? a?.dueDay ?? ''}" placeholder="เช่น 25"></div>
+          </div>`
+              : ''
+          }
+          <p class="mt-sub">${a ? 'แก้ยอดเมื่อไรก็ได้ ระบบจะนับรายการต่อจากยอดใหม่' : 'ใส่ยอดตอนนี้ แล้วทุกรายการที่จดจะตัด/เพิ่มยอดให้อัตโนมัติ'}</p>
+          <button class="mt-btn" type="submit">${a ? 'บันทึก' : 'เพิ่มบัญชี'}</button>
+        </form>
+        ${
+          a
+            ? `<div class="mt-card-h"><h3>รายการล่าสุดของบัญชีนี้</h3>${txs.length ? `<button class="mt-link" data-act="acctlist" data-id="${a.id}">ดูทั้งหมด</button>` : ''}</div>
+              ${txs.length ? `<ul class="mt-txs">${txs.map(txItem).join('')}</ul>` : '<p class="mt-empty">ยังไม่มีรายการ</p>'}
+              <button class="mt-btn is-ghost" type="button" data-act="xfer" data-id="${a.id}">${a.type === 'card' ? '💳 จ่ายบัตรนี้' : '⇄ โอนเงินจากบัญชีนี้'}</button>
+              ${
+                sh.confirmDel
+                  ? `<button class="mt-btn is-danger" type="button" data-act="delacct" data-id="${a.id}">ยืนยันลบ${a.count ? ' (ซ่อนไว้ ประวัติยังอยู่)' : ''}</button>`
+                  : `<button class="mt-btn is-ghost is-danger-text" type="button" data-act="askdelacct">ลบบัญชีนี้</button>`
+              }`
+            : ''
+        }`;
+    } else if (sh.kind === 'xfer') {
+      const list = activeAccts();
+      const to = sh.to ?? (list.find((a) => a.type === 'card')?.id || list[1]?.id || '');
+      const from = sh.from ?? (list.find((a) => a.type === 'bank' && a.id !== to)?.id || list.find((a) => a.id !== to)?.id || '');
+      const toAcc = acctById(to);
+      const opt = (cur) => list.map((a) => `<option value="${a.id}" ${a.id === cur ? 'selected' : ''}>${a.emoji} ${esc(a.name)}</option>`).join('');
+      const suggest = toAcc?.type === 'card' && toAcc.known && toAcc.used > 0 ? toAcc.used : '';
+      inner = `
+        <form class="mt-form" data-form="xfer">
+          <p class="mt-sub">ย้ายเงินระหว่างบัญชีของเรา เช่น โอนเข้าบัญชีเก็บ เติม e-Wallet กดเงินสด หรือจ่ายบัตรเครดิต · ไม่นับเป็นรายรับรายจ่าย</p>
+          <div class="mt-row2">
+            <div><label for="mt-xfrom">จากบัญชี</label><select id="mt-xfrom" name="from" data-change="xfer">${opt(from)}</select></div>
+            <div><label for="mt-xto">ไปบัญชี</label><select id="mt-xto" name="to" data-change="xfer">${opt(to)}</select></div>
+          </div>
+          <label for="mt-xamt" class="mt-vh">จำนวนเงิน</label>
+          <div class="mt-amount"><span>฿</span><input id="mt-xamt" name="amount" type="number" inputmode="decimal" step="0.01" min="0" required value="${sh.amount ?? suggest}" placeholder="0"></div>
+          ${toAcc?.type === 'card' ? `<p class="mt-sub">💳 ${esc(toAcc.name)} ${toAcc.known ? `ยอดค้างจ่าย ${money(toAcc.used)}` : 'ยังไม่ได้ตั้งยอด'}</p>` : ''}
+          <div class="mt-row2">
+            <div><label for="mt-xdate">วันที่</label><input id="mt-xdate" name="date" type="date" value="${sh.date ?? todayStr()}" max="${todayStr()}"></div>
+            <div><label for="mt-xnote">บันทึก</label><input id="mt-xnote" name="note" value="${esc(sh.note ?? '')}" placeholder="ไม่ใส่ก็ได้" maxlength="80"></div>
+          </div>
+          <button class="mt-btn" type="submit">${toAcc?.type === 'card' ? 'บันทึกการจ่ายบัตร' : 'บันทึกการโอน'}</button>
         </form>`;
     } else if (sh.kind === 'catbudget') {
       const c = cat(sh.id);
@@ -633,6 +825,7 @@ export function mountDashboard(root, backend, opts = {}) {
         <div class="mt-row2"><div><label for="mt-rec-amount">จำนวนเงิน</label><input id="mt-rec-amount" name="amount" type="number" inputmode="decimal" min="1" required placeholder="599"></div>
         <div><label for="mt-rec-day">ทุกวันที่</label><input id="mt-rec-day" name="day" type="number" min="1" max="31" required value="1"></div></div>
         <label for="mt-rec-cat">หมวด</label><select id="mt-rec-cat" name="categoryId">${st.data.categories.map((c) => `<option value="${c.id}">${c.emoji} ${esc(c.name)} (${c.type === 'income' ? 'รับ' : 'จ่าย'})</option>`).join('')}</select>
+        <label for="mt-rec-wallet">บัญชี</label><select id="mt-rec-wallet" name="wallet">${walletOptions(st.data.settings.defaultWallet)}</select>
         <button class="mt-btn" type="submit">เพิ่มรายการประจำ</button></form>`;
     } else if (sh.kind === 'wipe') {
       const all = sh.mode === 'all';
@@ -652,6 +845,9 @@ export function mountDashboard(root, backend, opts = {}) {
         <button class="mt-btn" type="button" data-act="copycsv">คัดลอกทั้งหมด</button>`;
     }
     const titles = {
+      acct: sh.kind === 'acct' ? acctById(sh.id)?.name || 'บัญชี' : '',
+      newacct: 'เพิ่มบัญชี / บัตร',
+      xfer: 'โอนระหว่างบัญชี / จ่ายบัตร',
       csv: 'ส่งออกข้อมูล (CSV)',
       wipe: sh.mode === 'all' ? 'ลบบัญชีและข้อมูลทั้งหมด' : 'ล้างรายการทั้งหมด',
       tx: sh.tx ? 'แก้ไขรายการ' : 'จดรายการ',
@@ -668,7 +864,8 @@ export function mountDashboard(root, backend, opts = {}) {
   }
 
   function nav() {
-    const item = (tab, label) => `<button class="${st.tab === tab ? 'is-on' : ''}" data-act="tab" data-tab="${tab}" aria-label="${label}">${icon(tab)}<span>${label}</span></button>`;
+    const on = st.tab === 'wallets' ? 'home' : st.tab;
+    const item = (tab, label) => `<button class="${on === tab ? 'is-on' : ''}" data-act="tab" data-tab="${tab}" aria-label="${label}">${icon(tab)}<span>${label}</span></button>`;
     return `<nav class="mt-nav">${item('home', 'สรุป')}${item('analysis', 'วิเคราะห์')}${item('budget', 'หมวด / งบ')}${item('list', 'รายการ')}${item('settings', 'ตั้งค่า')}</nav>`;
   }
 
@@ -682,7 +879,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const searchFocused = document.activeElement?.id === 'mt-search';
     const scroller = root.querySelector('.mt-main');
     const scrollTop = scroller?.scrollTop || 0;
-    const views = { home: homeView, analysis: analysisView, budget: budgetView, list: listView, settings: settingsView };
+    const views = { home: homeView, analysis: analysisView, budget: budgetView, list: listView, settings: settingsView, wallets: walletsView };
     root.innerHTML = `<main class="mt-main">${views[st.tab]()}</main>${nav()}${sheetView()}${st.toast ? `<div class="mt-toast" role="status">${esc(st.toast)}</div>` : ''}`;
     const main = root.querySelector('.mt-main');
     if (main && root.dataset.tab === st.tab) main.scrollTop = scrollTop;
@@ -735,6 +932,48 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'type':
         st.type = b.dataset.v;
         render();
+        break;
+      case 'acct':
+        st.sheet = { kind: 'acct', id: b.dataset.id };
+        render();
+        break;
+      case 'newacct':
+        st.sheet = { kind: 'newacct', type: b.dataset.type || 'bank' };
+        render();
+        break;
+      case 'accttype': {
+        const f = root.querySelector('form[data-form="acct"]');
+        if (f) {
+          const fd = new FormData(f);
+          Object.assign(sh, { name: fd.get('name'), balance: fd.get('balance'), limit: fd.get('limit') ?? sh.limit, dueDay: fd.get('dueDay') ?? sh.dueDay });
+        }
+        sh.type = b.dataset.v;
+        sh.provider = '';
+        render();
+        break;
+      }
+      case 'askdelacct':
+        sh.confirmDel = true;
+        render();
+        break;
+      case 'delacct':
+        act(() => backend.deleteAccountItem(b.dataset.id), 'ลบบัญชีแล้ว');
+        break;
+      case 'xfer': {
+        const a = b.dataset.id ? acctById(b.dataset.id) : null;
+        st.sheet = { kind: 'xfer', ...(a ? (a.type === 'card' ? { to: a.id } : { from: a.id }) : {}) };
+        render();
+        break;
+      }
+      case 'delxfer':
+        act(() => backend.deleteTransfer(b.dataset.id), 'ลบรายการโอนแล้ว');
+        break;
+      case 'acctlist':
+        st.wallet = b.dataset.id || '';
+        st.tab = 'list';
+        st.sheet = null;
+        render();
+        root.querySelector('.mt-main')?.scrollTo(0, 0);
         break;
       case 'add':
         st.sheet = { kind: 'tx' };
@@ -860,6 +1099,12 @@ export function mountDashboard(root, backend, opts = {}) {
   });
 
   root.addEventListener('change', (e) => {
+    if (e.target.dataset.change === 'xfer' && st.sheet?.kind === 'xfer') {
+      const fd = Object.fromEntries(new FormData(e.target.form));
+      Object.assign(st.sheet, { from: fd.from, to: fd.to, amount: e.target.name === 'to' ? undefined : fd.amount, date: fd.date, note: fd.note });
+      render();
+      return;
+    }
     if (e.target.dataset.change === 'mode') act(() => backend.saveSettings({ budgetMode: e.target.value }), e.target.value === 'category' ? 'ใช้งบแยกหมวดแล้ว' : 'ใช้งบรวมทั้งเดือนแล้ว');
   });
 
@@ -916,6 +1161,17 @@ export function mountDashboard(root, backend, opts = {}) {
           'บันทึกการตั้งค่าแล้ว'
         );
         break;
+      case 'acct': {
+        const body = { type: fd.type, name: fd.name, provider: fd.provider ?? '' };
+        if (fd.balance !== '') body.balance = Number(fd.balance);
+        if (fd.type === 'card') Object.assign(body, { limit: Number(fd.limit) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null });
+        if (st.sheet.kind === 'acct') act(() => backend.updateAccount(st.sheet.id, body), 'บันทึกบัญชีแล้ว');
+        else act(() => backend.addAccount(body), `เพิ่ม${fd.name ? ` ${fd.name}` : 'บัญชี'}แล้ว`);
+        break;
+      }
+      case 'xfer':
+        act(() => backend.addTransfer({ ...fd, amount: Number(fd.amount) }), fd.to && acctById(fd.to)?.type === 'card' ? '💳 บันทึกการจ่ายบัตรแล้ว' : '⇄ บันทึกการโอนแล้ว');
+        break;
       case 'goal':
         act(() => backend.addGoal({ name: fd.name, target: Number(fd.target), emoji: fd.emoji }), 'สร้างเป้าหมายแล้ว');
         break;
@@ -950,8 +1206,12 @@ export function mountDashboard(root, backend, opts = {}) {
 
   return {
     refresh,
-    show(tab, editId) {
+    show(view, editId) {
+      // view อาจมีพารามิเตอร์ต่อท้าย เช่น "wallets&acct=<id>" (ลิงก์จากการ์ดบัญชีในแชท)
+      const [tab, ...rest] = String(view || '').split('&');
+      const acct = new URLSearchParams(rest.join('&')).get('acct');
       if (TABS.includes(tab)) st.tab = tab;
+      if (acct && st.data && acctById(acct)) st.sheet = { kind: 'acct', id: acct };
       if (editId) {
         const tx = st.data?.txs.find((t) => t.id === editId);
         if (tx) st.sheet = { kind: 'tx', tx };

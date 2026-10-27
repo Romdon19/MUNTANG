@@ -102,7 +102,17 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
     }
     case 'text': {
       const node = el('div', 'fx-text');
-      node.textContent = n.text;
+      if (Array.isArray(n.contents) && n.contents.length) {
+        // span: ข้อความหลายสีในบรรทัดเดียว
+        for (const sp of n.contents) {
+          const span = el('span');
+          span.textContent = sp.text;
+          if (sp.color) span.style.color = sp.color;
+          if (sp.weight === 'bold') span.style.fontWeight = '700';
+          if (sp.size) span.style.fontSize = `${FS[sp.size] || parseInt(sp.size, 10) || 16}px`;
+          node.append(span);
+        }
+      } else node.textContent = n.text;
       const s = node.style;
       s.fontSize = `${FS[n.size || 'md'] || parseInt(n.size, 10) || 16}px`;
       if (n.color) s.color = n.color;

@@ -252,7 +252,7 @@ button.mt-tx:hover { background: var(--bg); }
 .mt-seg input { position: absolute; opacity: 0; }
 .mt-amount { display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--gold); padding: 6px 2px; }
 .mt-amount span { font-family: var(--font-num); font-size: 28px; color: var(--gold-text); }
-.mt-form .mt-amount input { border: 0; background: none; font-family: var(--font-num); font-size: 36px; font-weight: 600; padding: 0; outline: none; }
+.mt-form .mt-amount input[type='number'] { border: 0; background: none; font-family: var(--font-num); font-size: 36px; font-weight: 600; padding: 0; outline: none; }
 .mt-amount input::-webkit-inner-spin-button, .mt-amount input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .mt-amount input { -moz-appearance: textfield; appearance: textfield; }
 .mt-catgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
@@ -280,3 +280,36 @@ button.mt-tx:hover { background: var(--bg); }
 /* โซนลบข้อมูล */
 .mt-danger { border-color: #f6c3c4; }
 .mt-btn.is-danger-text { color: var(--red); }
+
+/* ---------- กระเป๋าเงิน ---------- */
+.mt-acct-sum { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mt-acct-sum > b { font-family: var(--font-num); font-size: 24px; font-weight: 600; }
+.mt-accts { display: flex; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 4px; scroll-snap-type: x proximity; scrollbar-width: none; }
+.mt-accts::-webkit-scrollbar { display: none; }
+.mt-acct {
+  flex: 0 0 148px; scroll-snap-align: start; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  text-align: left; background: var(--bg); border: 1px solid var(--border); border-top: 3px solid var(--c, var(--gold));
+  border-radius: 14px; padding: 10px 12px; min-width: 0;
+}
+.mt-acct-n { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-acct-n .mt-dot { width: 8px; height: 8px; flex-basis: 8px; }
+.mt-acct b { font-family: var(--font-num); font-size: 18px; font-weight: 600; white-space: nowrap; }
+.mt-acct b.is-neg, .mt-amt.is-neg { color: var(--red); }
+.mt-acct.is-unset b, .mt-amt.is-unset { color: var(--gold-text); font-size: 14px; font-family: var(--font-body); }
+.mt-acct small { font-size: 11.5px; color: var(--muted); }
+.mt-acct .mt-bar-t { width: 100%; }
+.mt-acct.is-add { align-items: center; justify-content: center; border-style: dashed; border-top-width: 1px; color: var(--gold-text); }
+.mt-acct.is-add span { font-size: 22px; line-height: 1; }
+.mt-acct-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 2px; background: none; border: 0; text-align: left; border-bottom: 1px solid var(--border); }
+.mt-txs li:last-child .mt-acct-row { border-bottom: 0; }
+.mt-acct-row .mt-bar-t { margin-top: 6px; }
+.mt-acct-ic { flex: 0 0 36px; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-size: 17px; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.mt-xfer-ic { flex: 0 0 11px; color: var(--muted); font-weight: 700; }
+.mt-acct-hero > b { font-family: var(--font-num); font-size: 32px; font-weight: 600; line-height: 1.1; }
+.mt-acct-head { display: flex; align-items: center; gap: 12px; }
+.mt-acct-head > div { display: flex; flex-direction: column; }
+.mt-acct-head b { font-family: var(--font-num); font-size: 26px; font-weight: 600; }
+.mt-seg4 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mt-seg4 button { border: 1.5px solid var(--border); background: var(--card); border-radius: 12px; padding: 9px 6px; font-weight: 600; color: var(--muted); font-size: 14px; }
+.mt-seg4 button.is-on { background: var(--gold-tint); border-color: var(--gold); color: var(--gold-text); }
+.mt-form .mt-amount.is-sm input { font-size: 26px; }

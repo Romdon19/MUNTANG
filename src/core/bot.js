@@ -1,6 +1,7 @@
 // สมองของบอท: รับ LINE event แล้วคืน array ของข้อความที่จะตอบ (ไม่ผูกกับ LINE API โดยตรง)
 import { parseEntries, looksLikeEntry } from './parser.js';
-import { CATEGORIES, WALLETS, getCategory, guessCategory } from './categories.js';
+import { CATEGORIES, getCategory, guessCategory } from './categories.js';
+import { guessAccount, guessProvider, accountTotals, PROVIDER_MAP } from './accounts.js';
 import { todayStr, rangeFor, shiftCycle, timeStr } from './dates.js';
 import { money } from './format.js';
 import * as ops from './ops.js';
@@ -56,6 +57,7 @@ export function createBot(deps) {
     return {
       logoUrl: deps.logoUrl,
       moods: deps.moods,
+      accounts: ops.accountList(user, now()),
       links: {
         dashboard: deps.links?.dashboard?.(user.id),
         export: deps.links?.export?.(user.id),
@@ -74,6 +76,8 @@ export function createBot(deps) {
       streak: ops.streak(user, n),
       catStatus: ops.catStatusMap(user, n),
       cycleStartDay: user.settings.cycleStartDay,
+      accounts: ops.accountList(user, n),
+      defaultWallet: user.settings.defaultWallet,
     };
   }
 
@@ -92,6 +96,125 @@ export function createBot(deps) {
     if (alerts.length) out.push(ui.alertMessage(alerts));
     out.push(...streakCard(user, ctx));
     return out;
+  }
+
+  // ---------------- กระเป๋าเงิน: บัญชี / บัตร / โอน ----------------
+  const ACCOUNT_WORDS = ['บัญชี', 'บัญชีของฉัน', 'บัญชีทั้งหมด', 'กระเป๋า', 'กระเป๋าเงิน', 'ยอดเงิน', 'เงินในบัญชี', 'ยอดในบัญชี', 'บัตร', 'บัตรเครดิต', 'วงเงิน', 'wallet', 'accounts'];
+  const AMT = '([\\d,]+(?:\\.\\d+)?)\\s*(k|พัน)?';
+  const num = (v, k) => Number(String(v).replace(/,/g, '')) * (k ? 1000 : 1);
+
+  function accountsReply(user, ctx, note) {
+    const list = ops.accountList(user, now());
+    const out = [ui.accountsMessage(list, accountTotals(list), { ...ctx, accounts: list })];
+    return note ? [ui.textMsg(note), ...out] : out;
+  }
+
+  /** คำสั่งเกี่ยวกับบัญชี คืน null ถ้าไม่ใช่ (ให้ไปจดรายการตามปกติ) */
+  function handleAccounts(user, raw, t, ctx) {
+    if (ACCOUNT_WORDS.includes(t)) return accountsReply(user, ctx);
+    const find = (s, o) => (s ? guessAccount(s, user.accounts, { strict: true, ...o }) : null);
+    const accName = (id) => ops.accountName(user, id);
+    const line = raw.trim().replace(/\s+/g, ' ');
+
+    // เพิ่มบัญชี / เพิ่มบัตร / เพิ่มวอลเล็ท
+    let m = line.match(/^เพิ่ม\s*(บัญชี|บัตรเครดิต|บัตร|วอลเล็ท|วอลเลท|wallet|e-?wallet|อีวอลเล็ท|กระเป๋า)\s*(.*)$/i);
+    if (m) {
+      const kind = /บัตร/.test(m[1]) ? 'card' : /บัญชี/.test(m[1]) ? 'bank' : /กระเป๋า/.test(m[1]) ? null : 'ewallet';
+      let rest = m[2];
+      const lim = rest.match(new RegExp(`วงเงิน\\s*${AMT}`, 'i'));
+      const used = rest.match(new RegExp(`(?:ใช้ไป|ค้าง(?:จ่าย)?|ยอดค้าง)\\s*${AMT}`, 'i'));
+      rest = rest.replace(lim?.[0] || '\u0000', ' ').replace(used?.[0] || '\u0000', ' ');
+      const bal = rest.match(new RegExp(`(?:ยอด|มี|เหลือ)?\\s*${AMT}\\s*(?:บาท)?\\s*$`, 'i'));
+      if (bal) rest = rest.slice(0, bal.index);
+      const name = rest.trim();
+      const prov = guessProvider(name, kind);
+      const type = kind || (prov && PROVIDER_MAP[prov].types[0]) || 'bank';
+      if (!name) return [ui.addAccountHelp(type, ctx)];
+      const a = ops.addAccount(user, {
+        type: kind === 'bank' && prov && PROVIDER_MAP[prov].types[0] === 'ewallet' ? 'ewallet' : type,
+        name,
+        limit: lim ? num(lim[1], lim[2]) : undefined,
+        balance: type === 'card' ? (used ? num(used[1], used[2]) : 0) : bal ? num(bal[1], bal[2]) : 0,
+      }, now());
+      const w = ops.accountList(user, now()).find((x) => x.id === a.id);
+      return accountsReply(user, ctx, `✅ เพิ่ม ${w.emoji} ${w.name} แล้ว\n${ui.balanceText(w)}\nจดรายการแล้วใส่ชื่อ "${w.name}" ต่อท้าย เช่น "ข้าว 50 ${w.name}" จะตัดจากบัญชีนี้ให้`);
+    }
+
+    // ตั้งยอด: "ยอด กสิกร 12000"
+    m = line.match(new RegExp(`^(?:ตั้งยอด|ยอด|ยอดเงิน|ยอดคงเหลือ)\\s*(.+?)\\s+(-?)${AMT}\\s*(?:บาท)?$`, 'i'));
+    if (m) {
+      const hit = find(m[1]);
+      if (hit) {
+        ops.setBalance(user, hit.id, num(m[3], m[4]) * (m[2] ? -1 : 1), now());
+        const w = ops.accountList(user, now()).find((x) => x.id === hit.id);
+        return accountsReply(user, ctx, `✅ ตั้งยอด ${w.emoji} ${w.name} แล้ว\n${ui.balanceText(w)}`);
+      }
+      return [ui.textMsg(`ไม่เจอบัญชี "${m[1]}" 🤔 พิมพ์ "บัญชี" เพื่อดูชื่อบัญชีทั้งหมด หรือ "เพิ่มบัญชี ${m[1]} ${m[3]}" เพื่อสร้างใหม่`)];
+    }
+
+    // จ่ายบัตร: "จ่ายบัตร ktc 3000 จาก กสิกร" (ไม่ใส่ยอด = จ่ายเต็ม)
+    m = line.match(new RegExp(`^(?:จ่ายบัตร(?:เครดิต)?|ชำระบัตร(?:เครดิต)?|โปะบัตร)\\s*(.*?)\\s*(?:${AMT})?\\s*(?:บาท)?\\s*(?:จาก\\s*(.+))?$`, 'i'));
+    if (m) {
+      const cards = user.accounts.filter((a) => a.type === 'card' && !a.archived);
+      const card = (m[1] && cards.find((a) => a.id === find(m[1])?.id)) || (cards.length === 1 ? cards[0] : null);
+      if (!card) return [ui.textMsg(cards.length ? `จ่ายบัตรใบไหน? เช่น "จ่ายบัตร ${cards[0].name} 3000"` : 'ยังไม่มีบัตรเครดิต เพิ่มก่อนด้วย "เพิ่มบัตร KTC วงเงิน 20000"')];
+      // จ่ายบัตรมักจ่ายจากบัญชีธนาคาร: ใช้บัญชีเริ่มต้นถ้าเป็นธนาคาร ไม่งั้นบัญชีธนาคารแรก
+      const def = user.accounts.find((a) => a.id === user.settings.defaultWallet && a.type === 'bank' && !a.archived);
+      const from = find(m[4])?.id || def?.id || user.accounts.find((a) => a.type === 'bank' && !a.archived)?.id;
+      if (!from || from === card.id) return [ui.textMsg('จ่ายจากบัญชีไหน? เช่น "จ่ายบัตร 3000 จาก กสิกร"')];
+      const cur = ops.accountList(user, now()).find((x) => x.id === card.id);
+      const amount = m[2] ? num(m[2], m[3]) : cur.known ? cur.used : 0;
+      if (!(amount > 0)) return [ui.textMsg(`ใส่ยอดที่จ่ายด้วยนะ เช่น "จ่ายบัตร ${card.name} 3000"`)];
+      ops.addTransfer(user, { from, to: card.id, amount }, now());
+      return accountsReply(user, ctx, `💳 จ่ายบัตร ${accName(card.id)} ${money(amount)} จาก ${accName(from)} แล้ว\n(ไม่นับเป็นรายจ่ายซ้ำ เพราะตอนรูดจดไปแล้ว)`);
+    }
+
+    // กดเงินสด: "กดเงิน 2000 กสิกร"
+    m = line.match(new RegExp(`^(?:กดเงิน(?:สด)?|ถอนเงิน(?:สด)?|กด\\s*atm|atm)\\s*(.*?)\\s*${AMT}\\s*(?:บาท)?\\s*(.*)$`, 'i'));
+    if (m) {
+      const cash = user.accounts.find((a) => a.type === 'cash' && !a.archived);
+      const from = find(`${m[1]} ${m[4]}`)?.id || user.accounts.find((a) => a.type === 'bank' && !a.archived)?.id;
+      if (cash && from && from !== cash.id) {
+        const amount = num(m[2], m[3]);
+        ops.addTransfer(user, { from, to: cash.id, amount, note: 'กดเงินสด' }, now());
+        return accountsReply(user, ctx, `🏧 กดเงินสด ${money(amount)} จาก ${accName(from)} แล้ว`);
+      }
+    }
+
+    // โอนระหว่างบัญชี: "โอน 500 กสิกร ไป ทรู", "โอนจาก scb ไป กสิกร 2000", "เติมทรู 500"
+    m =
+      line.match(new RegExp(`^(?:โอน(?:เงิน)?|ย้ายเงิน|เติมเงิน|เติม)\\s*${AMT}\\s*(?:บาท)?\\s*(?:จาก\\s*)?(.+?)\\s*(?:ไป|เข้า|→|->)\\s*(.+)$`, 'i'))?.slice(1, 5) ||
+      (() => {
+        const x = line.match(new RegExp(`^(?:โอน(?:เงิน)?|ย้ายเงิน|เติมเงิน|เติม)\\s*(?:จาก\\s*)?(.+?)\\s*(?:ไป|เข้า|→|->)\\s*(.+?)\\s+${AMT}\\s*(?:บาท)?$`, 'i'));
+        return x ? [x[3], x[4], x[1], x[2]] : null;
+      })();
+    if (m) {
+      const from = find(m[2]);
+      const to = find(m[3]);
+      if (from && to && from.id !== to.id) {
+        const amount = num(m[0], m[1]);
+        ops.addTransfer(user, { from: from.id, to: to.id, amount }, now());
+        return accountsReply(user, ctx, `🔁 โอน ${money(amount)} จาก ${accName(from.id)} ไป ${accName(to.id)} แล้ว\n(ย้ายเงินระหว่างบัญชี ไม่นับเป็นรายรับรายจ่าย)`);
+      }
+    }
+    // เติม e-Wallet: "เติมทรู 500" / "เติม truemoney 500 จาก กสิกร"
+    m = line.match(new RegExp(`^เติม(?:เงิน)?\\s*(.+?)\\s*${AMT}\\s*(?:บาท)?(?:\\s*จาก\\s*(.+))?$`, 'i'));
+    if (m) {
+      const to = find(m[1]);
+      if (to && to.id) {
+        const toAcc = user.accounts.find((a) => a.id === to.id);
+        if (toAcc.type === 'ewallet') {
+          const def = user.accounts.find((a) => a.id === user.settings.defaultWallet && ['bank', 'ewallet'].includes(a.type) && a.id !== to.id);
+          const from = find(m[4])?.id || def?.id || user.accounts.find((a) => a.type === 'bank' && !a.archived)?.id;
+          if (from && from !== to.id) {
+            const amount = num(m[2], m[3]);
+            ops.addTransfer(user, { from, to: to.id, amount }, now());
+            return accountsReply(user, ctx, `📱 เติม ${accName(to.id)} ${money(amount)} จาก ${accName(from)} แล้ว`);
+          }
+        }
+      }
+    }
+    return null;
   }
 
   // ---------------- text commands ----------------
@@ -128,6 +251,9 @@ export function createBot(deps) {
 
     if (['ช่วยเหลือ', 'วิธีใช้', 'help', '?', 'เมนู', 'menu', 'คู่มือ'].includes(t)) return [ui.helpMessage(ctx)];
     if (['สวัสดี', 'หวัดดี', 'hello', 'hi', 'เริ่ม', 'start'].includes(t)) return [ui.welcomeMessage(user.name, ctx)];
+
+    const acctOut = handleAccounts(user, raw, t, ctx);
+    if (acctOut) return acctOut;
 
     for (const [range, words] of Object.entries(SUMMARY_WORDS)) {
       if (words.includes(t)) {
@@ -272,7 +398,7 @@ export function createBot(deps) {
         type,
         categoryId: guess?.type === type ? guess.id : undefined,
         day,
-        wallet: 'bank',
+        wallet: guessAccount(note, user.accounts, { strict: true })?.id || 'bank',
       });
       return [ui.textMsg(`🔁 ตั้ง "${r.note}" ${money(r.amount)} ทุกวันที่ ${r.day} แล้ว ระบบจะบันทึกให้อัตโนมัติ`), ui.recurringMessage(user.recurring, ctx)];
     }
@@ -296,6 +422,7 @@ export function createBot(deps) {
       now: now(),
       customKeywords: user.settings.customKeywords,
       defaultWallet: user.settings.defaultWallet,
+      accounts: user.accounts,
     });
     // ประโยคยาว/กำกวมให้ AI ช่วยอ่าน (ถ้าตั้งค่า API key ไว้)
     const complex = text.length > 25 && /(แล้ว|กับ|และ|ไป|มา|อีก)/.test(text);
@@ -303,7 +430,9 @@ export function createBot(deps) {
       try {
         const aiItems = await deps.ai.parseText(text, todayStr(now()));
         if (aiItems?.length) {
-          const txs = aiItems.map((it) => ops.addTx(user, { ...it, ...by, wallet: it.wallet || user.settings.defaultWallet }, 'ai'));
+          // ชื่อบัญชีที่พิมพ์มา (เช่น "กสิกร") ชนะประเภทที่ AI เดา (cash/bank/card)
+          const named = guessAccount(text, user.accounts, { strict: true })?.id;
+          const txs = aiItems.map((it) => ops.addTx(user, { ...it, ...by, wallet: named || it.wallet || user.settings.defaultWallet }, 'ai'));
           return afterRecord(user, txs, ctx);
         }
       } catch (e) {
@@ -390,7 +519,7 @@ export function createBot(deps) {
         categoryId: slip.categoryId,
         note: slip.note || (counterpart ? `${slip.direction === 'income' ? 'รับจาก' : 'โอนให้'} ${counterpart}` : 'สลิป'),
         date: slip.date || todayStr(now()),
-        wallet: slip.kind === 'receipt' && !slip.bank ? 'cash' : 'bank',
+        wallet: guessAccount(slip.bank || '', user.accounts, { strict: true })?.id || (slip.kind === 'receipt' && !slip.bank ? 'cash' : 'bank'),
         ref: slip.ref,
         meta: { bank: slip.bank, receiver: slip.receiver, sender: slip.sender, time: slip.time },
         ...(sess.by ? { by: sess.by } : {}),
@@ -468,9 +597,16 @@ export function createBot(deps) {
       case 'wallet': {
         const tx = user.txs.find((x) => x.id === p.id);
         if (!tx) return [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
-        ops.updateTx(user, tx.id, { wallet: p.w });
-        const w = WALLETS.find((x) => x.id === p.w);
-        return [ui.textMsg(`เปลี่ยน "${tx.note}" เป็น ${w ? `${w.emoji} ${w.name}` : p.w} แล้ว`)];
+        const acc = user.accounts.find((a) => a.id === p.w && !a.archived);
+        if (!acc) return [ui.textMsg('ไม่พบบัญชีนี้แล้ว พิมพ์ "บัญชี" เพื่อดูบัญชีทั้งหมด')];
+        ops.updateTx(user, tx.id, { wallet: acc.id });
+        const w = ops.accountList(user, now()).find((a) => a.id === acc.id);
+        return [ui.textMsg(`เปลี่ยน "${tx.note}" เป็น ${w.emoji} ${w.name} แล้ว\n${ui.balanceText(w)}`)];
+      }
+      case 'wallets': {
+        const tx = user.txs.find((x) => x.id === p.id);
+        if (!tx) return [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
+        return [ui.walletPickMessage(tx, ops.accountList(user, now()))];
       }
       case 'edit': {
         const tx = user.txs.find((x) => x.id === p.id);

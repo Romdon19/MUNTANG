@@ -1,5 +1,6 @@
 // การจัดการข้อมูลผู้ใช้ (ทำงานกับ user document ตรงๆ — ใช้ร่วมกันทั้งเซิร์ฟเวอร์และโหมดเดโมในเบราว์เซอร์)
-import { CATEGORIES, CATEGORY_MAP, WALLETS, WALLET_MAP } from './categories.js';
+import { CATEGORIES, CATEGORY_MAP } from './categories.js';
+import { ACCOUNT_TYPES, PROVIDER_MAP, defaultAccounts, activeAccounts, findAccount, resolveWallet, accountBalances, accountTotals, decorate, guessProvider } from './accounts.js';
 import { todayStr, monthKey, rangeFor, daysInMonth, addDays, diffDays } from './dates.js';
 
 export function newId(prefix = '') {
@@ -29,6 +30,8 @@ export function newUser(id, profile = {}) {
       onboarded: false,
     },
     txs: [],
+    accounts: defaultAccounts(),
+    transfers: [],
     goals: [],
     recurring: [],
     slipRefs: [],
@@ -39,10 +42,13 @@ export function newUser(id, profile = {}) {
 /** เติมฟิลด์ที่ขาดให้ user เก่า (เผื่อเพิ่มฟีเจอร์ภายหลัง) */
 export function normalizeUser(u) {
   const base = newUser(u.id);
-  return { ...base, ...u, settings: { ...base.settings, ...(u.settings || {}) } };
+  const out = { ...base, ...u, settings: { ...base.settings, ...(u.settings || {}) } };
+  if (!Array.isArray(out.accounts) || !out.accounts.length) out.accounts = defaultAccounts();
+  if (!Array.isArray(out.transfers)) out.transfers = [];
+  return out;
 }
 
-function sanitizeTx(input) {
+function sanitizeTx(input, user) {
   const amount = Math.round(Number(input.amount) * 100) / 100;
   if (!(amount > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
   const type = input.type === 'income' ? 'income' : 'expense';
@@ -55,14 +61,14 @@ function sanitizeTx(input) {
     categoryId,
     note: String(input.note || '').slice(0, 120) || CATEGORY_MAP[categoryId].name,
     date,
-    wallet: WALLET_MAP[input.wallet] ? input.wallet : 'cash',
+    wallet: resolveWallet(user, input.wallet),
   };
 }
 
 export function addTx(user, input, source = 'chat') {
   const tx = {
     id: newId('t'),
-    ...sanitizeTx(input),
+    ...sanitizeTx(input, user),
     source,
     createdAt: new Date().toISOString(),
   };
@@ -77,7 +83,7 @@ export function addTx(user, input, source = 'chat') {
 export function updateTx(user, id, patch) {
   const tx = user.txs.find((t) => t.id === id);
   if (!tx) return null;
-  const merged = sanitizeTx({ ...tx, ...patch });
+  const merged = sanitizeTx({ ...tx, ...patch }, user);
   Object.assign(tx, merged, { updatedAt: new Date().toISOString() });
   return tx;
 }
@@ -272,7 +278,7 @@ export function deleteGoal(user, id) {
 export function addRecurring(user, { note, amount, type, categoryId, day, wallet }) {
   const r = {
     id: newId('r'),
-    ...sanitizeTx({ note, amount, type, categoryId, wallet }),
+    ...sanitizeTx({ note, amount, type, categoryId, wallet }, user),
     day: Math.min(31, Math.max(1, Number(day) || 1)),
     lastRun: null,
     createdAt: new Date().toISOString(),
@@ -316,7 +322,7 @@ export function rememberSlip(user, ref) {
 }
 
 export function toCSV(user) {
-  const head = ['วันที่', 'ประเภท', 'หมวด', 'รายการ', 'จำนวนเงิน', 'ช่องทาง', 'ที่มา'];
+  const head = ['วันที่', 'ประเภท', 'หมวด', 'รายการ', 'จำนวนเงิน', 'บัญชี', 'ที่มา'];
   const rows = [...user.txs]
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
     .map((t) => [
@@ -325,7 +331,7 @@ export function toCSV(user) {
       CATEGORY_MAP[t.categoryId]?.name || t.categoryId,
       t.note,
       t.amount.toFixed(2),
-      WALLET_MAP[t.wallet]?.name || t.wallet,
+      accountName(user, t.wallet),
       t.source,
     ]);
   const esc = (v) => `"${String(v).replace(/"/g, '""')}"`;
@@ -337,6 +343,8 @@ export function toCSV(user) {
 export function clearData(user) {
   const n = user.txs.length;
   user.txs = [];
+  user.transfers = [];
+  for (const a of user.accounts || []) delete a.since;
   user.goals = [];
   user.recurring = [];
   user.slipRefs = [];
@@ -361,7 +369,12 @@ export function publicState(user, { aiEnabled = false, now = new Date() } = {}) 
     tier: tierFor(streak(user, now)),
     catStatus: catStatusMap(user, now),
     categories: CATEGORIES.map(({ keywords, ...c }) => c),
-    wallets: WALLETS,
+    wallets: (user.accounts || []).map(decorate),
+    accounts: accountBalances(user, budgetStatus(user, now)),
+    accountTotals: accountTotals(accountBalances(user)),
+    accountTypes: ACCOUNT_TYPES,
+    providers: Object.values(PROVIDER_MAP).map(({ words, ...p }) => p),
+    transfers: user.transfers,
     aiEnabled,
   };
 }
@@ -377,10 +390,118 @@ export function applySettings(user, b = {}) {
     );
   }
   if (b.reminder !== undefined) user.settings.reminder = /^\d{2}:\d{2}$/.test(b.reminder || '') ? b.reminder : null;
-  if (b.defaultWallet && WALLET_MAP[b.defaultWallet]) user.settings.defaultWallet = b.defaultWallet;
+  if (b.defaultWallet && activeAccounts(user).some((a) => a.id === b.defaultWallet)) user.settings.defaultWallet = b.defaultWallet;
   if (b.name) user.name = String(b.name).slice(0, 40);
   if (b.cycleStartDay !== undefined) user.settings.cycleStartDay = Math.min(31, Math.max(1, Number(b.cycleStartDay) || 1));
   if (b.monthlyReport !== undefined) user.settings.monthlyReport = !!b.monthlyReport;
   if (b.budgetMode === 'total' || b.budgetMode === 'category') user.settings.budgetMode = b.budgetMode;
   user.alerts = {};
+}
+
+// ---------------- กระเป๋าเงิน (บัญชีธนาคาร / e-Wallet / บัตรเครดิต / เงินสด) ----------------
+
+const money2 = (v) => Math.round((Number(String(v ?? '').replace(/,/g, '')) || 0) * 100) / 100;
+
+export function accountName(user, id) {
+  const a = findAccount(user, id);
+  return a ? decorate(a).name : ACCOUNT_TYPES[id]?.name || id || '';
+}
+
+export function accountList(user, now = new Date()) {
+  return accountBalances(user, budgetStatus(user, now));
+}
+
+function cleanAccount(input, prev = {}) {
+  const type = ACCOUNT_TYPES[input.type] ? input.type : prev.type || 'bank';
+  const name = String(input.name ?? prev.name ?? '').trim().slice(0, 30);
+  // provider: ส่งมา '' = ไม่ระบุธนาคาร, ไม่ส่งมา = เดาจากชื่อ เช่น "กสิกร เงินเดือน"
+  let provider = 'provider' in input ? input.provider : prev.provider;
+  if (provider && !PROVIDER_MAP[provider]) provider = null;
+  if (!provider && !('provider' in input)) provider = guessProvider(name, type);
+  const out = { ...prev, type, name: name || PROVIDER_MAP[provider]?.name || ACCOUNT_TYPES[type].name, provider: provider || null };
+  if (type === 'card') {
+    if (input.limit !== undefined) out.limit = Math.max(0, money2(input.limit));
+    if (input.dueDay !== undefined) out.dueDay = Number(input.dueDay) >= 1 && Number(input.dueDay) <= 31 ? Number(input.dueDay) : null;
+  } else {
+    delete out.limit;
+    delete out.dueDay;
+  }
+  return out;
+}
+
+/** ตั้งยอดปัจจุบันของบัญชี (บัตรเครดิต = ยอดที่ใช้ไป/ค้างจ่าย) นับรายการต่อจากนี้ */
+export function setBalance(user, id, value, now = new Date()) {
+  const a = findAccount(user, id);
+  if (!a) return null;
+  a.opening = money2(value);
+  a.since = todayStr(now);
+  a.balanceAt = now.toISOString();
+  return a;
+}
+
+export function addAccount(user, input = {}, now = new Date()) {
+  if (activeAccounts(user).length >= 30) throw new Error('มีบัญชีได้สูงสุด 30 บัญชี');
+  const clean = cleanAccount(input);
+  // บัญชีแรกของประเภทนั้น: ใช้แทนบัญชีกลางๆ ที่สร้างไว้ให้ (บัญชีธนาคาร/บัตรเครดิต) รายการเก่าจะตามมาด้วย
+  const generic = defaultAccounts().find((d) => d.id === clean.type);
+  const holder = generic && user.accounts.find((x) => x.id === generic.id && x.name === generic.name && !x.provider && !x.since && !x.archived);
+  if (holder) {
+    Object.assign(holder, clean, { updatedAt: now.toISOString() });
+    setBalance(user, holder.id, input.balance ?? input.used ?? 0, now);
+    return holder;
+  }
+  const a = { id: newId('a'), ...clean, createdAt: now.toISOString() };
+  user.accounts.push(a);
+  setBalance(user, a.id, input.balance ?? input.used ?? 0, now);
+  return a;
+}
+
+export function updateAccount(user, id, input = {}, now = new Date()) {
+  const a = findAccount(user, id);
+  if (!a) return null;
+  Object.assign(a, cleanAccount(input, a), { updatedAt: now.toISOString() });
+  const bal = input.balance ?? input.used;
+  if (bal !== undefined && bal !== '' && bal !== null) {
+    const cur = accountBalances(user).find((x) => x.id === id);
+    const curVal = a.type === 'card' ? cur.used : cur.balance;
+    if (!a.since || money2(bal) !== curVal) setBalance(user, id, bal, now);
+  }
+  return a;
+}
+
+/** ลบบัญชี: ถ้ามีรายการผูกอยู่จะซ่อนไว้แทน (ประวัติยังดูได้) */
+export function deleteAccount(user, id) {
+  const a = findAccount(user, id);
+  if (!a) return null;
+  if (activeAccounts(user).filter((x) => x.id !== id).length === 0) throw new Error('ต้องมีอย่างน้อย 1 บัญชี');
+  const used = user.txs.some((t) => t.wallet === id) || user.transfers.some((x) => x.from === id || x.to === id) || user.recurring.some((r) => r.wallet === id);
+  if (used) a.archived = true;
+  else user.accounts.splice(user.accounts.indexOf(a), 1);
+  if (user.settings.defaultWallet === id) user.settings.defaultWallet = activeAccounts(user)[0].id;
+  return a;
+}
+
+/** โอนเงินระหว่างบัญชี / จ่ายบัตรเครดิต / เติม e-Wallet (ไม่นับเป็นรายรับรายจ่าย) */
+export function addTransfer(user, { from, to, amount, date, note } = {}, now = new Date()) {
+  const amt = money2(amount);
+  if (!(amt > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
+  if (!findAccount(user, from) || !findAccount(user, to)) throw new Error('ไม่พบบัญชี');
+  if (from === to) throw new Error('เลือกบัญชีต้นทางและปลายทางต่างกัน');
+  const toAcc = findAccount(user, to);
+  const x = {
+    id: newId('x'),
+    from,
+    to,
+    amount: amt,
+    date: /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : todayStr(now),
+    note: String(note || (toAcc.type === 'card' ? `จ่ายบัตร ${decorate(toAcc).name}` : `โอนเข้า ${decorate(toAcc).name}`)).slice(0, 80),
+    createdAt: now.toISOString(),
+  };
+  user.transfers.push(x);
+  return x;
+}
+
+export function deleteTransfer(user, id) {
+  const i = user.transfers.findIndex((x) => x.id === id);
+  return i < 0 ? null : user.transfers.splice(i, 1)[0];
 }

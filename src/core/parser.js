@@ -4,6 +4,7 @@
 //   "+เงินเดือน 25,000"         "รับ ขายของ 1.2k"        "เมื่อวาน แท็กซี่ 120"
 //   "12/10 ค่าไฟ 850"           "ชาบู 459 บาท บัตร"      (หลายบรรทัด = หลายรายการ)
 import { guessCategory, guessWallet } from './categories.js';
+import { guessAccount } from './accounts.js';
 import { todayStr, addDays } from './dates.js';
 
 const AMOUNT_RE = /(?<![a-zA-Z\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d{1,2}))?\s*(k|K|พัน|หมื่น)?(?![\d/:a-zA-Z])/g;
@@ -100,11 +101,12 @@ function splitLine(line) {
 }
 
 /**
- * parseEntries(text, { now, customKeywords, defaultWallet })
+ * parseEntries(text, { now, customKeywords, defaultWallet, accounts })
+ * accounts = กระเป๋าเงินของผู้ใช้ ใช้เดาบัญชีจากคำในข้อความ เช่น "ข้าว 50 กสิกร"
  * คืน { items: [{ note, amount, type, categoryId, date, wallet }], unparsed: [lines] }
  */
 export function parseEntries(text, opts = {}) {
-  const { now = new Date(), customKeywords = {}, defaultWallet = 'cash' } = opts;
+  const { now = new Date(), customKeywords = {}, defaultWallet = 'cash', accounts = null } = opts;
   const lines = String(text)
     .split(/\n|;/)
     .map((l) => l.trim())
@@ -127,15 +129,22 @@ export function parseEntries(text, opts = {}) {
     const withoutTime = rest.replace(TIME_RE, ' ').replace(/7-?(11|eleven)/gi, 'เซเว่น');
     const isIncome = INCOME_PREFIX_RE.test(withoutTime);
     const isExpense = EXPENSE_PREFIX_RE.test(withoutTime);
-    const wallet = guessWallet(withoutTime) || defaultWallet;
-    const parts = splitLine(withoutTime);
+    let wallet = defaultWallet;
+    let line = withoutTime;
+    if (accounts) {
+      const hit = guessAccount(withoutTime, accounts, { defaultWallet });
+      if (hit) wallet = hit.id;
+      // ตัดชื่อบัญชีออกจากชื่อรายการ: "ข้าว 50 กสิกร" → "ข้าว"
+      if (hit?.word) line = line.replace(new RegExp(hit.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
+    } else wallet = guessWallet(withoutTime) || defaultWallet;
+    const parts = splitLine(line);
     if (!parts.length) {
       unparsed.push(raw);
       continue;
     }
     for (const p of parts) {
       if (!(p.amount > 0) || p.amount > 100_000_000) continue;
-      const guess = guessCategory(p.note || withoutTime, customKeywords);
+      const guess = guessCategory(p.note || line, customKeywords);
       let type = guess ? guess.type : 'expense';
       if (isIncome) type = 'income';
       if (isExpense) type = 'expense';

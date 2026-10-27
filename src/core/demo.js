@@ -38,8 +38,23 @@ export function seedDemo(user, now = new Date()) {
   const today = todayStr(now);
   user.name = 'นายหัวหมุน';
   user.txs = [];
+  user.transfers = [];
+  // กระเป๋าเงินตัวอย่าง: เงินสด · กสิกร · SCB เงินเก็บ · TrueMoney · บัตร KTC วงเงิน 20,000
+  user.accounts = [
+    { id: 'cash', type: 'cash', name: 'เงินสด' },
+    { id: 'bank', type: 'bank', name: 'กสิกร', provider: 'kbank' },
+    { id: 'scb', type: 'bank', name: 'SCB เงินเก็บ', provider: 'scb' },
+    { id: 'tmw', type: 'ewallet', name: 'TrueMoney', provider: 'truemoney' },
+    { id: 'card', type: 'card', name: 'KTC', provider: 'ktc', limit: 20000, dueDay: 25 },
+  ];
+  user.settings.defaultWallet = 'cash';
+  const start = addDays(today, -59);
+  const startAt = new Date(`${start}T00:00:00.000Z`);
+  for (const [id, v] of [['cash', 3000], ['bank', 15000], ['scb', 42000], ['tmw', 300], ['card', 0]]) ops.setBalance(user, id, v, startAt);
+  const walletOf = (r) => (r < 0.4 ? 'cash' : r < 0.78 ? 'bank' : 'tmw');
   const add = (date, note, categoryId, amount, type = 'expense', wallet) =>
-    ops.addTx(user, { date, note, categoryId, amount, type, wallet: wallet || (rand() > 0.6 ? 'bank' : 'cash') }, rand() > 0.85 ? 'slip' : 'chat');
+    ops.addTx(user, { date, note, categoryId, amount, type, wallet: wallet || walletOf(rand()) }, rand() > 0.85 ? 'slip' : 'chat');
+  const move = (date, from, to, amount) => (ops.addTransfer(user, { from, to, amount, date }).createdAt = `${date}T12:00:00.000Z`);
 
   for (let i = 58; i >= 0; i--) {
     const d = addDays(today, -i);
@@ -58,6 +73,12 @@ export function seedDemo(user, now = new Date()) {
     if (day === 1) add(d, 'เงินเดือน', 'salary', 28000, 'income', 'bank');
     if (day === 20) add(d, 'งานฟรีแลนซ์', 'freelance', between(2000, 4000), 'income', 'bank');
     if (day === 15) add(d, 'ขายของออนไลน์', 'sales', between(1500, 3500), 'income', 'bank');
+    if (day === 2) move(d, 'bank', 'scb', 5000);
+    // กดเงินสด/เติม TrueMoney เมื่อเหลือน้อย · จ่ายบัตรทุกวันที่ 25
+    const bal = Object.fromEntries(ops.accountList(user, now).map((x) => [x.id, x]));
+    if (bal.cash.balance < 600) move(d, 'bank', 'cash', 2000);
+    if (bal.tmw.balance < 150) move(d, 'bank', 'tmw', 500);
+    if (day === 25 && bal.card.used > 0) move(d, 'bank', 'card', bal.card.used);
   }
   // createdAt ให้ตรงกับวันที่ (สำหรับนับ streak)
   for (const t of user.txs) t.createdAt = `${t.date}T12:00:00.000Z`;

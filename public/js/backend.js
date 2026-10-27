@@ -74,6 +74,11 @@ export function remoteBackend() {
     updateTx: (id, b) => req('PATCH', `/api/tx/${id}`, b),
     deleteTx: (id) => req('DELETE', `/api/tx/${id}`),
     saveSettings: (b) => req('PUT', '/api/settings', b),
+    addAccount: (b) => post('/api/accounts', b),
+    updateAccount: (id, b) => req('PATCH', `/api/accounts/${id}`, b),
+    deleteAccountItem: (id) => req('DELETE', `/api/accounts/${id}`),
+    addTransfer: (b) => post('/api/transfers', b),
+    deleteTransfer: (id) => req('DELETE', `/api/transfers/${id}`),
     addGoal: (b) => post('/api/goals', b),
     deposit: (id, amount) => post(`/api/goals/${id}/deposit`, { amount }),
     deleteGoal: (id) => req('DELETE', `/api/goals/${id}`),
@@ -157,6 +162,11 @@ export function localBackend({ logoUrl, moods, onOpenDashboard } = {}) {
         ops.applySettings(u, b);
         return ops.publicState(u);
       }),
+    addAccount: (b) => mutate((u) => ({ account: ops.addAccount(u, b) })),
+    updateAccount: (id, b) => mutate((u) => ({ account: ops.updateAccount(u, id, b) })),
+    deleteAccountItem: (id) => mutate((u) => ({ account: ops.deleteAccount(u, id) })),
+    addTransfer: (b) => mutate((u) => ({ transfer: ops.addTransfer(u, b) })),
+    deleteTransfer: (id) => mutate((u) => ({ transfer: ops.deleteTransfer(u, id) })),
     addGoal: (b) => mutate((u) => ({ goal: ops.addGoal(u, b) })),
     deposit: (id, amount) => mutate((u) => ({ goal: ops.depositGoal(u, id, amount) })),
     deleteGoal: (id) => mutate((u) => ({ goal: ops.deleteGoal(u, id) })),
