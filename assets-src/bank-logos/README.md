@@ -11,4 +11,5 @@
 
 `line.svg`, `shopee.svg`, `grab.svg` มาจาก [Simple Icons](https://github.com/simple-icons/simple-icons) (CC0)
 ใช้ทำไอคอน LINE Pay / ShopeePay / GrabPay (สัญลักษณ์สีขาวบนสีแบรนด์ + คำว่า Pay)
-แบรนด์ที่ยังไม่มีไฟล์ (เป๋าตัง, KTC, AEON, CardX, First Choice, MAKE, Dime!, Kept) ใช้ชื่อแบรนด์บนสีประจำแบรนด์
+`paotang.png` ได้จากผู้ใช้ (ไอคอนแอปเป๋าตัง ครอปเป็นวงกลม)
+แบรนด์ที่ยังไม่มีไฟล์ (KTC, AEON, CardX, First Choice, MAKE, Dime!, Kept) ใช้ชื่อแบรนด์บนสีประจำแบรนด์
