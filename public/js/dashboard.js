@@ -1189,7 +1189,7 @@ export function mountDashboard(root, backend, opts = {}) {
             <button type="button" class="${type === 'income' ? 'is-on is-inc' : ''}" data-act="sheettype" data-v="income">รายรับ</button>
           </div>
           <label for="mt-amount" class="mt-vh">จำนวนเงิน</label>
-          <div class="mt-amount"><span>฿</span><input id="mt-amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0" required value="${sh.amount ?? t.amount}" placeholder="0"></div>
+          <div class="mt-amount"><span>฿</span><input id="mt-amount" name="amount" type="number" step="any" inputmode="decimal" min="0" required value="${sh.amount ?? t.amount}" placeholder="0"></div>
           <label for="mt-note">รายการ</label>
           <input id="mt-note" name="note" value="${esc(sh.note ?? t.note)}" placeholder="เช่น ข้าวมันไก่" maxlength="120">
           <span class="mt-label">หมวด</span>
@@ -1242,8 +1242,8 @@ export function mountDashboard(root, backend, opts = {}) {
           ${
             isCard
               ? `<div class="mt-row2">
-            <div><label for="mt-limit">วงเงินบัตร</label><input id="mt-limit" name="limit" type="number" inputmode="decimal" min="0" step="1" value="${sh.limit ?? a?.limit ?? ''}" placeholder="เช่น 20000"></div>
-            <div><label for="mt-cbud">งบรูดต่อรอบ (ไม่ใส่ก็ได้)</label><input id="mt-cbud" name="cycleBudget" type="number" inputmode="decimal" min="0" value="${sh.cycleBudget ?? a?.cycleBudget ?? ''}" placeholder="เช่น 5000"></div>
+            <div><label for="mt-limit">วงเงินบัตร</label><input id="mt-limit" name="limit" type="number" step="any" inputmode="decimal" min="0" value="${sh.limit ?? a?.limit ?? ''}" placeholder="เช่น 20000"></div>
+            <div><label for="mt-cbud">งบรูดต่อรอบ (ไม่ใส่ก็ได้)</label><input id="mt-cbud" name="cycleBudget" type="number" step="any" inputmode="decimal" min="0" value="${sh.cycleBudget ?? a?.cycleBudget ?? ''}" placeholder="เช่น 5000"></div>
           </div>
           <div class="mt-row2">
             <div><label for="mt-sday">วันตัดรอบบัญชี</label><input id="mt-sday" name="statementDay" type="number" inputmode="numeric" min="1" max="28" value="${sh.statementDay ?? a?.statementDay ?? ''}" placeholder="เช่น 18"></div>
@@ -1254,11 +1254,11 @@ export function mountDashboard(root, backend, opts = {}) {
           ${
             isLoan
               ? `<div class="mt-row2">
-            <div><label for="mt-pay">ค่างวดต่อเดือน</label><input id="mt-pay" name="monthlyPayment" type="number" inputmode="decimal" min="0" value="${sh.monthlyPayment ?? a?.monthlyPayment ?? ''}" placeholder="เช่น 6500"></div>
+            <div><label for="mt-pay">ค่างวดต่อเดือน</label><input id="mt-pay" name="monthlyPayment" type="number" step="any" inputmode="decimal" min="0" value="${sh.monthlyPayment ?? a?.monthlyPayment ?? ''}" placeholder="เช่น 6500"></div>
             <div><label for="mt-rate">ดอกเบี้ยต่อปี (%)</label><input id="mt-rate" name="rate" type="number" inputmode="decimal" min="0" step="0.01" value="${sh.rate ?? a?.rate ?? ''}" placeholder="เช่น 3.5"></div>
           </div>
           <div class="mt-row2">
-            <div><label for="mt-principal">ยอดกู้ตั้งต้น</label><input id="mt-principal" name="principal" type="number" inputmode="decimal" min="0" value="${sh.principal ?? a?.principal ?? ''}" placeholder="ไว้ดู % ที่จ่ายแล้ว"></div>
+            <div><label for="mt-principal">ยอดกู้ตั้งต้น</label><input id="mt-principal" name="principal" type="number" step="any" inputmode="decimal" min="0" value="${sh.principal ?? a?.principal ?? ''}" placeholder="ไว้ดู % ที่จ่ายแล้ว"></div>
             <div><label for="mt-due">จ่ายทุกวันที่</label><input id="mt-due" name="dueDay" type="number" inputmode="numeric" min="1" max="31" value="${sh.dueDay ?? a?.dueDay ?? ''}" placeholder="เช่น 5"></div>
           </div>
           <div class="mt-inst">
@@ -1307,7 +1307,7 @@ export function mountDashboard(root, backend, opts = {}) {
             <div><label for="mt-xto">ไปบัญชี</label><select id="mt-xto" name="to" data-change="xfer">${opt(to)}</select></div>
           </div>
           <label for="mt-xamt" class="mt-vh">จำนวนเงิน</label>
-          <div class="mt-amount"><span>฿</span><input id="mt-xamt" name="amount" type="number" inputmode="decimal" step="0.01" min="0" required value="${sh.amount ?? suggest}" placeholder="0"></div>
+          <div class="mt-amount"><span>฿</span><input id="mt-xamt" name="amount" type="number" step="any" inputmode="decimal" min="0" required value="${sh.amount ?? suggest}" placeholder="0"></div>
           ${toAcc && isLiab(toAcc) ? `<p class="mt-sub">${esc(toAcc.name)} ${toAcc.known ? (toAcc.type === 'card' ? `ต้องจ่ายบิล ${money(toAcc.payNow)}${toAcc.instDue ? ` (รวมค่างวดผ่อน ${money(toAcc.instDue)} ระบบตัดให้เอง)` : ''}` : `ยอดค้างจ่าย ${money(toAcc.used)}`) : 'ยังไม่ได้ตั้งยอด'}</p>` : ''}
           <div class="mt-row2">
             <div><label for="mt-xdate">วันที่</label><input id="mt-xdate" name="date" type="date" value="${sh.date ?? todayStr()}" max="${todayStr()}"></div>
@@ -1323,13 +1323,13 @@ export function mountDashboard(root, backend, opts = {}) {
         <p class="mt-sub">รอบนี้ใช้ไป <b class="num">${money(spent)}</b>${lim ? ` จากงบ <b class="num">${money(lim)}</b>` : ''}</p>
         ${lim ? bar(spent / lim, budgetTone(spent / lim), 'is-lg') : ''}
         <label for="mt-catlim">งบหมวดนี้ต่อเดือน (เว้นว่าง = ไม่ตั้ง)</label>
-        <input id="mt-catlim" name="limit" type="number" inputmode="numeric" min="0" step="100" value="${lim}" placeholder="เช่น 5000">
+        <input id="mt-catlim" name="limit" type="number" step="any" inputmode="numeric" min="0" value="${lim}" placeholder="เช่น 5000">
         <button class="mt-btn" type="submit">บันทึกงบ</button>
         <button class="mt-btn is-ghost" type="button" data-act="filtercat" data-id="${c.id}">ดูรายการในหมวดนี้</button></form>`;
     } else if (sh.kind === 'total') {
       inner = `<form class="mt-form" data-form="total">
         <label for="mt-total">งบรวมต่อเดือน (บาท)</label>
-        <input id="mt-total" name="total" type="number" inputmode="numeric" min="0" step="100" value="${st.data.settings.monthlyBudget || ''}" placeholder="เช่น 15000">
+        <input id="mt-total" name="total" type="number" step="any" inputmode="numeric" min="0" value="${st.data.settings.monthlyBudget || ''}" placeholder="เช่น 15000">
         <div class="mt-chips">${[10000, 15000, 20000, 30000].map((v) => `<button type="button" class="mt-chip" data-act="preset" data-v="${v}">${money(v)}</button>`).join('')}</div>
         <button class="mt-btn" type="submit">บันทึกงบ</button></form>`;
     } else if (sh.kind === 'cycle') {
@@ -1343,18 +1343,18 @@ export function mountDashboard(root, backend, opts = {}) {
     } else if (sh.kind === 'goal') {
       inner = `<form class="mt-form" data-form="goal">
         <label for="mt-goal-name">ชื่อเป้าหมาย</label><input id="mt-goal-name" name="name" required placeholder="เช่น เที่ยวญี่ปุ่น" maxlength="40">
-        <label for="mt-goal-target">ยอดเป้าหมาย (บาท)</label><input id="mt-goal-target" name="target" type="number" inputmode="numeric" min="1" required placeholder="50000">
+        <label for="mt-goal-target">ยอดเป้าหมาย (บาท)</label><input id="mt-goal-target" name="target" type="number" step="any" inputmode="numeric" min="1" required placeholder="50000">
         <label for="mt-goal-emoji">ไอคอน</label><select id="mt-goal-emoji" name="emoji">${['🎯', '🗾', '✈️', '🏠', '🚗', '💍', '🛟', '📱', '🎓'].map((e) => `<option>${e}</option>`).join('')}</select>
         <button class="mt-btn" type="submit">สร้างเป้าหมาย</button></form>`;
     } else if (sh.kind === 'deposit') {
       inner = `<form class="mt-form" data-form="deposit"><input type="hidden" name="id" value="${sh.id}">
-        <label for="mt-dep">จำนวนเงิน (ใส่ลบเพื่อถอน)</label><input id="mt-dep" name="amount" type="number" inputmode="decimal" step="0.01" required placeholder="1000">
+        <label for="mt-dep">จำนวนเงิน (ใส่ลบเพื่อถอน)</label><input id="mt-dep" name="amount" type="number" step="any" inputmode="decimal" required placeholder="1000">
         <button class="mt-btn" type="submit">หยอดกระปุก</button></form>`;
     } else if (sh.kind === 'rec') {
       inner = `<form class="mt-form" data-form="rec">
         <div class="mt-seg"><label><input type="radio" name="type" value="expense" checked> รายจ่าย</label><label><input type="radio" name="type" value="income"> รายรับ</label></div>
         <label for="mt-rec-note">รายการ</label><input id="mt-rec-note" name="note" required placeholder="เช่น ค่าเน็ต" maxlength="60">
-        <div class="mt-row2"><div><label for="mt-rec-amount">จำนวนเงิน</label><input id="mt-rec-amount" name="amount" type="number" inputmode="decimal" min="1" required placeholder="599"></div>
+        <div class="mt-row2"><div><label for="mt-rec-amount">จำนวนเงิน</label><input id="mt-rec-amount" name="amount" type="number" step="any" inputmode="decimal" min="1" required placeholder="599"></div>
         <div><label for="mt-rec-day">ทุกวันที่</label><input id="mt-rec-day" name="day" type="number" min="1" max="31" required value="1"></div></div>
         <label for="mt-rec-cat">หมวด</label><select id="mt-rec-cat" name="categoryId">${st.data.categories.map((c) => `<option value="${c.id}">${c.emoji} ${esc(c.name)} (${c.type === 'income' ? 'รับ' : 'จ่าย'})</option>`).join('')}</select>
         <label for="mt-rec-wallet">บัญชี</label><select id="mt-rec-wallet" name="wallet">${walletOptions(st.data.settings.defaultWallet)}</select>
