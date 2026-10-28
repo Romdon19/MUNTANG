@@ -77,6 +77,7 @@ export function addTx(user, input, source = 'chat') {
   if (input.by) tx.by = String(input.by).slice(0, 40);
   if (input.batch) tx.batch = String(input.batch);
   if (input.meta) tx.meta = input.meta;
+  if (input.countIn) tx.countIn = true;
   user.txs.push(tx);
   return tx;
 }
@@ -86,6 +87,10 @@ export function updateTx(user, id, patch) {
   if (!tx) return null;
   const merged = sanitizeTx({ ...tx, ...patch }, user);
   Object.assign(tx, merged, { updatedAt: new Date().toISOString() });
+  if ('countIn' in patch) {
+    if (patch.countIn) tx.countIn = true;
+    else delete tx.countIn;
+  }
   return tx;
 }
 
@@ -523,6 +528,12 @@ function transferNote(fromAcc, toAcc) {
   if (fromAcc.type === 'receivable') return `${n(fromAcc)} คืนเงิน`;
   if (toAcc.type === 'cash') return 'กดเงินสด';
   return `โอนเข้า ${n(toAcc)}`;
+}
+
+/** รายการที่ลงวันที่ก่อนวันตั้งยอดของบัญชี (ยังไม่นับรวมยอดคงเหลือ) */
+export function beforeSnapshot(user, tx) {
+  const a = findAccount(user, tx.wallet);
+  return !!(a?.since && !tx.countIn && tx.date < a.since);
 }
 
 /** โอนเงินระหว่างบัญชี / จ่ายบัตรเครดิต / เติม e-Wallet (ไม่นับเป็นรายรับรายจ่าย) */

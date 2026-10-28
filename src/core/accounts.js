@@ -185,7 +185,8 @@ export function guessProvider(text, type) {
 
 /** รายการนี้นับรวมในยอดบัญชีไหม (นับเฉพาะหลังวันที่ตั้งยอดล่าสุด) */
 function counts(a, item) {
-  if (!a.since) return true;
+  if (!a.since || item.countIn) return true; // countIn = รายการย้อนหลังที่ผู้ใช้สั่งให้นับรวมยอด
+
   if (item.date !== a.since) return item.date > a.since;
   return (item.createdAt || '') >= (a.balanceAt || '');
 }

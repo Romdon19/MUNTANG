@@ -145,3 +145,16 @@ test('installments through a credit card hold the limit and are paid with the ca
   assert.equal(card.used, 459); // ยอดรูดหลังตัดรอบยังอยู่ รอบิลหน้า
   assert.equal(card.payNow, 0);
 });
+
+test('backdated entries before the set balance are flagged and can be counted in', async () => {
+  const store = memStore();
+  const bot = createBot({ store, now: () => now, links: {} });
+  await say(bot, 'เพิ่มบัญชี กสิกร 10000');
+  const r = await say(bot, '20/9 +ขายของ 2000 กสิกร');
+  const note = r.messages.find((m) => m.type === 'text' && /ก่อนวันที่ตั้งยอด/.test(m.text));
+  assert.ok(note, 'should explain why the balance did not change');
+  assert.equal(bal(store.db.U1, 'bank').balance, 10000);
+  const data = note.quickReply.items[0].action.data;
+  await bot.handleEvent({ type: 'postback', source: U, postback: { data } });
+  assert.equal(bal(store.db.U1, 'bank').balance, 12000);
+});

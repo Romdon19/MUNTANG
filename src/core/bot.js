@@ -2,7 +2,7 @@
 import { parseEntries, looksLikeEntry } from './parser.js';
 import { CATEGORIES, getCategory, guessCategory } from './categories.js';
 import { guessAccount, guessProvider, accountTotals, PROVIDER_MAP } from './accounts.js';
-import { todayStr, rangeFor, shiftCycle, timeStr } from './dates.js';
+import { todayStr, rangeFor, shiftCycle, timeStr, thaiDate } from './dates.js';
 import { money } from './format.js';
 import * as ops from './ops.js';
 import * as ui from './flex.js';
@@ -96,8 +96,25 @@ export function createBot(deps) {
     const out = [ui.recordedMessage(txs, recordedInfo(user), ctx)];
     const alerts = ops.budgetAlerts(user, now());
     if (alerts.length) out.push(ui.alertMessage(alerts));
+    out.push(...backdatedNote(user, txs));
     out.push(...streakCard(user, ctx));
     return out;
+  }
+
+  /** จดย้อนหลังก่อนวันตั้งยอด → บอกว่ายังไม่นับเข้ายอดคงเหลือ และให้กดเลือกนับได้ */
+  function backdatedNote(user, txs) {
+    const old = txs.filter((t) => ops.beforeSnapshot(user, t));
+    if (!old.length) return [];
+    const acc = user.accounts.find((a) => a.id === old[0].wallet);
+    return [
+      ui.textMsg(
+        `📌 รายการนี้ลงวันที่ก่อนวันที่ตั้งยอด "${acc.name}" (${thaiDate(acc.since)}) เลยยังไม่บวก/หักในยอดคงเหลือ เพราะยอดที่ตั้งไว้น่าจะรวมเงินก้อนนี้แล้ว\nถ้ายอดที่ตั้งไว้ยังไม่รวม แตะ "นับเข้ายอด" ได้เลย (สรุปรายรับรายจ่ายนับให้ตามปกติอยู่แล้ว)`,
+        ui.quickReplies([
+          { label: '✅ นับเข้ายอด', data: `action=countin&ids=${old.map((t) => t.id).join(',')}`, displayText: 'นับเข้ายอดคงเหลือด้วย' },
+          { label: '👌 ไม่ต้อง ยอดรวมแล้ว', text: 'บัญชี' },
+        ])
+      ),
+    ];
   }
 
   // ---------------- กระเป๋าเงิน: บัญชี / บัตร / โอน ----------------
@@ -643,6 +660,7 @@ export function createBot(deps) {
     const out = [ui.slipMessage(tx, slip, recordedInfo(user), ctx)];
     const alerts = ops.budgetAlerts(user, now());
     if (alerts.length) out.push(ui.alertMessage(alerts));
+    out.push(...backdatedNote(user, [tx]));
     out.push(...streakCard(user, ctx));
     return out;
   }
@@ -714,6 +732,14 @@ export function createBot(deps) {
         ops.updateTx(user, tx.id, { wallet: acc.id });
         const w = ops.accountList(user, now()).find((a) => a.id === acc.id);
         return [ui.textMsg(`เปลี่ยน "${tx.note}" เป็น ${w.emoji} ${w.name} แล้ว\n${ui.balanceText(w)}`)];
+      }
+      case 'countin': {
+        const ids = (p.ids || '').split(',');
+        const txs = user.txs.filter((t) => ids.includes(t.id));
+        if (!txs.length) return [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
+        for (const t of txs) ops.updateTx(user, t.id, { countIn: true });
+        const w = ops.accountList(user, now()).find((a) => a.id === txs[0].wallet);
+        return [ui.textMsg(`นับรายการย้อนหลังเข้ายอด ${w.name} แล้ว\n${ui.balanceText(w)}`)];
       }
       case 'wallets': {
         const tx = user.txs.find((x) => x.id === p.id);

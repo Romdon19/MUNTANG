@@ -1200,6 +1200,14 @@ export function mountDashboard(root, backend, opts = {}) {
             <div><label for="mt-date">วันที่</label><input id="mt-date" name="date" type="date" value="${sh.date ?? t.date}" max="${todayStr()}"></div>
             <div><label for="mt-txwallet">${type === 'income' ? 'เข้าบัญชี' : 'จ่ายจากบัญชี'}</label><select id="mt-txwallet" name="wallet">${walletOptions(sh.wallet ?? t.wallet)}</select></div>
           </div>
+          ${(() => {
+            // จดย้อนหลังก่อนวันตั้งยอดบัญชี → ถามว่าจะนับเข้ายอดคงเหลือไหม
+            const w = acctById(sh.wallet ?? t.wallet);
+            if (!w?.since || (sh.date ?? t.date) >= w.since) return '';
+            const checked = sh.countIn ?? !!t.countIn;
+            return `<label class="mt-check mt-backdate"><input type="checkbox" name="countIn" ${checked ? 'checked' : ''}> นับรวมในยอดคงเหลือ ${esc(w.name)} แม้ลงวันที่ก่อน ${thaiDate(w.since)} (วันที่ตั้งยอด)</label>
+              <span class="mt-sub">ปกติรายการก่อนวันตั้งยอดจะไม่นับ เพราะยอดที่ตั้งไว้รวมแล้ว · ติ๊กถ้ายอดที่ตั้งไว้ยังไม่รวมเงินก้อนนี้</span>`;
+          })()}
           ${sh.tx?.by ? `<p class="mt-sub">จดโดย ${esc(sh.tx.by)}</p>` : ''}
           ${sh.tx?.attachment && backend.fileUrl ? `<a class="mt-attach" href="${esc(backend.fileUrl(sh.tx.attachment))}" target="_blank" rel="noopener"><img src="${esc(backend.fileUrl(sh.tx.attachment))}" alt="รูปหลักฐานของรายการนี้" loading="lazy"><span>📎 หลักฐาน · แตะเพื่อดูเต็ม</span></a>` : ''}
           <button class="mt-btn" type="submit">${sh.tx ? 'บันทึกการแก้ไข' : 'บันทึก'}</button>
@@ -1437,7 +1445,7 @@ export function mountDashboard(root, backend, opts = {}) {
       const f = root.querySelector('form[data-form="tx"]');
       if (!f) return;
       const fd = new FormData(f);
-      Object.assign(sh, { amount: fd.get('amount'), note: fd.get('note'), date: fd.get('date'), wallet: fd.get('wallet') });
+      Object.assign(sh, { amount: fd.get('amount'), note: fd.get('note'), date: fd.get('date'), wallet: fd.get('wallet'), ...(fd.has('countIn') || f.querySelector('[name=countIn]') ? { countIn: fd.get('countIn') === 'on' } : {}) });
     };
     switch (a) {
       case 'tab':
@@ -1693,6 +1701,13 @@ export function mountDashboard(root, backend, opts = {}) {
   });
 
   root.addEventListener('change', (e) => {
+    // เปลี่ยนวันที่/บัญชีในฟอร์มจด → วาดใหม่ เพื่อโชว์ตัวเลือก "นับรวมในยอด" ของรายการย้อนหลัง
+    if (st.sheet?.kind === 'tx' && ['date', 'wallet'].includes(e.target.name)) {
+      const fd = new FormData(e.target.form);
+      Object.assign(st.sheet, { amount: fd.get('amount'), note: fd.get('note'), date: fd.get('date'), wallet: fd.get('wallet') });
+      render();
+      return;
+    }
     if (e.target.dataset.change === 'xfer' && st.sheet?.kind === 'xfer') {
       const fd = Object.fromEntries(new FormData(e.target.form));
       Object.assign(st.sheet, { from: fd.from, to: fd.to, amount: e.target.name === 'to' ? undefined : fd.amount, date: fd.date, note: fd.note });
@@ -1708,7 +1723,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const fd = Object.fromEntries(new FormData(f));
     switch (f.dataset.form) {
       case 'tx': {
-        const body = { ...fd, amount: Number(fd.amount) };
+        const body = { ...fd, amount: Number(fd.amount), countIn: fd.countIn === 'on' };
         if (st.sheet.tx) act(() => backend.updateTx(st.sheet.tx.id, body), 'บันทึกการแก้ไขแล้ว');
         else act(() => backend.addTx(body), `🪙 จดแล้ว ${money(body.amount)}`).then((ok) => ok && coinBurst());
         break;

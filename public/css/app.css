@@ -503,3 +503,5 @@ button.mt-tx:hover { background: var(--bg); }
 .mt-provs button span { font-size: 11px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 2px; }
 .mt-provs button.is-on { border-color: var(--gold); background: var(--gold-tint); box-shadow: inset 0 0 0 1px var(--gold); }
 .mt-provs button.is-on span { font-weight: 600; color: var(--gold-text); }
+.mt-form .mt-backdate { background: var(--gold-tint); border: 1px solid var(--gold-line); border-radius: 12px; padding: 10px 12px; align-items: flex-start; }
+.mt-form .mt-backdate input { margin-top: 3px; }
