@@ -158,3 +158,18 @@ test('backdated entries before the set balance are flagged and can be counted in
   await bot.handleEvent({ type: 'postback', source: U, postback: { data } });
   assert.equal(bal(store.db.U1, 'bank').balance, 12000);
 });
+
+test('minimum card payment keeps the rest as card debt; card interest is an expense', async () => {
+  const store = memStore();
+  const bot = createBot({ store, now: () => now, links: {} });
+  await say(bot, 'เพิ่มบัญชี กสิกร 10000');
+  await say(bot, 'เพิ่มบัตร KTC วงเงิน 20000 ใช้ไป 7000');
+  await say(bot, 'จ่ายบัตร ktc 550 จาก กสิกร');
+  let u = store.db.U1;
+  assert.equal(bal(u, 'card').used, 6450);
+  assert.equal(bal(u, 'bank').balance, 9450);
+  await say(bot, 'ดอกเบี้ยบัตร 85 ktc');
+  u = store.db.U1;
+  assert.equal(u.txs.at(-1).type, 'expense');
+  assert.equal(bal(u, 'card').used, 6535);
+});
