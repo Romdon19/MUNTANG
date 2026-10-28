@@ -1232,8 +1232,11 @@ export function mountDashboard(root, backend, opts = {}) {
           ${
             type === 'cash' || type === 'receivable'
               ? ''
-              : `<label for="mt-prov">${isCard ? 'ธนาคาร/ผู้ออกบัตร' : type === 'ewallet' ? 'ผู้ให้บริการ' : isLoan ? 'กู้กับธนาคาร (ถ้ามี)' : 'ธนาคาร'}</label>
-          <select id="mt-prov" name="provider"><option value="">ไม่ระบุ / อื่นๆ</option>${provs.map((p) => `<option value="${p.id}" ${p.id === prov ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>`
+              : `<span class="mt-label">${isCard ? 'ธนาคาร/ผู้ออกบัตร' : type === 'ewallet' ? 'ผู้ให้บริการ' : isLoan ? 'กู้กับธนาคาร (ถ้ามี)' : 'ธนาคาร'}</span>
+          <div class="mt-provs" role="radiogroup">${[{ id: '', short: 'อื่นๆ' }, ...provs]
+            .map((p) => `<button type="button" role="radio" aria-checked="${p.id === prov}" class="${p.id === prov ? 'is-on' : ''}" data-act="acctprov" data-v="${p.id}">${acctImg(p.id || type)}<span>${esc(p.short || p.name)}</span></button>`)
+            .join('')}</div>
+          <input type="hidden" name="provider" value="${esc(prov)}">`
           }
           <label for="mt-acctname">ชื่อที่ใช้เรียก (พิมพ์ชื่อนี้ในแชทเพื่อเลือกบัญชี)</label>
           <input id="mt-acctname" name="name" value="${esc(sh.name ?? a?.name ?? '')}" placeholder="${isCard ? 'เช่น KTC, บัตรกสิกร' : type === 'ewallet' ? 'เช่น TrueMoney' : type === 'cash' ? 'เช่น เงินสด' : isLoan ? 'เช่น ผ่อนรถ, กยศ, ยืมแม่' : type === 'receivable' ? 'เช่น ต้น (ยืมไป)' : 'เช่น กสิกร, SCB เงินเก็บ'}" maxlength="30">
@@ -1512,12 +1515,28 @@ export function mountDashboard(root, backend, opts = {}) {
         st.sheet = { kind: 'newacct', type: b.dataset.type === 'cash' || !b.dataset.type ? b.dataset.type || 'bank' : b.dataset.type };
         render();
         break;
+      case 'acctprov': {
+        const f = root.querySelector('form[data-form="acct"]');
+        if (f) {
+          const fd = new FormData(f);
+          for (const k of ['name', 'balance', 'limit', 'cycleBudget', 'statementDay', 'dueDay', 'monthlyPayment', 'rate', 'principal', 'installments', 'billInstallment', 'viaCard']) if (fd.has(k)) sh[k] = fd.get(k);
+          // ชื่อยังว่าง → ใช้ชื่อธนาคารที่เลือก
+          const p = st.data.providers.find((x) => x.id === b.dataset.v);
+          if (p && !String(sh.name || '').trim()) sh.name = p.short;
+        }
+        sh.provider = b.dataset.v;
+        render();
+        break;
+      }
       case 'accttype': {
         const f = root.querySelector('form[data-form="acct"]');
         if (f) {
           const fd = new FormData(f);
           Object.assign(sh, { name: fd.get('name'), balance: fd.get('balance') });
         }
+        // ชื่อที่เติมให้อัตโนมัติจากธนาคารเดิม ล้างทิ้งเมื่อเปลี่ยนประเภท
+        const autoName = st.data.providers.find((x) => x.id === (sh.provider ?? ''))?.short;
+        if (autoName && sh.name === autoName) sh.name = '';
         sh.type = b.dataset.v;
         sh.provider = '';
         render();

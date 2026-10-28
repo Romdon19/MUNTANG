@@ -31,12 +31,13 @@ export const PROVIDERS = [
   { id: 'kkp', name: 'เกียรตินาคินภัทร', short: 'KKP', color: '#594F74', mono: 'KKP', types: ['bank'], words: ['kkp', 'เกียรตินาคิน'] },
   { id: 'cimb', name: 'ซีไอเอ็มบี', short: 'CIMB', color: '#7E2F36', mono: 'CIMB', types: ['bank'], words: ['cimb', 'ซีไอเอ็มบี'] },
   { id: 'truemoney', name: 'TrueMoney Wallet', short: 'ทรูมันนี่', color: '#FF8300', mono: 'TMN', types: ['ewallet'], words: ['truemoney', 'true money', 'ทรูมันนี่', 'ทรูวอลเล็ท', 'ทรูวอลเลท'] },
-  { id: 'shopeepay', name: 'ShopeePay', short: 'ShopeePay', color: '#EE4D2D', mono: 'S', types: ['ewallet'], words: ['shopeepay', 'shopee pay', 'ช้อปปี้เพย์'] },
-  { id: 'linepay', name: 'Rabbit LINE Pay', short: 'LINE Pay', color: '#06C755', mono: 'LINE', types: ['ewallet'], words: ['line pay', 'linepay', 'ไลน์เพย์', 'แรบบิท'] },
-  { id: 'paotang', name: 'เป๋าตัง', short: 'เป๋าตัง', color: '#1BA5E1', mono: 'เป๋า', types: ['ewallet'], words: ['เป๋าตัง', 'paotang'] },
-  { id: 'ktc', name: 'KTC', short: 'KTC', color: '#E2231A', mono: 'KTC', types: ['card'], words: ['ktc', 'เคทีซี'] },
+  { id: 'shopeepay', name: 'ShopeePay', short: 'ShopeePay', color: '#EE4D2D', mono: 'Shopee\nPay', glyph: 'shopee', caption: 'Pay', types: ['ewallet'], words: ['shopeepay', 'shopee pay', 'ช้อปปี้เพย์'] },
+  { id: 'linepay', name: 'Rabbit LINE Pay', short: 'LINE Pay', color: '#06C755', mono: 'LINE\nPay', glyph: 'line', caption: 'Pay', types: ['ewallet'], words: ['line pay', 'linepay', 'ไลน์เพย์', 'แรบบิท'] },
+  { id: 'grabpay', name: 'GrabPay', short: 'GrabPay', color: '#00B14F', mono: 'Grab\nPay', glyph: 'grab', caption: 'Pay', types: ['ewallet'], words: ['grabpay', 'grab pay', 'แกร็บเพย์'] },
+  { id: 'paotang', name: 'เป๋าตัง', short: 'เป๋าตัง', color: '#1E6FD9', mono: 'เป๋าตัง', types: ['ewallet'], words: ['เป๋าตัง', 'paotang'] },
+  { id: 'ktc', name: 'KTC', short: 'KTC', color: '#E31E24', mono: 'KTC', types: ['card'], words: ['ktc', 'เคทีซี'] },
   { id: 'aeon', name: 'AEON', short: 'AEON', color: '#B6007A', mono: 'AEON', types: ['card'], words: ['aeon', 'อิออน'] },
-  { id: 'firstchoice', name: 'กรุงศรี เฟิร์สช้อยส์', short: 'FirstChoice', color: '#6D2077', mono: 'FC', types: ['card'], words: ['first choice', 'firstchoice', 'เฟิร์สช้อยส์', 'เฟิร์สช้อย'] },
+  { id: 'firstchoice', name: 'กรุงศรี เฟิร์สช้อยส์', short: 'FirstChoice', color: '#6D2077', mono: 'First\nChoice', types: ['card'], words: ['first choice', 'firstchoice', 'เฟิร์สช้อยส์', 'เฟิร์สช้อย'] },
   { id: 'lhb', name: 'แลนด์ แอนด์ เฮ้าส์', short: 'LH Bank', color: '#6D6E71', mono: 'LH', types: ['bank'], words: ['lh bank', 'lhbank', 'แลนด์แอนด์เฮ้าส์'] },
   { id: 'tisco', name: 'ทิสโก้', short: 'TISCO', color: '#14387F', mono: 'TSC', types: ['bank'], words: ['tisco', 'ทิสโก้'] },
   { id: 'ghb', name: 'อาคารสงเคราะห์', short: 'ธอส.', color: '#F68B1F', mono: 'ธอส', types: ['bank'], words: ['ธอส', 'ghb', 'อาคารสงเคราะห์'] },
@@ -45,7 +46,10 @@ export const PROVIDERS = [
   { id: 'icbc', name: 'ICBC (ไทย)', short: 'ICBC', color: '#C7000B', mono: 'ICBC', types: ['bank'], words: ['icbc'] },
   { id: 'citi', name: 'Citi', short: 'Citi', color: '#003B70', mono: 'citi', types: ['bank', 'card'], words: ['citi', 'ซิตี้'] },
   { id: 'hsbc', name: 'HSBC', short: 'HSBC', color: '#DB0011', mono: 'HSBC', types: ['bank', 'card'], words: ['hsbc'] },
-  { id: 'cardx', name: 'CardX', short: 'CardX', color: '#5E2CA5', mono: 'CX', types: ['card'], words: ['cardx', 'การ์ดเอ็กซ์'] },
+  { id: 'make', name: 'MAKE by KBank', short: 'MAKE', color: '#1A1A1A', mono: 'MAKE', types: ['bank'], words: ['make by kbank', 'make'] },
+  { id: 'dime', name: 'Dime! (KKP)', short: 'Dime!', color: '#14B8A6', mono: 'Dime!', types: ['bank'], words: ['dime'] },
+  { id: 'kept', name: 'Kept by Krungsri', short: 'Kept', color: '#FFC72C', fg: '#3B2A00', mono: 'kept', types: ['bank'], words: ['kept'] },
+  { id: 'cardx', name: 'CardX', short: 'CardX', color: '#4B1E8F', mono: 'CardX', types: ['card'], words: ['cardx', 'การ์ดเอ็กซ์'] },
 ];
 export const PROVIDER_MAP = Object.fromEntries(PROVIDERS.map((p) => [p.id, p]));
 
@@ -70,9 +74,15 @@ export function badgeSvg(key) {
   const bg = p?.color || TYPE_COLOR[key] || TYPE_COLOR.bank;
   const head = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80"><circle cx="40" cy="40" r="40" fill="${bg}"/>`;
   if (!p) return `${head}<g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" transform="translate(12 12) scale(0.7)">${TYPE_GLYPH[key] || TYPE_GLYPH.bank}</g></svg>`;
-  const m = p.mono || p.short.slice(0, 3);
-  const size = m.length <= 2 ? 30 : m.length === 3 ? 23 : 18;
-  return `${head}<text x="40" y="41" dominant-baseline="central" text-anchor="middle" font-family="Kanit, 'Noto Sans Thai', Arial, sans-serif" font-weight="700" font-size="${size}" fill="${p.fg || '#fff'}">${m}</text></svg>`;
+  // ตัวหนังสือแบบโลโก้ (ชื่อเต็มของแบรนด์) — รองรับ 2 บรรทัดด้วย \n
+  const lines = (p.mono || p.short.slice(0, 3)).split('\n');
+  const len = Math.max(...lines.map((l) => l.replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').length));
+  const size = len <= 2 ? 30 : len === 3 ? 24 : len === 4 ? 20 : len === 5 ? 17 : len <= 7 ? 15 : 12;
+  const lh = size * 1.05;
+  const y0 = 41 - ((lines.length - 1) * lh) / 2;
+  return `${head}<g font-family="Kanit, 'Noto Sans Thai', Arial, sans-serif" font-weight="700" font-size="${size}" fill="${p.fg || '#fff'}" text-anchor="middle">${lines
+    .map((l, i) => `<text x="40" y="${(y0 + i * lh).toFixed(1)}" dominant-baseline="central">${l}</text>`)
+    .join('')}</g></svg>`;
 }
 
 export function defaultAccounts() {
