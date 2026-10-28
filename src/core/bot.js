@@ -180,10 +180,14 @@ export function createBot(deps) {
       const from = find(m[4])?.id || def?.id || user.accounts.find((a) => a.type === 'bank' && !a.archived)?.id;
       if (!from || from === card.id) return [ui.textMsg('จ่ายจากบัญชีไหน? เช่น "จ่ายบัตร 3000 จาก กสิกร"')];
       const cur = ops.accountList(user, now()).find((x) => x.id === card.id);
-      const amount = m[2] ? num(m[2], m[3]) : cur.known ? cur.used : 0;
+      // ไม่ใส่ยอด = จ่ายเต็มบิล (ยอดรูด + ค่างวดผ่อนรอบนี้)
+      const amount = m[2] ? num(m[2], m[3]) : cur.known ? cur.payNow : 0;
       if (!(amount > 0)) return [ui.textMsg(`ใส่ยอดที่จ่ายด้วยนะ เช่น "จ่ายบัตร ${card.name} 3000"`)];
       ops.addTransfer(user, { from, to: card.id, amount }, now());
-      return accountsReply(user, ctx, `💳 จ่ายบัตร ${accName(card.id)} ${money(amount)} จาก ${accName(from)} แล้ว\n(ไม่นับเป็นรายจ่ายซ้ำ เพราะตอนรูดจดไปแล้ว)`);
+      const after = ops.accountList(user, now()).find((x) => x.id === card.id);
+      const paidInst = Math.round((cur.instOwed - after.instOwed) * 100) / 100;
+      const inst = paidInst > 0 ? `\nรวมค่างวดผ่อน ${money(paidInst)} (${cur.installments.map((i) => i.name).join(', ')})` : '';
+      return accountsReply(user, ctx, `💳 จ่ายบัตร ${accName(card.id)} ${money(amount)} จาก ${accName(from)} แล้ว${inst}\n${ui.balanceText(after)}\n(ไม่นับเป็นรายจ่ายซ้ำ เพราะตอนรูดจดไปแล้ว)`);
     }
 
     // กดเงินสด: "กดเงิน 2000 กสิกร"
@@ -231,6 +235,38 @@ export function createBot(deps) {
         }
       }
     }
+    // ตั้งค่าบัตร: "ตั้งบัตร express ตัดรอบ 18 จ่าย 1 งบ 5000 วงเงิน 40000"
+    m = line.match(/^ตั้งบัตร\s*(.+?)\s+((?:(?:ตัดรอบ(?:วันที่)?|จ่าย(?:วันที่)?|ชำระ(?:วันที่)?|งบ(?:รูด)?|วงเงิน)\s*[\d,.]+\s*)+)$/);
+    if (m) {
+      const hit = find(m[1], { types: ['card'] });
+      if (!hit) return [ui.textMsg(`ไม่เจอบัตร "${m[1]}" พิมพ์ "บัตร" เพื่อดูชื่อบัตรทั้งหมด`)];
+      const get = (re) => (m[2].match(re) ? Number(m[2].match(re)[1].replace(/,/g, '')) : undefined);
+      const patch = { statementDay: get(/ตัดรอบ(?:วันที่)?\s*([\d]+)/), dueDay: get(/(?:จ่าย|ชำระ)(?:วันที่)?\s*([\d]+)/), cycleBudget: get(/งบ(?:รูด)?\s*([\d,.]+)/), limit: get(/วงเงิน\s*([\d,.]+)/) };
+      ops.updateAccount(user, hit.id, Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined)), now());
+      const w = ops.accountList(user, now()).find((x) => x.id === hit.id);
+      return accountsReply(user, ctx, `✅ ตั้งค่าบัตร ${w.name} แล้ว${w.cycle ? `\nรอบบัตร ${w.cycle.from} ถึง ${w.cycle.to}${w.cycle.due ? ` · จ่ายบิลภายใน ${w.cycle.due}` : ''}` : ''}${w.perDay != null ? `\nงบรูดรอบนี้เหลือ ${money(w.budgetLeft)} · วันละ ~${money(w.perDay)}` : ''}`);
+    }
+
+    // ผ่อนสินค้าผ่านบัตร: "เพิ่มผ่อน iPhone 15 580.56 งวด 12/36 บัตร express" / "เพิ่มผ่อน ทีวี 1000 10 เดือน บัตร ktc"
+    m = line.match(new RegExp(`^เพิ่มผ่อน(?:สินค้า)?\\s*(.+?)\\s+${AMT}\\s*(?:บาท)?(?:\\s*(?:ต่อเดือน|/เดือน))?\\s*(?:งวด(?:ที่)?\\s*(\\d+)\\s*/\\s*(\\d+)|(\\d+)\\s*(?:งวด|เดือน))(?:\\s*(?:บัตร|ผ่าน(?:บัตร)?)\\s*(.+?))?(\\s*จ่ายแล้ว)?$`, 'i'));
+    if (m) {
+      const cards = user.accounts.filter((a) => a.type === 'card' && !a.archived);
+      const hit = m[7] && find(m[7], { types: ['card'] });
+      const card = (hit && cards.find((c) => c.id === hit.id)) || (!m[7] && cards.length === 1 ? cards[0] : null);
+      if (!card && m[7]) return [ui.textMsg(`ไม่เจอบัตร "${m[7]}" พิมพ์ "บัตร" เพื่อดูชื่อบัตรทั้งหมด`)];
+      const monthly = num(m[2], m[3]);
+      const total = Number(m[5] || m[6]);
+      // บิลขึ้น "12/36" = งวดที่ 12 อยู่ในบิลที่ยังไม่จ่าย → จ่ายไปแล้ว 11 (ใส่ "จ่ายแล้ว" ถ้าจ่ายบิลนั้นแล้ว)
+      const paid = m[4] ? Number(m[4]) - (m[8] ? 0 : 1) : 0;
+      const a = ops.addAccount(user, { type: 'loan', name: m[1].trim(), monthlyPayment: monthly, installments: total, paidInstallments: paid, viaCard: card?.id || null }, now());
+      const w = ops.accountList(user, now()).find((x) => x.id === a.id);
+      return accountsReply(
+        user,
+        ctx,
+        `📱 เพิ่มผ่อน ${w.name} แล้ว\nงวดละ ${money(monthly)} · จ่ายแล้ว ${w.paidInstallments}/${total} งวด · คงเหลือ ${money(w.used)}${card ? `\nผ่อนผ่านบัตร ${card.name}: กันวงเงินบัตรไว้ให้ และตอนพิมพ์ "จ่ายบัตร ${card.name}" จะตัดค่างวดให้เอง` : ''}`
+      );
+    }
+
     // หนี้สิน / ค้างรับ
     // บัญชีที่เงินเข้า/ออก: ที่พิมพ์มา > บัญชีเริ่มต้น (preferBank = จ่ายหนี้มักจ่ายจากธนาคาร)
     const spendFrom = (text, preferBank = false) => {

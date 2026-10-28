@@ -113,3 +113,35 @@ test('loans and receivables move through transfers and count in net worth', asyn
   const r = await say(bot, 'สุขภาพการเงิน');
   assert.match(r.messages[0].altText, /สุขภาพการเงิน \d+\/100/);
 });
+
+test('installments through a credit card hold the limit and are paid with the card bill', async () => {
+  const store = memStore();
+  let clock = new Date('2026-10-28T05:00:00Z');
+  const bot = createBot({ store, now: () => clock, links: {} });
+  const say2 = (text) => bot.handleEvent({ type: 'message', source: U, message: { type: 'text', text } });
+  await say2('เพิ่มบัญชี กสิกร 20000');
+  await say2('เพิ่มบัตร Express วงเงิน 40000');
+  await say2('ตั้งบัตร express ตัดรอบ 18 จ่าย 1 งบ 5000');
+  await say2('เพิ่มผ่อน iPhone 15 580.56 งวด 12/36 บัตร express');
+  await say2('ชาบู 459 express'); // หลังวันตัดรอบ → ไปบิลหน้า
+  let card = ops.accountList(store.db.U1, clock).find((a) => a.name === 'Express');
+  let inst = ops.accountList(store.db.U1, clock).find((a) => a.name === 'iPhone 15');
+  assert.equal(inst.used, 14514); // 25 งวด × 580.56 (งวด 12 ยังไม่จ่าย)
+  assert.equal(inst.paidInstallments, 11);
+  assert.equal(card.instOwed, 14514);
+  assert.equal(card.available, 40000 - 459 - 14514);
+  assert.equal(card.payNow, 580.56);
+  assert.equal(card.cycle.due, '2026-11-01');
+  assert.equal(card.budgetLeft, 5000 - 459);
+  // หนี้ไม่ถูกนับซ้ำ
+  const t = (await import('../src/core/accounts.js')).accountTotals(ops.accountList(store.db.U1, clock));
+  assert.equal(t.debt, 459 + 14514);
+  clock = new Date('2026-11-01T03:00:00Z');
+  await say2('จ่ายบัตร express');
+  card = ops.accountList(store.db.U1, clock).find((a) => a.name === 'Express');
+  inst = ops.accountList(store.db.U1, clock).find((a) => a.name === 'iPhone 15');
+  assert.equal(inst.paidInstallments, 12);
+  assert.equal(inst.used, 13933.44);
+  assert.equal(card.used, 459); // ยอดรูดหลังตัดรอบยังอยู่ รอบิลหน้า
+  assert.equal(card.payNow, 0);
+});

@@ -59,7 +59,7 @@ export function insights(user, now = new Date(), { budget, balances = [], totals
 
   // บัตรเครดิต / หนี้
   const active = balances.filter((a) => !a.archived && a.known);
-  const cards = active.filter((a) => a.type === 'card' && a.limit).map((a) => ({ id: a.id, name: a.name, icon: a.icon, color: a.color, used: a.used, limit: a.limit, pct: a.used / a.limit, available: a.available }));
+  const cards = active.filter((a) => a.type === 'card' && a.limit).map((a) => ({ id: a.id, name: a.name, icon: a.icon, color: a.color, used: a.totalUsed ?? a.used, instOwed: a.instOwed || 0, limit: a.limit, pct: (a.totalUsed ?? a.used) / a.limit, available: a.available }));
   const debts = active.filter((a) => a.type === 'loan' && a.used > 0).map((a) => ({ id: a.id, name: a.name, icon: a.icon, color: a.color, used: a.used, principal: a.principal, pctPaid: a.pctPaid, monthlyPayment: a.monthlyPayment || 0, rate: a.rate || 0, monthsLeft: a.monthsLeft }));
   const debtFreeMonths = debts.length && debts.every((d) => d.monthsLeft != null) ? Math.max(...debts.map((d) => d.monthsLeft)) : null;
 

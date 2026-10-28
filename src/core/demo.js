@@ -45,8 +45,9 @@ export function seedDemo(user, now = new Date()) {
     { id: 'bank', type: 'bank', name: 'กสิกร', provider: 'kbank' },
     { id: 'scb', type: 'bank', name: 'SCB เงินเก็บ', provider: 'scb' },
     { id: 'tmw', type: 'ewallet', name: 'TrueMoney', provider: 'truemoney' },
-    { id: 'card', type: 'card', name: 'KTC', provider: 'ktc', limit: 20000, dueDay: 25 },
-    { id: 'kcard', type: 'card', name: 'บัตรกสิกร', provider: 'kbank', limit: 30000, dueDay: 12 },
+    { id: 'card', type: 'card', name: 'KTC', provider: 'ktc', limit: 20000, statementDay: 10, dueDay: 25 },
+    { id: 'kcard', type: 'card', name: 'Express', provider: 'kbank', limit: 40000, statementDay: 18, dueDay: 1, cycleBudget: 5000 },
+    { id: 'iphone', type: 'loan', name: 'iPhone 15', monthlyPayment: 580.56, installments: 36, principal: 20900.16, viaCard: 'kcard' },
     { id: 'car', type: 'loan', name: 'ผ่อนรถ', provider: 'kbank', principal: 120000, monthlyPayment: 6500, rate: 3.5, dueDay: 5 },
     { id: 'ton', type: 'receivable', name: 'ต้น (ยืมไป)' },
   ];
@@ -54,7 +55,7 @@ export function seedDemo(user, now = new Date()) {
   const DAYS = 184;
   const start = addDays(today, -DAYS);
   const startAt = new Date(`${start}T00:00:00.000Z`);
-  for (const [id, v] of [['cash', 3000], ['bank', 15000], ['scb', 30000], ['tmw', 300], ['card', 0], ['kcard', 0], ['car', 72000], ['ton', 0]]) ops.setBalance(user, id, v, startAt);
+  for (const [id, v] of [['cash', 3000], ['bank', 15000], ['scb', 30000], ['tmw', 300], ['card', 0], ['kcard', 0], ['iphone', 580.56 * 30], ['car', 72000], ['ton', 0]]) ops.setBalance(user, id, v, startAt);
   const walletOf = (r) => (r < 0.4 ? 'cash' : r < 0.78 ? 'bank' : 'tmw');
   const add = (date, note, categoryId, amount, type = 'expense', wallet) =>
     ops.addTx(user, { date, note, categoryId, amount, type, wallet: wallet || walletOf(rand()) }, rand() > 0.85 ? 'slip' : 'chat');
@@ -86,7 +87,7 @@ export function seedDemo(user, now = new Date()) {
     if (bal.cash.balance < 600) move(d, 'bank', 'cash', 2000);
     if (bal.tmw.balance < 150) move(d, 'bank', 'tmw', 500);
     if (day === 25 && bal.card.used > 0) move(d, 'bank', 'card', bal.card.used);
-    if (day === 12 && bal.kcard.used > 0) move(d, 'bank', 'kcard', Math.round(bal.kcard.used * 0.3));
+    if (day === 1 && bal.kcard.payNow > 0) move(d, 'bank', 'kcard', bal.kcard.payNow);
   }
   // createdAt ให้ตรงกับวันที่ (สำหรับนับ streak)
   for (const t of user.txs) t.createdAt = `${t.date}T12:00:00.000Z`;

@@ -875,20 +875,59 @@ export function mountDashboard(root, backend, opts = {}) {
 
   /** ตัวเลขหลักของบัญชี: ยอดคงเหลือ / บัตร-หนี้ = ยอดค้าง */
   function acctFigure(a) {
+    if (a.type === 'card') return a.known ? money(a.totalUsed) : money(a.spent || 0);
     if (isLiab(a)) return a.known ? money(a.used) : money(a.spent || 0);
     return a.known ? money(a.balance) : 'ตั้งยอด';
   }
   function acctSub(a) {
     if (a.type === 'card') {
       if (!a.known) return 'รอบนี้รูดไป · ยังไม่ตั้งยอด';
-      return a.limit ? `วงเงิน ${money(a.limit)} · เหลือ ${money(a.available)}` : 'ยอดค้างจ่าย';
+      return [a.limit ? `เหลือ ${money(a.available)}` : 'ยอดค้างจ่าย', a.installments?.length ? `ผ่อน ${a.installments.length} รายการ` : '', a.payNow ? `ต้องจ่าย ${money(a.payNow)}${a.cycle?.due ? ` (${thaiDate(a.cycle.due, { year: false })})` : ''}` : ''].filter(Boolean).join(' · ');
     }
-    if (a.type === 'loan') return [a.monthlyPayment ? `ผ่อน ${money(a.monthlyPayment)}/เดือน` : 'ยอดค้างจ่าย', a.rate ? `ดอก ${a.rate}%` : '', a.monthsLeft ? `อีก ${a.monthsLeft} งวด` : ''].filter(Boolean).join(' · ');
+    if (a.type === 'loan') return [a.monthlyPayment ? `ผ่อน ${money(a.monthlyPayment)}/เดือน` : 'ยอดค้างจ่าย', a.rate ? `ดอก ${a.rate}%` : '', a.installments ? `งวด ${a.paidInstallments}/${a.installments}` : a.monthsLeft ? `อีก ${a.monthsLeft} งวด` : '', a.viaCard ? `ผ่านบัตร ${wallet(a.viaCard).name}` : ''].filter(Boolean).join(' · ');
     if (a.type === 'receivable') return 'ยังไม่ได้คืน';
     return `รอบนี้ใช้ ${money(a.spent || 0)}`;
   }
   const cardTone = (p) => (p >= 0.9 ? 'var(--red)' : p >= 0.7 ? 'var(--amber)' : 'var(--ink)');
-  const groupTotal = (list) => list.reduce((x, a) => x + (a.known ? (isLiab(a) ? a.used : a.balance) : 0), 0);
+  const groupTotal = (list) => list.reduce((x, a) => x + (a.known ? (a.type === 'card' ? a.totalUsed : isLiab(a) ? a.used : a.balance) : 0), 0);
+  // หนี้ที่ผ่อนผ่านบัตร แสดงอยู่ใต้บัตรใบนั้น ไม่แยกในกลุ่มหนี้สิน (กันนับซ้ำ)
+  const inGroup = (g, a) => g.types.includes(a.type) && !(a.type === 'loan' && a.viaCard);
+
+  /** แถบวงเงินบัตร: รูดค้าง | ผ่อน | เหลือ */
+  function cardBar(a, lg = false) {
+    if (!a.limit) return '';
+    const w = (v) => `${Math.max(0, Math.min(100, (v / a.limit) * 100)).toFixed(1)}%`;
+    return `<span class="mt-cbar ${lg ? 'is-lg' : ''}"><i style="width:${w(Math.max(0, a.used))}"></i><i class="is-inst" style="width:${w(a.instOwed || 0)}"></i></span>`;
+  }
+
+  /** รายละเอียดบัตร: วงเงิน รอบบิล ผ่อน งบรูด */
+  function cardDetail(a) {
+    const c = a.cycle;
+    return `
+      <div class="mt-card-big"><span class="mt-sub">วงเงินคงเหลือ</span><b class="num ${a.available < 0 ? 'is-neg' : ''}">${a.limit ? money(a.available) : '-'}</b><span class="mt-sub">จากวงเงิน ${a.limit ? money(a.limit) : '(ยังไม่ใส่)'}</span></div>
+      ${cardBar(a, true)}
+      <div class="mt-legend-i is-left"><span><i style="background:var(--ink)"></i>รูดค้าง ${money(Math.max(0, a.used))}</span><span><i style="background:#8B5CF6"></i>ผ่อน ${money(a.instOwed || 0)}</span><span><i style="background:var(--track)"></i>เหลือ</span></div>
+      <dl class="mt-kv">
+        ${c ? `<div><dt>รูดรอบใหม่ (${thaiDate(c.from, { year: false })} - ${thaiDate(c.to, { year: false })}) · ไปบิลหน้า</dt><dd class="num">${money(a.cycleSpent || 0)}</dd></div>` : ''}
+        <div><dt>ต้องจ่ายบิล${c?.due ? ` ภายใน ${thaiDate(c.due)}` : ''}</dt><dd class="num is-bad">${money(a.payNow || 0)}</dd></div>
+        ${a.instDue ? `<div><dt>· ในนั้นเป็นค่างวดผ่อน</dt><dd class="num">${money(a.instDue)}</dd></div>` : ''}
+        ${
+          a.cycleBudget
+            ? `<div><dt>งบรูดรอบนี้ ${money(a.cycleBudget)} · เหลือ</dt><dd class="num ${a.budgetLeft < 0 ? 'is-bad' : 'is-inc'}">${money(a.budgetLeft)}</dd></div>
+               <div><dt>ใช้ได้อีกวันละ (${c?.daysLeft || 0} วันถึงวันตัดรอบ)</dt><dd class="num">${money(a.perDay || 0)}</dd></div>`
+            : ''
+        }
+      </dl>
+      ${a.cycleBudget ? bar(Math.min(1, (a.cycleSpent || 0) / a.cycleBudget), budgetTone((a.cycleSpent || 0) / a.cycleBudget)) : !c ? '<p class="mt-sub">ใส่ "วันตัดรอบบัญชี" ด้านล่าง เพื่อดูยอดรูดแต่ละรอบบิล</p>' : ''}
+      <div class="mt-card-h"><h3>ผ่อนผ่านบัตรนี้</h3><button class="mt-link" type="button" data-act="newinst" data-id="${a.id}">+ เพิ่มผ่อนสินค้า</button></div>
+      ${
+        a.installments?.length
+          ? `<ul class="mt-txs">${a.installments
+              .map((l) => `<li><button class="mt-acct-row" type="button" data-act="acct" data-id="${l.id}">${acctImg('loan', 'is-sm')}<span class="mt-tx-main"><span class="mt-tx-note">${esc(l.name)}</span><span class="mt-sub">งวดละ ${money(l.monthlyPayment)}${l.installments ? ` · งวด ${l.paidInstallments}/${l.installments}` : ''}${l.monthsLeft ? ` · อีก ${l.monthsLeft} งวด` : ''}</span>${l.installments ? bar(l.paidInstallments / l.installments, '#8B5CF6') : ''}</span><span class="num mt-amt">${money(l.used)}</span></button></li>`)
+              .join('')}</ul>`
+          : '<p class="mt-empty">ไม่มี · ผ่อนสินค้า 0% ผ่านบัตร เพิ่มที่นี่ ระบบจะกันวงเงินและตัดค่างวดตอนจ่ายบัตรให้เอง</p>'
+      }`;
+  }
 
   /** การ์ดความมั่งคั่งสุทธิ (ดำ-ทอง) */
   function worthCard() {
@@ -907,7 +946,7 @@ export function mountDashboard(root, backend, opts = {}) {
   /** ภาพรวมบัญชีแยกกลุ่ม (หน้าสรุป) */
   function walletStrip() {
     const list = activeAccts();
-    const rows = GROUPS.map((g) => ({ ...g, list: list.filter((a) => g.types.includes(a.type)) })).filter((g) => g.list.length);
+    const rows = GROUPS.map((g) => ({ ...g, list: list.filter((a) => inGroup(g, a)) })).filter((g) => g.list.length);
     return `${worthCard()}
     <section class="mt-card">
       <div class="mt-card-h"><h3>กระเป๋าเงิน</h3><button class="mt-link" data-act="tab" data-tab="wallets">ดูทั้งหมด</button></div>
@@ -930,10 +969,27 @@ export function mountDashboard(root, backend, opts = {}) {
     return `<li><button class="mt-acct-row" data-act="acct" data-id="${a.id}">
       ${acctImg(a.icon)}
       <span class="mt-tx-main"><span class="mt-tx-note">${esc(a.name)}</span><span class="mt-sub">${esc(acctSub(a))}${a.type === 'card' && a.dueDay ? ` · จ่ายวันที่ ${a.dueDay}` : ''}</span>
-        ${a.type === 'card' && a.known && a.limit ? bar(a.pctUsed, cardTone(a.pctUsed)) : ''}
+        ${a.type === 'card' && a.known && a.limit ? cardBar(a) : ''}
         ${a.type === 'loan' && a.principal ? `${bar(a.pctPaid, 'var(--green)')}<span class="mt-sub">จ่ายแล้ว ${Math.round(a.pctPaid * 100)}% ของ ${money(a.principal)}</span>` : ''}</span>
       <span class="num mt-amt ${!a.known && !isLiab(a) ? 'is-unset' : ''} ${neg || a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</span>
     </button></li>`;
+  }
+
+  /** สรุปหนี้: บัตร (รูดค้าง) · ผ่อนผ่านบัตร · หนี้อื่น · ต้องจ่ายเดือนนี้ */
+  function debtCard() {
+    const t = st.data.accountTotals;
+    if (!t.debt && !t.payThisMonth) return '';
+    const parts = [
+      ['บัตรเครดิต (รูดค้าง)', t.cardDebt, 'var(--ink)'],
+      ['ผ่อนสินค้าผ่านบัตร', t.instDebt, '#8B5CF6'],
+      ['หนี้อื่น (ผ่อนรถ ยืม ฯลฯ)', t.loanDebt, 'var(--red)'],
+    ].filter((x) => x[1] > 0);
+    return `<section class="mt-card">
+      <div class="mt-card-h"><h3>หนี้สินของฉัน</h3><b class="num is-bad">${money(t.debt)}</b></div>
+      <span class="mt-stack">${parts.map(([, v, c]) => `<i style="width:${((v / (t.debt || 1)) * 100).toFixed(1)}%;background:${c}"></i>`).join('')}</span>
+      <dl class="mt-kv">${parts.map(([l, v, c]) => `<div><dt><i class="mt-dot" style="background:${c}"></i> ${l}</dt><dd class="num">${money(v)}</dd></div>`).join('')}
+        <div class="is-total"><dt>ต้องจ่ายเดือนนี้ (บิลบัตร + ค่างวด)</dt><dd class="num">${money(t.payThisMonth)}</dd></div></dl>
+    </section>`;
   }
 
   function walletsView() {
@@ -942,11 +998,12 @@ export function mountDashboard(root, backend, opts = {}) {
     const hidden = st.data.accounts.filter((a) => a.archived);
     const xfers = [...st.data.transfers].sort(byNewest).slice(0, 8);
     const unset = list.filter((a) => !a.known).length;
-    const sections = GROUPS.map((g) => ({ ...g, list: list.filter((a) => g.types.includes(a.type)) }));
+    const sections = GROUPS.map((g) => ({ ...g, list: list.filter((a) => inGroup(g, a)) }));
     const addLabel = { cash: '+ เพิ่ม', bank: '+ เพิ่มบัญชี', ewallet: '+ เพิ่ม e-Wallet', receivable: '+ ให้ยืม', loan: '+ เพิ่มหนี้', card: '+ เพิ่มบัตร' };
     return `
       <div class="mt-row-h"><h2>กระเป๋าเงิน</h2><button class="mt-btn-s" data-act="xfer">⇄ โอน / จ่าย</button></div>
       ${worthCard()}
+      ${debtCard()}
       ${unset ? `<p class="mt-sub mt-note">มี ${unset} บัญชีที่ยังไม่ได้ตั้งยอด แตะบัญชีแล้วใส่ยอดตอนนี้ ระบบจะคิดยอดให้ทุกครั้งที่จด</p>` : ''}
       ${sections
         .filter((g) => g.list.length || ['bank', 'card', 'loan'].includes(g.key))
@@ -1163,8 +1220,8 @@ export function mountDashboard(root, backend, opts = {}) {
         ${
           a
             ? `<div class="mt-acct-head">${acctImg(a.icon, 'is-lg')}
-                <div><b class="num ${a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</b><span class="mt-sub">${esc(a.type === 'loan' || a.type === 'receivable' ? acctSub(a) : a.type === 'card' ? (a.known ? (a.limit ? `ใช้ไปจากวงเงิน ${money(a.limit)} · เหลือ ${money(a.available)}` : 'ยอดค้างจ่าย') : 'รูดรอบนี้ (ยังไม่ตั้งยอด)') : `${a.known ? 'ยอดคงเหลือ' : 'ยังไม่ได้ตั้งยอด'} · รอบนี้ใช้ ${money(a.spent || 0)}`)}</span></div></div>
-              ${a.type === 'card' && a.known && a.limit ? bar(a.pctUsed, cardTone(a.pctUsed), 'is-lg') : ''}
+                <div><b class="num ${a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</b><span class="mt-sub">${esc(a.type === 'loan' || a.type === 'receivable' ? acctSub(a) : a.type === 'card' ? (a.known ? 'ยอดใช้รวม (รูดค้าง + ผ่อน)' : 'รูดรอบนี้ (ยังไม่ตั้งยอด)') : `${a.known ? 'ยอดคงเหลือ' : 'ยังไม่ได้ตั้งยอด'} · รอบนี้ใช้ ${money(a.spent || 0)}`)}</span></div></div>
+              ${a.type === 'card' && a.known ? cardDetail(a) : ''}
               ${a.type === 'loan' && a.principal ? bar(a.pctPaid, 'var(--green)', 'is-lg') : ''}`
             : ''
         }
@@ -1180,13 +1237,17 @@ export function mountDashboard(root, backend, opts = {}) {
           }
           <label for="mt-acctname">ชื่อที่ใช้เรียก (พิมพ์ชื่อนี้ในแชทเพื่อเลือกบัญชี)</label>
           <input id="mt-acctname" name="name" value="${esc(sh.name ?? a?.name ?? '')}" placeholder="${isCard ? 'เช่น KTC, บัตรกสิกร' : type === 'ewallet' ? 'เช่น TrueMoney' : type === 'cash' ? 'เช่น เงินสด' : isLoan ? 'เช่น ผ่อนรถ, กยศ, ยืมแม่' : type === 'receivable' ? 'เช่น ต้น (ยืมไป)' : 'เช่น กสิกร, SCB เงินเก็บ'}" maxlength="30">
-          <label for="mt-bal">${isCard ? 'ยอดที่ใช้ไปแล้วตอนนี้ (ยังไม่ได้จ่าย)' : isLoan ? 'ยอดหนี้คงค้างตอนนี้' : type === 'receivable' ? 'ยอดที่เขายังติดเราอยู่' : 'ยอดเงินตอนนี้'}</label>
+          <label for="mt-bal">${isCard ? 'ยอดรูดที่ยังไม่ได้จ่าย (ไม่รวมยอดผ่อนสินค้า)' : isLoan ? 'ยอดหนี้คงค้างตอนนี้' : type === 'receivable' ? 'ยอดที่เขายังติดเราอยู่' : 'ยอดเงินตอนนี้'}</label>
           <div class="mt-amount is-sm"><span>฿</span><input id="mt-bal" name="balance" type="number" inputmode="decimal" step="0.01" value="${sh.balance ?? figure}" placeholder="0"></div>
           ${
             isCard
               ? `<div class="mt-row2">
             <div><label for="mt-limit">วงเงินบัตร</label><input id="mt-limit" name="limit" type="number" inputmode="decimal" min="0" step="1" value="${sh.limit ?? a?.limit ?? ''}" placeholder="เช่น 20000"></div>
-            <div><label for="mt-due">ครบกำหนดจ่ายทุกวันที่</label><input id="mt-due" name="dueDay" type="number" inputmode="numeric" min="1" max="31" value="${sh.dueDay ?? a?.dueDay ?? ''}" placeholder="เช่น 25"></div>
+            <div><label for="mt-cbud">งบรูดต่อรอบ (ไม่ใส่ก็ได้)</label><input id="mt-cbud" name="cycleBudget" type="number" inputmode="decimal" min="0" value="${sh.cycleBudget ?? a?.cycleBudget ?? ''}" placeholder="เช่น 5000"></div>
+          </div>
+          <div class="mt-row2">
+            <div><label for="mt-sday">วันตัดรอบบัญชี</label><input id="mt-sday" name="statementDay" type="number" inputmode="numeric" min="1" max="28" value="${sh.statementDay ?? a?.statementDay ?? ''}" placeholder="เช่น 18"></div>
+            <div><label for="mt-due">ชำระภายในวันที่</label><input id="mt-due" name="dueDay" type="number" inputmode="numeric" min="1" max="31" value="${sh.dueDay ?? a?.dueDay ?? ''}" placeholder="เช่น 1"></div>
           </div>`
               : ''
           }
@@ -1199,6 +1260,20 @@ export function mountDashboard(root, backend, opts = {}) {
           <div class="mt-row2">
             <div><label for="mt-principal">ยอดกู้ตั้งต้น</label><input id="mt-principal" name="principal" type="number" inputmode="decimal" min="0" value="${sh.principal ?? a?.principal ?? ''}" placeholder="ไว้ดู % ที่จ่ายแล้ว"></div>
             <div><label for="mt-due">จ่ายทุกวันที่</label><input id="mt-due" name="dueDay" type="number" inputmode="numeric" min="1" max="31" value="${sh.dueDay ?? a?.dueDay ?? ''}" placeholder="เช่น 5"></div>
+          </div>
+          <div class="mt-inst">
+            <b>ผ่อนเป็นงวด (เช่น ผ่อนสินค้า 0%)</b>
+            <label for="mt-via">ผ่อนผ่านบัตรเครดิต</label>
+            <select id="mt-via" name="viaCard"><option value="">ไม่ผ่านบัตร (ผ่อนกับร้าน/ไฟแนนซ์/ธนาคาร)</option>${st.data.accounts
+              .filter((c) => c.type === 'card' && !c.archived)
+              .map((c) => `<option value="${c.id}" ${(sh.viaCard ?? a?.viaCard ?? '') === c.id ? 'selected' : ''}>💳 ${esc(c.name)}</option>`)
+              .join('')}</select>
+            <div class="mt-row2">
+              <div><label for="mt-ninst">จำนวนงวดทั้งหมด</label><input id="mt-ninst" name="installments" type="number" inputmode="numeric" min="0" max="360" value="${sh.installments ?? a?.installments ?? ''}" placeholder="เช่น 36"></div>
+              <div><label for="mt-billinst">งวดบนบิลล่าสุด</label><input id="mt-billinst" name="billInstallment" type="number" inputmode="numeric" min="0" max="360" value="${sh.billInstallment ?? (a?.installments ? Math.min(a.installments, (a.paidInstallments || 0) + 1) : '')}" placeholder="เช่น 12 (จาก 12/36)"></div>
+            </div>
+            <label class="mt-check"><input type="checkbox" name="billPaid" ${sh.billPaid ? 'checked' : ''}> จ่ายบิลงวดนั้นไปแล้ว</label>
+            <span class="mt-sub">ใส่ ค่างวด + จำนวนงวด + งวดบนบิล ระบบคิดยอดคงเหลือให้เอง (ไม่ต้องกรอกยอดหนี้ด้านบน)</span>
           </div>`
               : ''
           }
@@ -1223,7 +1298,7 @@ export function mountDashboard(root, backend, opts = {}) {
       const from = sh.from ?? (list.find((a) => a.type === 'bank' && a.id !== to)?.id || list.find((a) => a.id !== to)?.id || '');
       const toAcc = acctById(to);
       const opt = (cur) => list.map((a) => `<option value="${a.id}" ${a.id === cur ? 'selected' : ''}>${a.emoji} ${esc(a.name)}</option>`).join('');
-      const suggest = toAcc?.type === 'card' && toAcc.known && toAcc.used > 0 ? toAcc.used : toAcc?.type === 'loan' ? toAcc.monthlyPayment || '' : '';
+      const suggest = toAcc?.type === 'card' && toAcc.known && toAcc.payNow > 0 ? toAcc.payNow : toAcc?.type === 'loan' ? toAcc.monthlyPayment || '' : '';
       inner = `
         <form class="mt-form" data-form="xfer">
           <p class="mt-sub">ย้ายเงินระหว่างบัญชีของเรา เช่น โอนเข้าบัญชีเก็บ เติม e-Wallet กดเงินสด หรือจ่ายบัตรเครดิต · ไม่นับเป็นรายรับรายจ่าย</p>
@@ -1233,7 +1308,7 @@ export function mountDashboard(root, backend, opts = {}) {
           </div>
           <label for="mt-xamt" class="mt-vh">จำนวนเงิน</label>
           <div class="mt-amount"><span>฿</span><input id="mt-xamt" name="amount" type="number" inputmode="decimal" step="0.01" min="0" required value="${sh.amount ?? suggest}" placeholder="0"></div>
-          ${toAcc && isLiab(toAcc) ? `<p class="mt-sub">${esc(toAcc.name)} ${toAcc.known ? `ยอดค้างจ่าย ${money(toAcc.used)}` : 'ยังไม่ได้ตั้งยอด'}</p>` : ''}
+          ${toAcc && isLiab(toAcc) ? `<p class="mt-sub">${esc(toAcc.name)} ${toAcc.known ? (toAcc.type === 'card' ? `ต้องจ่ายบิล ${money(toAcc.payNow)}${toAcc.instDue ? ` (รวมค่างวดผ่อน ${money(toAcc.instDue)} ระบบตัดให้เอง)` : ''}` : `ยอดค้างจ่าย ${money(toAcc.used)}`) : 'ยังไม่ได้ตั้งยอด'}</p>` : ''}
           <div class="mt-row2">
             <div><label for="mt-xdate">วันที่</label><input id="mt-xdate" name="date" type="date" value="${sh.date ?? todayStr()}" max="${todayStr()}"></div>
             <div><label for="mt-xnote">บันทึก</label><input id="mt-xnote" name="note" value="${esc(sh.note ?? '')}" placeholder="ไม่ใส่ก็ได้" maxlength="80"></div>
@@ -1448,6 +1523,10 @@ export function mountDashboard(root, backend, opts = {}) {
         render();
         break;
       }
+      case 'newinst':
+        st.sheet = { kind: 'newacct', type: 'loan', viaCard: b.dataset.id };
+        render();
+        break;
       case 'askdelacct':
         sh.confirmDel = true;
         render();
@@ -1660,8 +1739,12 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'acct': {
         const body = { type: fd.type, name: fd.name, provider: fd.provider ?? '' };
         if (fd.balance !== '') body.balance = Number(fd.balance);
-        if (fd.type === 'card') Object.assign(body, { limit: Number(fd.limit) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null });
-        if (fd.type === 'loan') Object.assign(body, { monthlyPayment: Number(fd.monthlyPayment) || 0, rate: Number(fd.rate) || 0, principal: Number(fd.principal) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null });
+        if (fd.type === 'card') Object.assign(body, { limit: Number(fd.limit) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null, statementDay: fd.statementDay ? Number(fd.statementDay) : null, cycleBudget: Number(fd.cycleBudget) || 0 });
+        if (fd.type === 'loan') {
+          Object.assign(body, { monthlyPayment: Number(fd.monthlyPayment) || 0, rate: Number(fd.rate) || 0, principal: Number(fd.principal) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null, viaCard: fd.viaCard || null, installments: Number(fd.installments) || 0 });
+          // งวดบนบิล 12/36 ที่ยังไม่จ่าย = จ่ายไปแล้ว 11 งวด
+          if (Number(fd.installments) > 0 && fd.billInstallment !== '') body.paidInstallments = Math.max(0, Number(fd.billInstallment) - (fd.billPaid ? 0 : 1));
+        }
         if (st.sheet.kind === 'acct') act(() => backend.updateAccount(st.sheet.id, body), 'บันทึกบัญชีแล้ว');
         else act(() => backend.addAccount(body), `เพิ่ม${fd.name ? ` ${fd.name}` : 'บัญชี'}แล้ว`);
         break;

@@ -360,7 +360,7 @@ export const filesPrefix = (userId) => `${String(userId).replace(/[^\w-]/g, '_')
 /** ข้อมูลที่ส่งให้แดชบอร์ด */
 export function publicState(user, { aiEnabled = false, now = new Date() } = {}) {
   const budget = budgetStatus(user, now);
-  const balances = accountBalances(user, budget);
+  const balances = accountBalances(user, budget, now);
   const totals = accountTotals(balances);
   return {
     user: { id: user.id, name: user.name, pictureUrl: user.pictureUrl },
@@ -413,7 +413,7 @@ export function accountName(user, id) {
 }
 
 export function accountList(user, now = new Date()) {
-  return accountBalances(user, budgetStatus(user, now));
+  return accountBalances(user, budgetStatus(user, now), now);
 }
 
 function cleanAccount(input, prev = {}) {
@@ -426,17 +426,35 @@ function cleanAccount(input, prev = {}) {
   const out = { ...prev, type, name: name || PROVIDER_MAP[provider]?.name || ACCOUNT_TYPES[type].name, provider: provider || null };
   const day = (v) => (Number(v) >= 1 && Number(v) <= 31 ? Number(v) : null);
   if (type === 'card' && input.limit !== undefined) out.limit = Math.max(0, money2(input.limit));
+  if (type === 'card' && input.statementDay !== undefined) out.statementDay = day(input.statementDay);
+  if (type === 'card' && input.cycleBudget !== undefined) out.cycleBudget = Math.max(0, money2(input.cycleBudget)) || null;
   if (LIABILITY.includes(type) && input.dueDay !== undefined) out.dueDay = day(input.dueDay);
   if (type === 'loan') {
     // หนี้: ยอดกู้ตั้งต้น (ไว้ดู % ที่จ่ายไปแล้ว) ค่างวดต่อเดือน ดอกเบี้ยต่อปี
     if (input.principal !== undefined) out.principal = Math.max(0, money2(input.principal));
     if (input.monthlyPayment !== undefined) out.monthlyPayment = Math.max(0, money2(input.monthlyPayment));
     if (input.rate !== undefined) out.rate = Math.max(0, Math.min(100, Number(input.rate) || 0));
+    // ผ่อนสินค้าเป็นงวด: จำนวนงวดทั้งหมด + ผ่อนผ่านบัตรใบไหน
+    if (input.installments !== undefined) out.installments = Math.max(0, Math.min(360, Math.round(Number(input.installments) || 0))) || null;
+    if (input.viaCard !== undefined) out.viaCard = input.viaCard || null;
   }
-  if (type !== 'card') delete out.limit;
+  if (type !== 'card') for (const k of ['limit', 'statementDay', 'cycleBudget']) delete out[k];
   if (!LIABILITY.includes(type)) delete out.dueDay;
-  if (type !== 'loan') for (const k of ['principal', 'monthlyPayment', 'rate']) delete out[k];
+  if (type !== 'loan') for (const k of ['principal', 'monthlyPayment', 'rate', 'installments', 'viaCard']) delete out[k];
   return out;
+}
+
+/** ผ่อนเป็นงวด: ใส่ งวดทั้งหมด + จ่ายแล้วกี่งวด + ค่างวด → คิดยอดคงเหลือ/ยอดตั้งต้นให้ */
+function installmentPlan(input) {
+  const n = Number(input.installments) || 0;
+  const pay = money2(input.monthlyPayment);
+  if (!(n > 0 && pay > 0) || input.paidInstallments === undefined || input.paidInstallments === '') return null;
+  const k = Math.max(0, Math.min(n, Math.round(Number(input.paidInstallments) || 0)));
+  return { principal: money2(pay * n), balance: money2(pay * (n - k)) };
+}
+
+function checkViaCard(user, a) {
+  if (a.viaCard && findAccount(user, a.viaCard)?.type !== 'card') a.viaCard = null;
 }
 
 /** ตั้งยอดปัจจุบันของบัญชี (บัตรเครดิต = ยอดที่ใช้ไป/ค้างจ่าย) นับรายการต่อจากนี้ */
@@ -451,7 +469,8 @@ export function setBalance(user, id, value, now = new Date()) {
 
 export function addAccount(user, input = {}, now = new Date()) {
   if (activeAccounts(user).length >= 30) throw new Error('มีบัญชีได้สูงสุด 30 บัญชี');
-  const clean = cleanAccount(input);
+  const plan = input.type === 'loan' ? installmentPlan(input) : null;
+  const clean = cleanAccount({ ...input, ...(plan ? { principal: plan.principal } : {}) });
   // บัญชีแรกของประเภทนั้น: ใช้แทนบัญชีกลางๆ ที่สร้างไว้ให้ (บัญชีธนาคาร/บัตรเครดิต) รายการเก่าจะตามมาด้วย
   const generic = defaultAccounts().find((d) => d.id === clean.type);
   const holder = generic && user.accounts.find((x) => x.id === generic.id && x.name === generic.name && !x.provider && !x.since && !x.archived);
@@ -461,19 +480,22 @@ export function addAccount(user, input = {}, now = new Date()) {
     return holder;
   }
   const a = { id: newId('a'), ...clean, createdAt: now.toISOString() };
+  checkViaCard(user, a);
   if (a.type === 'loan' && !a.principal) a.principal = money2(input.balance ?? input.used ?? 0);
   user.accounts.push(a);
-  setBalance(user, a.id, input.balance ?? input.used ?? 0, now);
+  setBalance(user, a.id, plan ? plan.balance : input.balance ?? input.used ?? 0, now);
   return a;
 }
 
 export function updateAccount(user, id, input = {}, now = new Date()) {
   const a = findAccount(user, id);
   if (!a) return null;
-  Object.assign(a, cleanAccount(input, a), { updatedAt: now.toISOString() });
-  const bal = input.balance ?? input.used;
+  const plan = (input.type || a.type) === 'loan' ? installmentPlan({ ...a, ...input }) : null;
+  Object.assign(a, cleanAccount({ ...input, ...(plan ? { principal: plan.principal } : {}) }, a), { updatedAt: now.toISOString() });
+  checkViaCard(user, a);
+  const bal = plan ? plan.balance : input.balance ?? input.used;
   if (bal !== undefined && bal !== '' && bal !== null) {
-    const cur = accountBalances(user).find((x) => x.id === id);
+    const cur = accountBalances(user, null, now).find((x) => x.id === id);
     const curVal = LIABILITY.includes(a.type) ? cur.used : cur.balance;
     if (!a.since || money2(bal) !== curVal) setBalance(user, id, bal, now);
   }
@@ -531,6 +553,6 @@ export function deleteTransfer(user, id) {
 /** ข้อมูลเชิงลึก (ใช้ในแชท "สุขภาพการเงิน") */
 export function insightsFor(user, now = new Date()) {
   const budget = budgetStatus(user, now);
-  const balances = accountBalances(user, budget);
+  const balances = accountBalances(user, budget, now);
   return insights(user, now, { budget, balances, totals: accountTotals(balances) });
 }
