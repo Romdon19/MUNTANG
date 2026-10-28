@@ -315,7 +315,7 @@ button.mt-tx:hover { background: var(--bg); }
 .mt-form .mt-amount.is-sm input { font-size: 26px; }
 
 /* ---------- ไอคอนธนาคาร / ความมั่งคั่ง / กลุ่มบัญชี ---------- */
-.mt-ico { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; display: inline-block; overflow: hidden; object-fit: cover; vertical-align: middle; }
+.mt-ico { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06); display: inline-block; overflow: hidden; object-fit: cover; vertical-align: middle; }
 .mt-ico svg { width: 100%; height: 100%; display: block; }
 .mt-ico.is-xs { flex-basis: 20px; width: 20px; height: 20px; }
 .mt-ico.is-sm { flex-basis: 26px; width: 26px; height: 26px; }

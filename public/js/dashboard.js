@@ -1211,7 +1211,7 @@ export function mountDashboard(root, backend, opts = {}) {
       const isCard = type === 'card';
       const isLoan = type === 'loan';
       const liab = isCard || isLoan;
-      const provs = st.data.providers.filter((p) => p.types.includes(type === 'loan' ? 'bank' : type));
+      const provs = st.data.providers.filter((p) => (type === 'loan' ? p.types.includes('bank') || p.types.includes('card') : p.types.includes(type)));
       const prov = sh.provider ?? a?.provider ?? '';
       const figure = a ? (a.known ? (liab ? a.used : a.balance) : '') : '';
       const txs = a ? st.data.txs.filter((t) => t.wallet === a.id).sort(byNewest).slice(0, 6) : [];
