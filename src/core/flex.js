@@ -7,21 +7,22 @@ import { thaiDate } from './dates.js';
 import { moodFor } from './mood.js';
 
 export const C = {
-  ink: '#1A1A1A',
-  head: '#FBDE0A', // สีพื้นโลโก้ — หัวการ์ด (มาสคอตแอบมองกลืนกับพื้น)
+  // มินิมอล: การ์ดขาว ตัวหนังสือดำ เหลืองหมุนตังค์เฉพาะปุ่มหลักและแถบความคืบหน้า
+  ink: '#141414',
+  head: '#FFFFFF',
   gold: '#FFC400',
-  goldText: '#8A5A00', // ทองเข้มสำหรับตัวหนังสือบนพื้นขาว
-  tint: '#FFF6D1',
-  mint: '#E6F7EE',
-  chip: '#F5F1E8',
+  goldText: '#141414',
+  tint: '#F4F2ED',
+  mint: '#F4F2ED',
+  chip: '#F4F2ED',
   card: '#FFFFFF',
-  line: '#ECE6DA',
-  track: '#F1ECE2',
-  muted: '#8A8172',
-  red: '#E5484D',
-  redTint: '#FDECEC',
-  amber: '#D97706',
-  green: '#16A34A',
+  line: '#EEEBE5',
+  track: '#EFEDE7',
+  muted: '#8A867C',
+  red: '#D63C3C',
+  redTint: '#FBEEED',
+  amber: '#C98A00',
+  green: '#1D8A4C',
 };
 
 // ---------- primitives ----------
@@ -35,7 +36,7 @@ const msg = (t) => ({ type: 'message', text: t });
 const uri = (u) => ({ type: 'uri', uri: u });
 
 /** แถบความคืบหน้าบางๆ แบบป้านวล */
-function bar(p, color = C.gold, height = 6) {
+function bar(p, color = C.gold, height = 4) {
   const w = Math.max(3, Math.min(100, Math.round((p || 0) * 100)));
   return box('vertical', [box('vertical', [{ type: 'filler' }], { width: `${w}%`, backgroundColor: color, height: `${height}px`, cornerRadius: `${height / 2}px` })], {
     backgroundColor: C.track,
@@ -48,7 +49,7 @@ function bar(p, color = C.gold, height = 6) {
 const budgetColor = (p) => (p >= 1 ? C.red : p >= 0.8 ? C.amber : C.gold);
 
 /** ป้ายเล็กมุมโค้ง เช่น [รายจ่าย] */
-function tag(label, bg = C.ink, color = C.gold) {
+function tag(label, bg = C.chip, color = C.ink) {
   return box('vertical', [text(label, { size: 'xxs', color, weight: 'bold', wrap: false })], {
     flex: 0,
     backgroundColor: bg,
@@ -77,7 +78,7 @@ function iconBtn(icon, action, bg = C.chip, color = C.ink) {
 /** หัวการ์ดสีเหลืองโลโก้ มีโลโก้นายหัวหมุนเต็มรูปอยู่ด้านขวา */
 function header(title, subtitle, ctx) {
   const contents = [
-    box('vertical', [text(title, { weight: 'bold', size: 'lg' }), ...(subtitle ? [text(subtitle, { color: '#5A4A00', size: 'xxs', margin: 'xs' })] : [])], {
+    box('vertical', [text(title, { weight: 'bold', size: 'md' }), ...(subtitle ? [text(subtitle, { color: C.muted, size: 'xxs', margin: 'xs' })] : [])], {
       flex: 1,
       justifyContent: 'center',
     }),
@@ -86,13 +87,13 @@ function header(title, subtitle, ctx) {
     contents.push(
       box('vertical', [{ type: 'image', url: ctx.logoUrl, size: 'full', aspectRatio: '1:1', aspectMode: 'cover' }], {
         flex: 0,
-        width: '56px',
-        height: '56px',
-        cornerRadius: '14px',
+        width: '36px',
+        height: '36px',
+        cornerRadius: '18px',
       })
     );
   }
-  return box('horizontal', contents, { backgroundColor: C.head, paddingAll: 'lg', alignItems: 'center', spacing: 'md' });
+  return box('horizontal', contents, { backgroundColor: C.head, paddingAll: 'lg', paddingBottom: 'md', alignItems: 'center', spacing: 'md', borderWidth: 'none' });
 }
 
 function bubble({ title, subtitle, body, footer, ctx, size = 'mega' }) {
@@ -100,7 +101,7 @@ function bubble({ title, subtitle, body, footer, ctx, size = 'mega' }) {
     type: 'bubble',
     size,
     header: header(title, subtitle, ctx),
-    body: box('vertical', body, { backgroundColor: C.card, paddingAll: 'lg', spacing: 'sm' }),
+    body: box('vertical', body, { backgroundColor: C.card, paddingAll: 'lg', paddingTop: 'sm', spacing: 'sm' }),
     styles: { header: { backgroundColor: C.head }, body: { backgroundColor: C.card }, footer: { backgroundColor: C.card } },
   };
   if (footer?.length) b.footer = box('vertical', footer, { backgroundColor: C.card, paddingAll: 'md', paddingTop: 'none', spacing: 'sm' });
@@ -271,7 +272,7 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
     const cat = getCategory(g.categoryId);
     const inc = g.type === 'income';
     body.push(
-      box('horizontal', [tag(inc ? 'รายรับ' : 'รายจ่าย', inc ? C.green : C.ink, inc ? '#FFFFFF' : C.gold), text(`- ${cat.emoji} ${cat.name}`, { weight: 'bold', margin: 'sm', gravity: 'center' })], {
+      box('horizontal', [tag(inc ? 'รายรับ' : 'รายจ่าย', C.chip, inc ? C.green : C.ink), text(`- ${cat.emoji} ${cat.name}`, { weight: 'bold', margin: 'sm', gravity: 'center' })], {
         alignItems: 'center',
         margin: gi ? 'xl' : 'none',
       })
@@ -494,7 +495,7 @@ export function summaryMessage(s, ctx, { budget } = {}) {
         box(
           'horizontal',
           [
-            box('vertical', [{ type: 'filler' }], { width: '10px', height: '10px', cornerRadius: '5px', backgroundColor: cat.color, flex: 0 }),
+            text(cat.emoji, { flex: 0, size: 'sm' }),
             text(cat.name, { flex: 5, margin: 'md', size: 'sm' }),
             text(pct(c.pct), { flex: 2, align: 'end', size: 'xs', color: C.muted }),
             text(money(c.total), { flex: 3, align: 'end', size: 'sm', weight: 'bold' }),
@@ -810,7 +811,7 @@ function accountRow(a, ctx) {
   ];
   if (a.type === 'card' && a.known && a.limit) out.push(bar(a.pctUsed, budgetColor(a.pctUsed)));
   if (a.type === 'card' && a.perDay != null) out.push(text(`งบรูดรอบนี้เหลือ ${money(a.budgetLeft)} · ใช้ได้วันละ ~${money(a.perDay)}`, { size: 'xxs', color: C.goldText, margin: 'xs' }));
-  if (a.type === 'loan' && a.principal) out.push(bar(a.pctPaid, C.green));
+  if (a.type === 'loan' && a.principal) out.push(bar(a.pctPaid, C.ink));
   return out;
 }
 

@@ -1,35 +1,47 @@
-/* หมุนตังค์ — โครงสะอาดแบบป้านวล + แบรนด์เหลืองทอง/ดำของนายหัวหมุน
-   พื้นครีมนวล การ์ดขาวขอบบาง มุมโค้ง เงานุ่ม · สีเหลืองใช้กับสิ่งที่ต้องการให้กด/สังเกต */
+/* หมุนตังค์ Minimal — กระดาษขาวอุ่น · ตัวหนังสือดำ · เหลืองแบรนด์ใช้เฉพาะจุดสำคัญ (ปุ่มจด ความคืบหน้า ค่าปัจจุบัน)
+   ไม่มีเงา ไม่มีพื้นสีหลายสี การ์ดขาวขอบบาง ตัวเลขเป็นพระเอก */
 :root {
-  --bg: #faf7f1;
+  --bg: #f7f6f2;
   --card: #ffffff;
-  --border: #ede6d8;
-  --ink: #1f1d1a;
-  --muted: #8b8375;
-  --faint: #bdb5a7;
-  --track: #f1ece2;
+  --border: #ebe8e1;
+  --line: #f0eee9;
+  --ink: #141414;
+  --ink-2: #3b3934;
+  --muted: #8a867c;
+  --faint: #c2bdb2;
+  --track: #efede7;
 
-  --head: #fbde0a;       /* เหลืองพื้นโลโก้ */
-  --gold: #ffc400;       /* Cosmic Gold */
-  --gold-soft: #ffe7a0;
-  --gold-tint: #fff6d6;
-  --gold-line: #f3d57a;
-  --gold-text: #8a5a00;
-  --mint-tint: #e7f7ee;
-  --mint-line: #bfe8d0;
-  --green: #16a34a;
-  --red: #e5484d;
-  --red-tint: #fdecec;
-  --amber: #d97706;
+  --accent: #ffc400;     /* เหลืองหมุนตังค์ */
+  --accent-soft: #fff5cf;
+
+  /* ชื่อเดิมที่โค้ดยังใช้อยู่ — ชี้ไปที่โทนมินิมอล */
+  --head: #ffffff;
+  --gold: var(--accent);
+  --gold-soft: #e4e0d7;
+  --gold-tint: #f4f2ed;
+  --gold-line: #e2ded4;
+  --gold-text: var(--ink);
+  --mint-tint: #f4f2ed;
+  --mint-line: #e2ded4;
+  --green: #1d8a4c;
+  --red: #d63c3c;
+  --red-tint: #fbeeed;
+  --amber: #c98a00;
+
+  /* สีข้อมูลในกราฟ: รับ = ดำ · จ่าย = เหลือง · โอน = เทา · หนี้ = แดง */
+  --c-inc: #141414;
+  --c-exp: #ffc400;
+  --c-xfer: #c2bdb2;
+  --c-debt: #d63c3c;
 
   --font-display: 'Kanit', 'Anuphan', system-ui, sans-serif;
   --font-body: 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
   --font-num: 'Kanit', system-ui, sans-serif;
 
-  --shadow: 0 1px 2px rgba(60, 40, 0, 0.04), 0 6px 18px rgba(60, 40, 0, 0.06);
-  --r-sm: 10px;
-  --r-md: 16px;
-  --r-lg: 22px;
+  --shadow: none;
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 24px;
   color-scheme: light;
 }
 
@@ -46,7 +58,7 @@ body {
 }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
-:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

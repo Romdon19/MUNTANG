@@ -29,9 +29,9 @@ export async function setupRichMenu(cfg, image) {
       { bounds: rect(0, 1124, 1000, 562), action: msg('ออมเงิน', 'เป้า') },
       { bounds: rect(1000, 0, 750, 562), action: page('สรุป', 'home', 'สรุปเดือนนี้') },
       { bounds: rect(1750, 0, 750, 562), action: page('วิเคราะห์', 'analysis', 'วิเคราะห์') },
-      { bounds: rect(1000, 562, 750, 562), action: page('หมวด/งบ', 'budget', 'งบ') },
+      { bounds: rect(1000, 562, 750, 562), action: page('งบประมาณ', 'budget', 'งบ') },
       { bounds: rect(1750, 562, 750, 562), action: page('รายการ', 'list', 'รายการ') },
-      { bounds: rect(1000, 1124, 750, 562), action: page('ตั้งค่า', 'settings', 'ตั้งค่า') },
+      { bounds: rect(1000, 1124, 750, 562), action: page('กระเป๋า', 'wallets', 'บัญชี') },
       { bounds: rect(1750, 1124, 750, 562), action: msg('Help', 'วิธีใช้') },
     ],
   };

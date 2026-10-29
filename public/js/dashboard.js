@@ -1,4 +1,4 @@
-// แดชบอร์ดหมุนตังค์ (LIFF): สรุป · กระเป๋า · ข้อมูลเชิงลึก · งบ · รายการ (ปฏิทิน/สลิป) · เมนู
+// แดชบอร์ดหมุนตังค์ (LIFF) แบบมินิมอล: หน้าหลัก · รายการ · ＋จด · วิเคราะห์ · กระเป๋า (เมนู/งบ เปิดจากหน้าหลัก)
 // mountDashboard(root, backend, { logoUrl, moods, view, edit, acct })
 import { money } from '../core/format.js';
 import { todayStr, thaiDate, TH_DAYS, TH_MONTHS, weekday, cycleOf, shiftCycle, diffDays, addDays } from '../core/dates.js';
@@ -11,7 +11,7 @@ const SOURCE_LABEL = { chat: 'แชท', slip: 'สลิป', app: 'แอป'
 const TABS = ['home', 'analysis', 'budget', 'list', 'settings', 'wallets', 'report'];
 const DAY_FULL = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
 
-// ไอคอนเส้นแบบแอปป้านวล
+// ไอคอนเส้นบางแบบมินิมอล
 const ICON = {
   home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   analysis: '<path d="M5 20V11M12 20V4M19 20v-6"/>',
@@ -20,6 +20,12 @@ const ICON = {
   budget: '<path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M14 3.2A9 9 0 0 1 20.8 10H14z"/>',
   list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  goal: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 12h.01"/>',
+  repeat: '<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>',
+  download: '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
+  slip: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/>',
   cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
 };
@@ -44,6 +50,7 @@ export function mountDashboard(root, backend, opts = {}) {
     listMode: 'list', // รายการ | ปฏิทิน | สลิป
     rp: { period: 'cycle', offset: 0, tab: 'overview', chart: 'donut', show: { income: true, expense: true, transfer: true, debt: false } }, // หน้ารายงาน
     day: '', // วันที่เลือกในปฏิทิน
+    an: 'overview', // แท็บย่อยหน้าวิเคราะห์: ภาพรวม | หมวด · บัญชี | สุขภาพการเงิน
   };
 
   root.classList.add('mt-app');
@@ -148,8 +155,8 @@ export function mountDashboard(root, backend, opts = {}) {
     const k = cat(t.categoryId);
     const inc = t.type === 'income';
     return `<li><button class="mt-tx" data-act="edit" data-id="${t.id}">
-      <span class="mt-dot" style="background:${k.color}"></span>
-      <span class="mt-tx-main"><span class="mt-tx-note">${t.attachment ? '📎 ' : ''}${esc(t.note)}</span><span class="mt-sub">${esc(k.name)} · ${t.by ? `โดย ${esc(t.by)}` : `${wallet(t.wallet).emoji} ${esc(wallet(t.wallet).name)}`} · ${SOURCE_LABEL[t.source] || ''}</span></span>
+      <span class="mt-tx-ic" aria-hidden="true">${k.emoji}</span>
+      <span class="mt-tx-main"><span class="mt-tx-note">${esc(t.note)}${t.attachment ? ' <span class="mt-sub">· สลิป</span>' : ''}</span><span class="mt-sub">${esc(k.name)} · ${t.by ? `โดย ${esc(t.by)}` : esc(wallet(t.wallet).name)}</span></span>
       <span class="num mt-amt ${inc ? 'is-inc' : ''}">${inc ? '+' : ''}${money(t.amount)}</span>
     </button></li>`;
   }
@@ -164,9 +171,9 @@ export function mountDashboard(root, backend, opts = {}) {
         ${avatar ? `<img src="${esc(avatar)}" alt="">` : ''}
         <div class="mt-profile-main">
           <b>${esc(u.name)}</b>
-          <span class="mt-sub">${/^[CR]/.test(u.id) ? '👥 สมุดบัญชีกลุ่ม' : 'สมาชิกหมุนตังค์'}</span>
+          <span class="mt-sub">${/^[CR]/.test(u.id) ? 'สมุดบัญชีกลุ่ม' : `จดต่อเนื่อง ${st.data.streak} วัน`}</span>
         </div>
-        <span class="mt-tier" title="ระดับการจดต่อเนื่อง">${tier.emoji} ${esc(tier.name)}</span>
+        <span class="mt-tier" title="ระดับการจดต่อเนื่อง">${esc(tier.name)}</span>
       </section>`;
   }
 
@@ -209,55 +216,46 @@ export function mountDashboard(root, backend, opts = {}) {
     const s = summarize(txs);
     const b = st.data.budget;
     const cur = isCurrentCycle();
-    const recent = [...txs].sort(byNewest).slice(0, 5);
+    const recent = [...txs].sort(byNewest).slice(0, 6);
     const m = moodFor(b);
-    const budgetSub = cur && b.total ? (b.remaining >= 0 ? `เหลือ ${money(b.remaining)} จากงบ` : `เกิน ${money(-b.remaining)} จากงบ`) : '';
-    const stats = [
-      ['จดติดต่อมา', `🔥 ${st.data.streak} วัน`],
-      ['จำนวนรายการ', `${s.count}`],
-      ['งบที่ตั้งไว้', b.total ? money(b.total) : '-'],
-      ['งบคงเหลือ', cur && b.total ? money(b.remaining) : '-', cur && b.remaining < 0 ? 'is-bad' : ''],
-      ['รอบงบ', `รายเดือน (วันที่ ${st.cycle.startDay})`],
-    ];
+    const u = st.data.user;
+    const avatar = u.pictureUrl;
     return `
-      ${profileCard()}
-      <div class="mt-row-h"><h2>สรุป</h2>${cycleSwitch()}</div>
-      <section class="mt-card mt-summary">
-        <div class="mt-keep"><span>เหลือเก็บ</span><span class="mt-chip-s">${cur ? 'รอบงบนี้' : 'รอบที่เลือก'}</span></div>
-        <div class="mt-keep-n num ${s.net < 0 ? 'is-neg' : ''}">${money(s.net)}</div>
-        <div class="mt-tiles">
-          <div class="mt-tile is-exp ${cur && b.total && b.remaining < 0 ? 'is-over' : ''}">
-            <span>รายจ่าย</span><b class="num">${money(s.expense)}</b>
-            ${budgetSub ? `<small>${budgetSub}</small>${bar(b.pct, budgetTone(b.pct))}` : ''}
-          </div>
-          <div class="mt-tile is-inc"><span>รายรับ</span><b class="num">${money(s.income)}</b></div>
-        </div>
-        <div class="mt-donut-row">
-          ${donut(s)}
-          <dl class="mt-stats">${stats.map(([k, v, cls]) => `<div><dt>${k}</dt><dd class="num ${cls || ''}">${esc(v)}</dd></div>`).join('')}</dl>
+      <div class="mt-top">
+        ${opts.logoUrl ? `<img class="mt-top-logo" src="${esc(opts.logoUrl)}" alt="">` : ''}<b>หมุนตังค์</b>
+        <button class="mt-avatar" data-act="tab" data-tab="settings" aria-label="เมนูและตั้งค่า">${avatar ? `<img src="${esc(avatar)}" alt="">` : icon('user')}</button>
+      </div>
+      <div class="mt-row-h"><span class="mt-sub">${esc(u.name)}</span>${cycleSwitch()}</div>
+      <section class="mt-card mt-hero">
+        <div class="mt-hero-l"><span>เหลือเก็บ${cur ? 'รอบนี้' : ''}</span><span>${s.count} รายการ</span></div>
+        <div class="mt-hero-n num ${s.net < 0 ? 'is-neg' : ''}">${money(s.net)}</div>
+        <div class="mt-hero-row">
+          <div><span><i class="mt-key is-inc"></i>รายรับ</span><b class="num">${money(s.income)}</b></div>
+          <div><span><i class="mt-key is-exp"></i>รายจ่าย</span><b class="num">${money(s.expense)}</b></div>
         </div>
         ${
-          st.more
-            ? `<ul class="mt-legend">${s.cats
-                .map((c) => `<li><button data-act="filtercat" data-id="${c.id}"><span class="mt-dot" style="background:${cat(c.id).color}"></span><span>${cat(c.id).emoji} ${esc(cat(c.id).name)}</span><span class="mt-sub num">${Math.round(c.pct * 100)}%</span><b class="num">${money(c.total)}</b></button></li>`)
-                .join('') || '<li class="mt-empty">ยังไม่มีรายจ่าย</li>'}</ul>`
-            : ''
+          cur && b.total
+            ? `<button class="mt-budgetline" data-act="tab" data-tab="budget">
+                <div><span>งบ ${money(b.total)}</span><b class="${b.remaining < 0 ? 'is-bad' : ''}">${b.remaining >= 0 ? `เหลือ ${money(b.remaining)} · วันละ ~${money(b.perDayLeft)}` : `เกินงบ ${money(-b.remaining)}`}</b></div>
+                ${bar(b.pct, b.pct >= 1 ? 'var(--red)' : 'var(--accent)')}
+              </button>`
+            : cur
+              ? `<button class="mt-budgetline" data-act="tab" data-tab="budget"><div><span>ยังไม่ได้ตั้งงบ</span><b>ตั้งงบ ›</b></div></button>`
+              : ''
         }
-        <button class="mt-more" data-act="more">${st.more ? 'ย่อ ⌃' : 'ดูเพิ่ม ⌄'}</button>
       </section>
-      ${walletStrip()}
       ${
         cur
-          ? `<section class="mt-says" data-level="${m.level}">
+          ? `<section class="mt-mood" data-level="${m.level}">
               ${moodImg(m.level) ? `<img src="${esc(moodImg(m.level))}" alt="">` : ''}
-              <div><b>${esc(m.title)} ${m.face}</b><span>${esc(m.line)}</span></div>
+              <div><b>${esc(m.title)}</b><span>${esc(m.line)}</span></div>
             </section>`
           : ''
       }
+      ${walletStrip()}
       <section class="mt-card">
-        <div class="mt-card-h"><h3>ล่าสุด</h3><button class="mt-link" data-act="tab" data-tab="list">ดูทั้งหมด</button></div>
-        ${recent.length ? `<ul class="mt-txs">${recent.map(txItem).join('')}</ul>` : '<p class="mt-empty">ยังไม่มีรายการ ลองพิมพ์ "ข้าว 50" ในแชท</p>'}
-        <button class="mt-btn" data-act="add">+ จดรายการ</button>
+        <div class="mt-card-h"><h3>ล่าสุด</h3><button class="mt-link" data-act="tab" data-tab="list">ทั้งหมด ›</button></div>
+        ${recent.length ? `<ul class="mt-txs">${recent.map(txItem).join('')}</ul>` : '<p class="mt-empty">ยังไม่มีรายการ · กดปุ่ม ＋ ด้านล่าง หรือพิมพ์ "ข้าว 50" ในแชท</p>'}
       </section>`;
   }
 
@@ -300,11 +298,11 @@ export function mountDashboard(root, backend, opts = {}) {
     const R = 44;
     const C = 2 * Math.PI * R;
     return `<svg class="mt-gauge" viewBox="0 0 110 110" role="img" aria-label="คะแนน ${score} จาก 100">
-      <circle cx="55" cy="55" r="${R}" fill="none" stroke="var(--track)" stroke-width="10"/>
-      <circle cx="55" cy="55" r="${R}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(C * score) / 100} ${C}" transform="rotate(-90 55 55)"/>
+      <circle cx="55" cy="55" r="${R}" fill="none" stroke="var(--track)" stroke-width="8"/>
+      <circle cx="55" cy="55" r="${R}" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-dasharray="${(C * score) / 100} ${C}" transform="rotate(-90 55 55)"/>
       <text x="55" y="52" text-anchor="middle" class="mt-gauge-v">${score}</text><text x="55" y="72" text-anchor="middle" class="mt-gauge-l">/ 100</text></svg>`;
   }
-  const gradeColor = (g) => ({ A: 'var(--green)', B: 'var(--green)', C: 'var(--amber)', D: 'var(--amber)', F: 'var(--red)' })[g];
+  const gradeColor = (g) => ({ A: 'var(--ink)', B: 'var(--ink)', C: 'var(--amber)', D: 'var(--amber)', F: 'var(--red)' })[g];
 
   /** เดือน (YYYY-MM) ย้อนหลัง n เดือนจาก month */
   const monthsBack = (month, n) =>
@@ -327,14 +325,14 @@ export function mountDashboard(root, backend, opts = {}) {
         const x = L + i * cw + (cw - bw * 2 - 1) / 2;
         return `<g class="mt-bar" data-tip="${esc(v.tip)} · รับ ${money(v.inc)} · จ่าย ${money(v.exp)}">
           <rect x="${L + i * cw}" y="${T}" width="${cw}" height="${H - T - B}" fill="transparent"/>
-          ${v.inc ? `<path d="${roundTop(x, y(v.inc), bw, H - B - y(v.inc))}" fill="var(--green)"/>` : ''}
-          ${v.exp ? `<path d="${roundTop(x + bw + 1, y(v.exp), bw, H - B - y(v.exp))}" fill="var(--gold)"/>` : ''}
+          ${v.inc ? `<path d="${roundTop(x, y(v.inc), bw, H - B - y(v.inc))}" fill="var(--c-inc)"/>` : ''}
+          ${v.exp ? `<path d="${roundTop(x + bw + 1, y(v.exp), bw, H - B - y(v.exp))}" fill="var(--c-exp)"/>` : ''}
           ${i % every === 0 ? `<text x="${L + i * cw + cw / 2}" y="${H - 5}" text-anchor="middle" class="mt-axis">${esc(v.label)}</text>` : ''}</g>`;
       })
       .join('');
     const grid = [0, 0.5, 1].map((f) => `<line x1="${L}" x2="${W}" y1="${y(max * f)}" y2="${y(max * f)}" stroke="var(--border)"/><text x="${L - 4}" y="${y(max * f) + 3}" text-anchor="end" class="mt-axis">${short(max * f)}</text>`).join('');
     return `<div class="mt-chart"><svg viewBox="0 0 ${W} ${H}" class="mt-svg" role="img" aria-label="${esc(aria)}">${grid}${bars}</svg><div class="mt-tip" hidden></div></div>
-      <div class="mt-legend-i"><span><i style="background:var(--green)"></i>รายรับ</span><span><i style="background:var(--gold)"></i>รายจ่าย</span></div>`;
+      <div class="mt-legend-i"><span><i style="background:var(--c-inc)"></i>รายรับ</span><span><i style="background:var(--c-exp)"></i>รายจ่าย</span></div>`;
   }
 
   /** รายรับ-รายจ่าย 12 เดือนล่าสุด */
@@ -430,10 +428,12 @@ export function mountDashboard(root, backend, opts = {}) {
     return keys.map((k) => ({ ...sums[k], label: daily ? String(Number(k.slice(8))) : TH_MONTHS[Number(k.slice(5)) - 1].replace('.', '').slice(0, 3), tip: daily ? thaiDate(k) : thaiMonthOf(k) }));
   }
 
-  const TYPE_COLOR = { income: 'var(--green)', expense: 'var(--gold)', transfer: '#5B8DEF', debt: 'var(--red)' };
+  const TYPE_COLOR = { income: 'var(--c-inc)', expense: 'var(--c-exp)', transfer: 'var(--c-xfer)', debt: 'var(--c-debt)' };
 
-  function reportView() {
+  function reportView(mode = 'overview') {
     const rp = st.rp;
+    if (mode === 'overview') rp.tab = 'overview';
+    else if (rp.tab === 'overview') rp.tab = 'expense';
     const range = periodRange(rp.period, rp.offset);
     const txs = st.data.txs.filter((t) => t.date >= range.from && t.date <= range.to);
     const xfers = st.data.transfers.filter((x) => x.date >= range.from && x.date <= range.to);
@@ -443,29 +443,25 @@ export function mountDashboard(root, backend, opts = {}) {
     const debtAccts = st.data.accounts.filter((a) => !a.archived && a.known && isLiab(a) && a.used > 0);
     const incCount = txs.filter((x) => x.type === 'income').length;
     const expCount = txs.length - incCount;
-    const tabBtn = (v, l, dot) => `<button class="mt-pill ${rp.tab === v ? 'is-on' : ''}" data-act="rptab" data-v="${v}"><i style="background:${dot}"></i>${l}</button>`;
-    const toggle = (k, l) => `<button class="mt-check-chip ${rp.show[k] ? 'is-on' : ''}" data-act="rpshow" data-v="${k}" style="--c:${TYPE_COLOR[k]}"><i></i>${l}</button>`;
-    const nav = rp.period === 'all' ? '' : `<div class="mt-range"><button data-act="rpnav" data-d="-1" aria-label="ก่อนหน้า">‹</button><span>${esc(range.label)}</span><button data-act="rpnav" data-d="1" aria-label="ถัดไป" ${rp.offset >= 0 ? 'disabled' : ''}>›</button></div>`;
+    const tabBtn = (v, l) => `<button class="mt-pill ${rp.tab === v ? 'is-on' : ''}" data-act="rptab" data-v="${v}">${l}</button>`;
+    const nav = rp.period === 'all' ? `<span class="mt-sub">${esc(range.label)}</span>` : `<div class="mt-range"><button data-act="rpnav" data-d="-1" aria-label="ก่อนหน้า">‹</button><span>${esc(range.label)}</span><button data-act="rpnav" data-d="1" aria-label="ถัดไป" ${rp.offset >= 0 ? 'disabled' : ''}>›</button></div>`;
     const head = `
-      <div class="mt-row-h"><h2>รายงาน</h2>${nav}</div>
       <div class="mt-pills">${PERIODS.map(([v, l]) => `<button class="mt-pill ${rp.period === v ? 'is-on' : ''}" data-act="rpperiod" data-v="${v}">${l}</button>`).join('')}</div>
-      <div class="mt-pills is-tabs">${tabBtn('overview', 'ทั่วไป', 'var(--ink)')}${tabBtn('expense', 'รายจ่าย', TYPE_COLOR.expense)}${tabBtn('income', 'รายรับ', TYPE_COLOR.income)}${tabBtn('account', 'บัญชี', '#8A5A00')}${tabBtn('transfer', 'โอน', TYPE_COLOR.transfer)}</div>`;
+      <div class="mt-row-h mt-range-row"><span></span>${nav}</div>
+      ${mode === 'category' ? `<div class="mt-pills is-tabs">${tabBtn('expense', 'รายจ่าย')}${tabBtn('income', 'รายรับ')}${tabBtn('account', 'บัญชี')}${tabBtn('transfer', 'โอน')}</div>` : ''}`;
 
     if (rp.tab === 'expense' || rp.tab === 'income') {
       const inc = rp.tab === 'income';
       const list = (inc ? s.incomeCats : s.cats).map((c) => ({ ...c, n: txs.filter((x) => x.categoryId === c.id).length }));
       const total = inc ? s.income : s.expense;
-      const parts = list.slice(0, 6).map((c) => ({ v: c.total, color: cat(c.id).color, label: cat(c.id).name }));
-      const rest = list.slice(6).reduce((a, c) => a + c.total, 0);
-      if (rest) parts.push({ v: rest, color: 'var(--faint)', label: 'อื่นๆ' });
       return `${head}
         <section class="mt-card">
-          <div class="mt-card-h"><h3>${inc ? 'รายรับ' : 'รายจ่าย'}ตามหมวด</h3><span class="mt-sub">${inc ? incCount : expCount} รายการ</span></div>
-          <div class="mt-rp-donut">${donutParts(parts, inc ? 'รายรับ' : 'รายจ่าย', short(total), `${inc ? 'รายรับ' : 'รายจ่าย'}ตามหมวด`, true)}</div>
+          <div class="mt-hero-l"><span>${inc ? 'รายรับ' : 'รายจ่าย'}ตามหมวด</span><span>${inc ? incCount : expCount} รายการ</span></div>
+          <div class="mt-hero-n num">${money(total)}</div>
           ${
             list.length
               ? `<ul class="mt-rp-list">${list
-                  .map((c) => `<li><button data-act="filtercat" data-id="${c.id}"><span class="mt-catic" style="background:${cat(c.id).color}22">${cat(c.id).emoji}</span><span class="mt-tx-main"><b>${esc(cat(c.id).name)}</b><span class="mt-sub">${c.n} รายการ · ${Math.round((c.total / (total || 1)) * 100)}%</span>${bar(c.total / (list[0].total || 1), cat(c.id).color)}</span><b class="num ${inc ? 'is-inc' : ''}">${money(c.total)}</b></button></li>`)
+                  .map((c) => `<li><button data-act="filtercat" data-id="${c.id}"><span class="mt-catic">${cat(c.id).emoji}</span><span class="mt-tx-main"><b>${esc(cat(c.id).name)}</b><span class="mt-sub">${c.n} รายการ · ${Math.round((c.total / (total || 1)) * 100)}%</span>${bar(c.total / (list[0].total || 1), inc ? 'var(--c-inc)' : 'var(--c-exp)')}</span><b class="num ${inc ? 'is-inc' : ''}">${money(c.total)}</b></button></li>`)
                   .join('')}</ul>`
               : '<p class="mt-empty">ไม่มีรายการในช่วงนี้</p>'
           }
@@ -490,7 +486,7 @@ export function mountDashboard(root, backend, opts = {}) {
           ${
             rows.length
               ? `<ul class="mt-rp-list">${rows
-                  .map((r) => `<li><button data-act="acctlist" data-id="${r.a.id}">${acctImg(r.a.icon)}<span class="mt-tx-main"><b>${esc(r.a.name)}</b><span class="mt-sub">${r.n} รายการ${r.inn ? ` · รับ ${money(r.inn)}` : ''}</span>${bar(r.out / maxOut, r.a.color)}</span><b class="num">${money(r.out)}</b></button></li>`)
+                  .map((r) => `<li><button data-act="acctlist" data-id="${r.a.id}">${acctImg(r.a.icon)}<span class="mt-tx-main"><b>${esc(r.a.name)}</b><span class="mt-sub">${r.n} รายการ${r.inn ? ` · รับ ${money(r.inn)}` : ''}</span>${bar(r.out / maxOut, 'var(--ink)')}</span><b class="num">${money(r.out)}</b></button></li>`)
                   .join('')}</ul>`
               : '<p class="mt-empty">ไม่มีรายการในช่วงนี้</p>'
           }
@@ -503,7 +499,7 @@ export function mountDashboard(root, backend, opts = {}) {
       return `${head}
         <section class="mt-card">
           <div class="mt-card-h"><h3>โอน · จ่ายบัตร · จ่ายหนี้</h3><span class="mt-sub">ไม่นับเป็นรายรับรายจ่าย</span></div>
-          <div class="mt-big"><b class="num" style="color:${TYPE_COLOR.transfer}">${money(xferTotal)}</b><span class="mt-sub">${xfers.length} รายการ</span></div>
+          <div class="mt-big"><b class="num">${money(xferTotal)}</b><span class="mt-sub">${xfers.length} รายการ</span></div>
           ${Object.keys(kinds).length ? `<dl class="mt-kv">${Object.entries(kinds).sort((a, b) => b[1].total - a[1].total).map(([k, v]) => `<div><dt>${k} (${v.n})</dt><dd class="num">${money(v.total)}</dd></div>`).join('')}</dl>` : '<p class="mt-empty">ไม่มีการโอนในช่วงนี้</p>'}
         </section>
         ${
@@ -516,44 +512,27 @@ export function mountDashboard(root, backend, opts = {}) {
         }`;
     }
 
-    // ทั่วไป
-    const segs = [];
-    if (rp.show.income) segs.push({ v: s.income, color: TYPE_COLOR.income, label: 'รายรับ' });
-    if (rp.show.expense) segs.push({ v: s.expense, color: TYPE_COLOR.expense, label: 'รายจ่าย' });
-    if (rp.show.transfer) segs.push({ v: xferTotal, color: TYPE_COLOR.transfer, label: 'โอน (เป็นกลาง)' });
-    if (rp.show.debt) segs.push({ v: t.debt, color: TYPE_COLOR.debt, label: 'หนี้สิน' });
-    const segTotal = segs.reduce((a, x) => a + x.v, 0);
-    const card = (k, title, n, v, extra = '') => `<div class="mt-rp-card is-${k}"><div><b>${title}</b><span>${n}</span></div><b class="num">${v}</b>${extra}</div>`;
+    // ทั่วไป: ตัวเลขสุทธิ + เทียบรับ/จ่าย/โอน + กราฟตามช่วงเวลา + ตัวเลขสรุป
+    const max = Math.max(s.income, s.expense, xferTotal, 1);
+    const cmp = (label, v, color) => `<li><span>${label}</span><span class="mt-cmp-bar"><i style="width:${((v / max) * 100).toFixed(1)}%;background:${color}"></i></span><b>${money(v)}</b></li>`;
     return `${head}
-      <section class="mt-card">
-        <div class="mt-card-h"><h3>${esc(range.label)}</h3>
-          <div class="mt-seg-ic"><button class="${rp.chart === 'donut' ? 'is-on' : ''}" data-act="rpchart" data-v="donut" aria-label="แผนภูมิวงกลม">${icon('report')}</button><button class="${rp.chart === 'bar' ? 'is-on' : ''}" data-act="rpchart" data-v="bar" aria-label="กราฟแท่ง">${icon('analysis')}</button></div></div>
-        <div class="mt-chips"><span class="mt-chip-s">${txs.length} รายการ</span><span class="mt-chip-s num ${s.net < 0 ? 'is-bad' : 'is-good'}">${s.net >= 0 ? '+' : ''}${money(s.net)}</span></div>
-        <div class="mt-chips">${toggle('income', 'รายรับ')}${toggle('expense', 'รายจ่าย')}${toggle('transfer', 'โอน')}${toggle('debt', 'หนี้สิน')}</div>
-        ${
-          rp.chart === 'bar' && rp.period !== 'day'
-            ? barsChart(periodBuckets(range, txs), `รายรับรายจ่าย ${range.label}`)
-            : `<div class="mt-rp-donut">${donutParts(segs, 'สุทธิ', short(s.net), 'สัดส่วนรายรับรายจ่าย', true)}
-              <ul class="mt-rp-legend">${segs.map((x) => `<li><i style="background:${x.color}"></i><span>${x.label}</span><b class="num">${segTotal ? Math.round((x.v / segTotal) * 1000) / 10 : 0}%</b></li>`).join('')}</ul></div>`
-        }
+      <section class="mt-card mt-hero">
+        <div class="mt-hero-l"><span>สุทธิ (รับ − จ่าย)</span><span>${txs.length} รายการ</span></div>
+        <div class="mt-hero-n num ${s.net < 0 ? 'is-neg' : ''}">${s.net > 0 ? '+' : ''}${money(s.net)}</div>
+        <ul class="mt-cmp" style="margin-top:10px">${cmp('รายรับ', s.income, TYPE_COLOR.income)}${cmp('รายจ่าย', s.expense, TYPE_COLOR.expense)}${cmp('โอน/จ่ายหนี้', xferTotal, TYPE_COLOR.transfer)}</ul>
       </section>
-      <section class="mt-rp-cards">
-        ${card('income', 'รายรับ', `${incCount} รายการ`, money(s.income))}
-        ${card('expense', 'รายจ่าย', `${expCount} รายการ`, money(s.expense))}
-        ${card('transfer', 'โอน · จ่ายบัตร · จ่ายหนี้', `${xfers.length} รายการ`, money(xferTotal))}
-        ${card('debt', 'หนี้สินคงค้าง (ตอนนี้)', `${debtAccts.length} บัญชี`, money(t.debt))}
-      </section>
+      ${
+        rp.period !== 'day'
+          ? `<section class="mt-card"><div class="mt-card-h"><h3>รายรับ-รายจ่าย</h3><span class="mt-sub">${diffDays(range.from, range.to) <= 31 ? 'รายวัน' : 'รายเดือน'}</span></div>${barsChart(periodBuckets(range, txs), `รายรับรายจ่าย ${range.label}`)}</section>`
+          : ''
+      }
       <section class="mt-card">
-        <div class="mt-card-h"><h3>สรุปตามช่วงเวลา</h3></div>
-        <div class="mt-quick">${[
-          ['day', 'สรุปรายวัน', '#F97316'],
-          ['week', 'สรุปรายสัปดาห์', '#16A34A'],
-          ['cycle', 'สรุปรายเดือน', '#2563EB'],
-          ['quarter', 'สรุปรายไตรมาส', '#6366F1'],
-          ['year', 'สรุปรายปี', '#9333EA'],
-        ]
-          .map(([v, l, c]) => `<button data-act="rpperiod" data-v="${v}" style="--c:${c}"><i>${icon('analysis')}</i>${l}</button>`)
-          .join('')}<button data-act="opencal" style="--c:#8A5A00"><i>${icon('cal')}</i>ปฏิทิน</button></div>
+        <dl class="mt-kv">
+          <div><dt>รายรับ · ${incCount} รายการ</dt><dd class="is-inc">${money(s.income)}</dd></div>
+          <div><dt>รายจ่าย · ${expCount} รายการ</dt><dd>${money(s.expense)}</dd></div>
+          <div><dt>โอน · จ่ายบัตร · จ่ายหนี้ · ${xfers.length} รายการ</dt><dd>${money(xferTotal)}</dd></div>
+          <div class="is-total"><dt>หนี้สินคงค้างตอนนี้ · ${debtAccts.length} บัญชี</dt><dd class="${t.debt ? 'is-bad' : ''}">${money(t.debt)}</dd></div>
+        </dl>
       </section>`;
   }
 
@@ -573,7 +552,7 @@ export function mountDashboard(root, backend, opts = {}) {
           ${pic ? `<img class="mt-health-pic" src="${esc(pic)}" alt="">` : ''}
         </div>
         <ul class="mt-parts">${h.parts
-          .map((x) => `<li><span>${esc(x.label)}</span><b class="num">${x.score}/${x.max}</b>${bar(x.score / x.max, x.score / x.max >= 0.7 ? 'var(--green)' : x.score / x.max >= 0.4 ? 'var(--amber)' : 'var(--red)')}<small>${esc(x.detail)}</small></li>`)
+          .map((x) => `<li><span>${esc(x.label)}</span><b class="num">${x.score}/${x.max}</b>${bar(x.score / x.max, x.score / x.max >= 0.7 ? 'var(--ink)' : x.score / x.max >= 0.4 ? 'var(--amber)' : 'var(--red)')}<small>${esc(x.detail)}</small></li>`)
           .join('')}</ul>
       </section>
       <section class="mt-insights">
@@ -594,7 +573,7 @@ export function mountDashboard(root, backend, opts = {}) {
         <div class="mt-card-h"><h3>อัตราการออม</h3><span class="mt-sub">เฉลี่ย 6 รอบที่จบแล้ว</span></div>
         <div class="mt-big ${sv.rate != null && sv.rate < sv.target ? 'is-bad' : 'is-inc'}"><b class="num">${sv.rate == null ? '-' : `${Math.round(sv.rate * 100)}%`}</b><span class="mt-sub">${sv.rate == null ? 'ยังไม่มีรายรับให้คำนวณ' : sv.rate >= sv.target ? 'ถึงเป้า 20% แล้ว เก่งมาก 🎉' : `ต่ำกว่าเป้า 20% อยู่ ${Math.round((sv.target - sv.rate) * 100)} จุด`}</span></div>
         <div class="mt-sbars"><span class="mt-sbars-line" style="bottom:${Math.round((sv.target / svMax) * 100)}%"><span>เป้า 20%</span></span>${sv.series
-          .map((x) => `<div><i style="height:${x.rate == null ? 0 : Math.max(2, Math.round((Math.max(0, x.rate) / svMax) * 100))}%;background:${x.rate != null && x.rate < 0 ? 'var(--red)' : x.rate >= sv.target ? 'var(--green)' : 'var(--gold)'}"><span class="num">${x.rate == null ? '' : `${Math.round(x.rate * 100)}%`}</span></i></div>`)
+          .map((x) => `<div><i style="height:${x.rate == null ? 0 : Math.max(2, Math.round((Math.max(0, x.rate) / svMax) * 100))}%;background:${x.rate != null && x.rate < 0 ? 'var(--red)' : x.rate >= sv.target ? 'var(--ink)' : 'var(--faint)'}"><span class="num">${x.rate == null ? '' : `${Math.round(x.rate * 100)}%`}</span></i></div>`)
           .join('')}</div>
         <div class="mt-sbars-x">${sv.series.map((x) => `<span>${esc(x.label)}</span>`).join('')}</div>
         ${sv.gapPerMonth ? `<p class="mt-sub">🚩 ออมเพิ่มอีกประมาณ <b class="num">${money(sv.gapPerMonth)}</b> ต่อเดือน จะถึงเป้า 20%</p>` : ''}
@@ -613,18 +592,22 @@ export function mountDashboard(root, backend, opts = {}) {
           ? `<section class="mt-card">
         <div class="mt-card-h"><h3>นับถอยหลังปลดหนี้</h3><span class="mt-sub">${ins.debtFreeMonths ? `อีก ${ins.debtFreeMonths} เดือน` : 'ใส่ค่างวดเพื่อคำนวณ'}</span></div>
         <ul class="mt-util">${ins.debts
-          .map((d) => `<li>${acctImg(d.icon, 'is-sm')}<div><div class="mt-util-h"><b>${esc(d.name)}</b><span class="num is-bad">${money(d.used)}</span></div>${d.principal ? bar(d.pctPaid, 'var(--green)') : ''}<div class="mt-util-h mt-sub"><span>${d.monthlyPayment ? `ผ่อน ${money(d.monthlyPayment)}/เดือน${d.rate ? ` · ดอก ${d.rate}%` : ''}` : 'ยังไม่ใส่ค่างวด'}</span><span>${d.monthsLeft ? `อีก ${d.monthsLeft} งวด` : ''}</span></div></div></li>`)
+          .map((d) => `<li>${acctImg(d.icon, 'is-sm')}<div><div class="mt-util-h"><b>${esc(d.name)}</b><span class="num is-bad">${money(d.used)}</span></div>${d.principal ? bar(d.pctPaid, 'var(--ink)') : ''}<div class="mt-util-h mt-sub"><span>${d.monthlyPayment ? `ผ่อน ${money(d.monthlyPayment)}/เดือน${d.rate ? ` · ดอก ${d.rate}%` : ''}` : 'ยังไม่ใส่ค่างวด'}</span><span>${d.monthsLeft ? `อีก ${d.monthsLeft} งวด` : ''}</span></div></div></li>`)
           .join('')}</ul></section>`
           : ''
       }
-      <section class="mt-card">
-        <div class="mt-card-h"><h3>รายรับ-รายจ่าย 12 เดือน</h3></div>
-        ${yearChart()}
-      </section>
-      <div class="mt-row-h"><h2>วิเคราะห์รอบนี้</h2>${cycleSwitch()}</div>`;
+      <div class="mt-row-h"><h3 class="mt-sec">รอบบัญชี</h3>${cycleSwitch()}</div>`;
   }
 
   function analysisView() {
+    const tab = (v, l) => `<button class="${st.an === v ? 'is-on' : ''}" data-act="antab" data-v="${v}">${l}</button>`;
+    const head = `<div class="mt-row-h"><h2>วิเคราะห์</h2></div><div class="mt-tabs">${tab('overview', 'ภาพรวม')}${tab('category', 'หมวด · บัญชี')}${tab('health', 'สุขภาพการเงิน')}</div>`;
+    if (st.an === 'health') return head + insightsBlock() + cycleAnalysis();
+    return head + reportView(st.an);
+  }
+
+  /** วิเคราะห์รอบบัญชี: เทียบรอบก่อน รายวัน วันในสัปดาห์ จ่ายอะไรบ่อย */
+  function cycleAnalysis() {
     const txs = cycleTxs();
     const s = summarize(txs);
     const exp = txs.filter((t) => t.type === 'expense');
@@ -665,12 +648,10 @@ export function mountDashboard(root, backend, opts = {}) {
       .slice(0, 4);
 
     return `
-      <div class="mt-row-h"><h2>ข้อมูลเชิงลึก</h2></div>
-      ${insightsBlock()}
       <section class="mt-insights">
         <div class="mt-insight"><span>เทียบรอบก่อน</span><b class="num ${diff > 0 ? 'is-bad' : 'is-inc'}">${diff == null ? '-' : `${diff > 0 ? '▲' : '▼'} ${Math.abs(Math.round(diff * 100))}%`}</b><small>${diff == null ? 'ยังไม่มีข้อมูลรอบก่อน' : diff > 0 ? 'ใช้มากขึ้น' : 'ใช้น้อยลง เก่งมาก'}</small></div>
         <div class="mt-insight"><span>เฉลี่ยต่อวัน</span><b class="num">${money(Math.round(daily.avg))}</b><small>ตลอดรอบนี้</small></div>
-        <div class="mt-insight"><span>วันไม่ใช้เงิน</span><b class="num">${noSpend} วัน</b><small>No-Spend Day 🏆</small></div>
+        <div class="mt-insight"><span>วันไม่ใช้เงิน</span><b class="num">${noSpend} วัน</b><small>No-Spend Day</small></div>
         <div class="mt-insight"><span>จ่ายก้อนใหญ่สุด</span><b class="num">${biggest ? money(biggest.amount) : '-'}</b><small>${biggest ? esc(biggest.note) : '-'}</small></div>
       </section>
       <section class="mt-card">
@@ -720,11 +701,11 @@ export function mountDashboard(root, backend, opts = {}) {
       const inc = d.categories.filter((c) => c.type === 'income');
       return `${seg}
         <div class="mt-row-h"><h2>รายรับ</h2>${cycleSwitch()}</div>
-        <section class="mt-card"><div class="mt-big-l">รายรับรอบนี้</div><div class="mt-big num is-inc">${money(s.income)}</div></section>
+        <section class="mt-card"><div class="mt-big-l">รายรับรอบนี้</div><div class="mt-big num">${money(s.income)}</div></section>
         <ul class="mt-catlist">${inc
           .map((c) => {
             const v = s.incomeCats.find((x) => x.id === c.id)?.total || 0;
-            return `<li><div class="mt-catrow"><span class="mt-dot" style="background:${c.color}"></span><span class="mt-catname">${c.emoji} ${esc(c.name)}</span><b class="num">${money(v)}</b></div></li>`;
+            return `<li><div class="mt-catrow"><span class="mt-catic">${c.emoji}</span><span class="mt-catname">${esc(c.name)}</span><b class="num">${money(v)}</b></div></li>`;
           })
           .join('')}</ul>`;
     }
@@ -734,7 +715,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const stack = sumCat
       ? `<div class="mt-stack" role="img" aria-label="สัดส่วนงบรายหมวด">${expCats
           .filter((c) => limits[c.id])
-          .map((c) => `<span style="flex:${limits[c.id]};background:${c.color}" title="${esc(c.name)} ${money(limits[c.id])}"></span>`)
+          .map((c, i) => `<span style="flex:${limits[c.id]};background:${i % 2 ? 'var(--faint)' : 'var(--ink-2)'}" title="${esc(c.name)} ${money(limits[c.id])}"></span>`)
           .join('')}</div>`
       : b.total
         ? bar(b.pct, budgetTone(b.pct), 'is-lg')
@@ -760,8 +741,8 @@ export function mountDashboard(root, backend, opts = {}) {
           const spent = s.cats.find((x) => x.id === c.id)?.total || 0;
           const lim = limits[c.id] || 0;
           return `<li><button class="mt-catrow" data-act="editcat" data-id="${c.id}">
-            <span class="mt-dot" style="background:${c.color}"></span>
-            <span class="mt-catname">${c.emoji} ${esc(c.name)}<small class="mt-sub num">ใช้ไป ${money(spent)}</small></span>
+            <span class="mt-catic">${c.emoji}</span>
+            <span class="mt-catname">${esc(c.name)}<small class="mt-sub num">ใช้ไป ${money(spent)}</small></span>
             <span class="mt-catlim"><span class="mt-sub">งบ</span> <b class="num">${lim ? lim.toLocaleString('en-US') : '-'}</b></span>
             <span class="mt-chev">›</span>
           </button>${lim ? bar(spent / lim, budgetTone(spent / lim)) : ''}</li>`;
@@ -806,7 +787,7 @@ export function mountDashboard(root, backend, opts = {}) {
           ? `<ul class="mt-txs">${d.recurring
               .map((r) => {
                 const k = cat(r.categoryId);
-                return `<li><div class="mt-tx"><span class="mt-dot" style="background:${k.color}"></span><span class="mt-tx-main"><span class="mt-tx-note">${esc(r.note)}</span><span class="mt-sub">ทุกวันที่ ${r.day} · ${esc(k.name)}</span></span>
+                return `<li><div class="mt-tx"><span class="mt-tx-ic">${k.emoji}</span><span class="mt-tx-main"><span class="mt-tx-note">${esc(r.note)}</span><span class="mt-sub">ทุกวันที่ ${r.day} · ${esc(k.name)}</span></span>
                 <span class="num mt-amt ${r.type === 'income' ? 'is-inc' : ''}">${money(r.amount)}</span><button class="mt-x" data-act="delrec" data-id="${r.id}" aria-label="ลบ ${esc(r.note)}">✕</button></div></li>`;
               })
               .join('')}</ul>`
@@ -906,7 +887,7 @@ export function mountDashboard(root, backend, opts = {}) {
     return `
       <div class="mt-card-big"><span class="mt-sub">วงเงินคงเหลือ</span><b class="num ${a.available < 0 ? 'is-neg' : ''}">${a.limit ? money(a.available) : '-'}</b><span class="mt-sub">จากวงเงิน ${a.limit ? money(a.limit) : '(ยังไม่ใส่)'}</span></div>
       ${cardBar(a, true)}
-      <div class="mt-legend-i is-left"><span><i style="background:var(--ink)"></i>รูดค้าง ${money(Math.max(0, a.used))}</span><span><i style="background:#8B5CF6"></i>ผ่อน ${money(a.instOwed || 0)}</span><span><i style="background:var(--track)"></i>เหลือ</span></div>
+      <div class="mt-legend-i is-left"><span><i style="background:var(--ink)"></i>รูดค้าง ${money(Math.max(0, a.used))}</span><span><i style="background:var(--accent)"></i>ผ่อน ${money(a.instOwed || 0)}</span><span><i style="background:var(--track)"></i>เหลือ</span></div>
       <dl class="mt-kv">
         ${c ? `<div><dt>รูดรอบใหม่ (${thaiDate(c.from, { year: false })} - ${thaiDate(c.to, { year: false })}) · ไปบิลหน้า</dt><dd class="num">${money(a.cycleSpent || 0)}</dd></div>` : ''}
         <div><dt>ต้องจ่ายบิล${c?.due ? ` ภายใน ${thaiDate(c.due)}` : ''}</dt><dd class="num is-bad">${money(a.payNow || 0)}</dd></div>
@@ -923,7 +904,7 @@ export function mountDashboard(root, backend, opts = {}) {
       ${
         a.installments?.length
           ? `<ul class="mt-txs">${a.installments
-              .map((l) => `<li><button class="mt-acct-row" type="button" data-act="acct" data-id="${l.id}">${acctImg('loan', 'is-sm')}<span class="mt-tx-main"><span class="mt-tx-note">${esc(l.name)}</span><span class="mt-sub">งวดละ ${money(l.monthlyPayment)}${l.installments ? ` · งวด ${l.paidInstallments}/${l.installments}` : ''}${l.monthsLeft ? ` · อีก ${l.monthsLeft} งวด` : ''}</span>${l.installments ? bar(l.paidInstallments / l.installments, '#8B5CF6') : ''}</span><span class="num mt-amt">${money(l.used)}</span></button></li>`)
+              .map((l) => `<li><button class="mt-acct-row" type="button" data-act="acct" data-id="${l.id}">${acctImg('loan', 'is-sm')}<span class="mt-tx-main"><span class="mt-tx-note">${esc(l.name)}</span><span class="mt-sub">งวดละ ${money(l.monthlyPayment)}${l.installments ? ` · งวด ${l.paidInstallments}/${l.installments}` : ''}${l.monthsLeft ? ` · อีก ${l.monthsLeft} งวด` : ''}</span>${l.installments ? bar(l.paidInstallments / l.installments, 'var(--accent)') : ''}</span><span class="num mt-amt">${money(l.used)}</span></button></li>`)
               .join('')}</ul>`
           : '<p class="mt-empty">ไม่มี · ผ่อนสินค้า 0% ผ่านบัตร เพิ่มที่นี่ ระบบจะกันวงเงินและตัดค่างวดตอนจ่ายบัตรให้เอง</p>'
       }`;
@@ -933,7 +914,7 @@ export function mountDashboard(root, backend, opts = {}) {
   function worthCard() {
     const t = st.data.accountTotals;
     return `<section class="mt-worth">
-      <div class="mt-worth-top"><span>ความมั่งคั่งสุทธิ</span>${opts.logoUrl ? `<img src="${esc(opts.logoUrl)}" alt="">` : ''}</div>
+      <div class="mt-worth-top"><span>ความมั่งคั่งสุทธิ</span></div>
       <b class="num ${t.net < 0 ? 'is-neg' : ''}">${money(t.net)}</b>
       <div class="mt-worth-row">
         <div><span>เงินในบัญชี</span><b class="num">${money(t.cash)}</b></div>
@@ -943,24 +924,27 @@ export function mountDashboard(root, backend, opts = {}) {
     </section>`;
   }
 
-  /** ภาพรวมบัญชีแยกกลุ่ม (หน้าสรุป) */
+  /** ภาพรวมบัญชีแยกกลุ่ม (หน้าหลัก) */
   function walletStrip() {
+    const t = st.data.accountTotals;
     const list = activeAccts();
     const rows = GROUPS.map((g) => ({ ...g, list: list.filter((a) => inGroup(g, a)) })).filter((g) => g.list.length);
-    return `${worthCard()}
-    <section class="mt-card">
-      <div class="mt-card-h"><h3>กระเป๋าเงิน</h3><button class="mt-link" data-act="tab" data-tab="wallets">ดูทั้งหมด</button></div>
+    return `<section class="mt-card">
+      <div class="mt-card-h"><h3>กระเป๋าเงิน</h3><button class="mt-link" data-act="tab" data-tab="wallets">ทั้งหมด ›</button></div>
+      <div class="mt-hero-row is-3">
+        <div><span>เงินในบัญชี</span><b class="num">${money(t.cash)}</b></div>
+        <div><span>หนี้รวม</span><b class="num ${t.debt ? 'is-debt' : ''}">${money(t.debt)}</b></div>
+        <div><span>สุทธิ</span><b class="num">${money(t.net)}</b></div>
+      </div>
       <ul class="mt-groups">${rows
         .map(
           (g) => `<li><button class="mt-group is-${g.key}" data-act="tab" data-tab="wallets">
-            ${acctImg(g.key)}
-            <span class="mt-group-n">${g.label}<small>${g.list.length > 1 ? ` (${g.list.length})` : g.list[0].name === g.label ? '' : ` · ${esc(g.list[0].name)}`}</small></span>
-            <span class="mt-group-icons">${g.list.slice(0, 4).map((a) => acctImg(a.icon, 'is-xs')).join('')}</span>
+            <span class="mt-group-n">${g.label}<small>${g.list.length > 1 ? ` · ${g.list.length}` : g.list[0].name === g.label ? '' : ` · ${esc(g.list[0].name)}`}</small></span>
+            <span class="mt-group-icons">${g.list.slice(0, 4).map((a) => acctImg(a.icon, 'is-sm')).join('')}</span>
             <b class="num">${g.key === 'loan' || g.key === 'card' ? '−' : ''}${money(groupTotal(g.list))}</b>
           </button></li>`
         )
         .join('')}</ul>
-      <button class="mt-btn is-ghost" data-act="newacct">＋ เพิ่มบัญชี · บัตร · หนี้</button>
     </section>`;
   }
 
@@ -970,7 +954,7 @@ export function mountDashboard(root, backend, opts = {}) {
       ${acctImg(a.icon)}
       <span class="mt-tx-main"><span class="mt-tx-note">${esc(a.name)}</span><span class="mt-sub">${esc(acctSub(a))}${a.type === 'card' && a.dueDay ? ` · จ่ายวันที่ ${a.dueDay}` : ''}</span>
         ${a.type === 'card' && a.known && a.limit ? cardBar(a) : ''}
-        ${a.type === 'loan' && a.principal ? `${bar(a.pctPaid, 'var(--green)')}<span class="mt-sub">จ่ายแล้ว ${Math.round(a.pctPaid * 100)}% ของ ${money(a.principal)}</span>` : ''}</span>
+        ${a.type === 'loan' && a.principal ? `${bar(a.pctPaid, 'var(--ink)')}<span class="mt-sub">จ่ายแล้ว ${Math.round(a.pctPaid * 100)}% ของ ${money(a.principal)}</span>` : ''}</span>
       <span class="num mt-amt ${!a.known && !isLiab(a) ? 'is-unset' : ''} ${neg || a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</span>
     </button></li>`;
   }
@@ -981,7 +965,7 @@ export function mountDashboard(root, backend, opts = {}) {
     if (!t.debt && !t.payThisMonth) return '';
     const parts = [
       ['บัตรเครดิต (รูดค้าง)', t.cardDebt, 'var(--ink)'],
-      ['ผ่อนสินค้าผ่านบัตร', t.instDebt, '#8B5CF6'],
+      ['ผ่อนสินค้าผ่านบัตร', t.instDebt, 'var(--accent)'],
       ['หนี้อื่น (ผ่อนรถ ยืม ฯลฯ)', t.loanDebt, 'var(--red)'],
     ].filter((x) => x[1] > 0);
     return `<section class="mt-card">
@@ -1120,16 +1104,15 @@ export function mountDashboard(root, backend, opts = {}) {
       ['ลบข้อมูล', 'ล้างรายการ / ลบบัญชี'],
     ];
     const menu = [
-      ['tab', 'budget', 'budget', 'งบประมาณ', 'งบรวม · งบรายหมวด'],
-      ['tab', 'budget', 'cal', 'เป้าหมายออม', 'กระปุก · รายการประจำ'],
+      ['tab', 'budget', 'budget', 'งบประมาณ', 'งบรวม · งบรายหมวด · เป้าหมายออม'],
       ['tab', 'wallets', 'wallets', 'กระเป๋าเงิน', 'บัญชี · บัตร · หนี้'],
-      ['tab', 'report', 'report', 'รายงาน', 'วัน · เดือน · ไตรมาส · ปี'],
+      ['tab', 'analysis', 'analysis', 'วิเคราะห์', 'รายงาน · สุขภาพการเงิน'],
       ['opencal', '', 'cal', 'ปฏิทิน', 'รายรับรายจ่ายรายวัน'],
-      ['tab', 'analysis', 'analysis', 'ข้อมูลเชิงลึก', 'สุขภาพการเงิน'],
-      ['export', '', 'list', 'ส่งออกข้อมูล', 'CSV · Excel'],
+      ['export', '', 'download', 'ส่งออกข้อมูล', 'CSV · Excel'],
     ];
     return `
       <div class="mt-row-h"><h2>เมนู</h2></div>
+      ${profileCard()}
       <section class="mt-menu">${menu
         .map(([act, tab, ic, title, sub]) => `<button data-act="${act}" ${tab ? `data-tab="${tab}"` : ''}><i>${icon(ic)}</i><span><b>${title}</b><small>${sub}</small></span></button>`)
         .join('')}</section>
@@ -1230,7 +1213,7 @@ export function mountDashboard(root, backend, opts = {}) {
             ? `<div class="mt-acct-head">${acctImg(a.icon, 'is-lg')}
                 <div><b class="num ${a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</b><span class="mt-sub">${esc(a.type === 'loan' || a.type === 'receivable' ? acctSub(a) : a.type === 'card' ? (a.known ? 'ยอดใช้รวม (รูดค้าง + ผ่อน)' : 'รูดรอบนี้ (ยังไม่ตั้งยอด)') : `${a.known ? 'ยอดคงเหลือ' : 'ยังไม่ได้ตั้งยอด'} · รอบนี้ใช้ ${money(a.spent || 0)}`)}</span></div></div>
               ${a.type === 'card' && a.known ? cardDetail(a) : ''}
-              ${a.type === 'loan' && a.principal ? bar(a.pctPaid, 'var(--green)', 'is-lg') : ''}`
+              ${a.type === 'loan' && a.principal ? bar(a.pctPaid, 'var(--ink)', 'is-lg') : ''}`
             : ''
         }
         <form class="mt-form" data-form="acct">
@@ -1407,9 +1390,15 @@ export function mountDashboard(root, backend, opts = {}) {
   }
 
   function nav() {
-    const on = st.tab === 'budget' ? 'settings' : st.tab;
-    const item = (tab, label) => `<button class="${on === tab ? 'is-on' : ''}" data-act="tab" data-tab="${tab}" aria-label="${label}">${icon(tab)}<span>${label}</span></button>`;
-    return `<nav class="mt-nav">${item('home', 'สรุป')}${item('wallets', 'กระเป๋า')}${item('report', 'รายงาน')}${item('analysis', 'เชิงลึก')}${item('list', 'รายการ')}${item('settings', 'เมนู')}</nav>`;
+    const on = st.tab === 'report' ? 'analysis' : ['budget', 'settings'].includes(st.tab) ? 'home' : st.tab;
+    const itemFull = (tab, label, ic) => `<button class="${st.tab === tab ? 'is-on' : ''}" data-act="tab" data-tab="${tab}">${icon(ic)}<span>${label}</span></button>`;
+    const item = (tab, label, ic = tab) => `<button class="${on === tab ? 'is-on' : ''}" data-act="tab" data-tab="${tab}" aria-label="${label}">${icon(ic)}<span>${label}</span></button>`;
+    // จอเล็ก: แถบล่าง 5 ช่อง ปุ่มจดตรงกลาง · จอใหญ่ (CSS): แถบด้านซ้าย ปุ่มจดอยู่บนสุด และมีเมนู/งบเพิ่ม
+    return `<nav class="mt-nav">
+      <div class="mt-nav-brand">${opts.logoUrl ? `<img src="${esc(opts.logoUrl)}" alt="">` : ''}<b>หมุนตังค์</b></div>
+      ${item('home', 'หน้าหลัก')}${item('list', 'รายการ')}<button class="mt-nav-add" data-act="add" aria-label="จดรายการ"><span>${icon('plus')}</span><em>จดรายการ</em></button>${item('analysis', 'วิเคราะห์')}${item('wallets', 'กระเป๋า')}
+      <div class="mt-nav-more">${itemFull('budget', 'งบประมาณ', 'budget')}${itemFull('settings', 'เมนู · ตั้งค่า', 'settings')}</div>
+    </nav>`;
   }
 
   function render() {
@@ -1422,7 +1411,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const searchFocused = document.activeElement?.id === 'mt-search';
     const scroller = root.querySelector('.mt-main');
     const scrollTop = scroller?.scrollTop || 0;
-    const views = { home: homeView, analysis: analysisView, budget: budgetView, list: listView, settings: settingsView, wallets: walletsView, report: reportView };
+    const views = { home: homeView, analysis: analysisView, budget: budgetView, list: listView, settings: settingsView, wallets: walletsView, report: analysisView };
     root.innerHTML = `<main class="mt-main">${views[st.tab]()}</main>${nav()}${sheetView()}${st.toast ? `<div class="mt-toast" role="status">${esc(st.toast)}</div>` : ''}`;
     const main = root.querySelector('.mt-main');
     if (main && root.dataset.tab === st.tab) main.scrollTop = scrollTop;
@@ -1474,6 +1463,10 @@ export function mountDashboard(root, backend, opts = {}) {
         break;
       case 'type':
         st.type = b.dataset.v;
+        render();
+        break;
+      case 'antab':
+        st.an = b.dataset.v;
         render();
         break;
       case 'rptab':
@@ -1841,8 +1834,8 @@ function ring(p, emoji) {
   const c = 2 * Math.PI * r;
   const off = c * (1 - Math.min(1, Math.max(0, p)));
   return `<div class="mt-ring" aria-hidden="true"><svg viewBox="0 0 62 62">
-    <circle cx="31" cy="31" r="${r}" fill="none" stroke="var(--track)" stroke-width="7"></circle>
-    <circle cx="31" cy="31" r="${r}" fill="none" stroke="var(--gold)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"></circle>
+    <circle cx="31" cy="31" r="${r}" fill="none" stroke="var(--track)" stroke-width="5"></circle>
+    <circle cx="31" cy="31" r="${r}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"></circle>
   </svg><span>${esc(emoji)}</span></div>`;
 }
 
