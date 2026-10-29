@@ -60,6 +60,8 @@ export function createBot(deps) {
       moods: deps.moods,
       iconUrl: deps.iconUrl,
       accounts: ops.accountList(user, now()),
+      cats: user.settings.customCats || [],
+      hiddenCats: user.settings.hiddenCats || [],
       links: {
         dashboard: deps.links?.dashboard?.(user.id),
         export: deps.links?.export?.(user.id),
@@ -352,7 +354,8 @@ export function createBot(deps) {
     const t = norm(raw);
     const by = sess.by ? { by: sess.by } : {};
 
-    if (['ตั้งค่า', 'ตั้งค่าเริ่มต้น', 'setup'].includes(t)) return [ui.setupMessage('cycle', user)];
+    if (['ตั้งค่า', 'ตั้งค่าเริ่มต้น', 'setup', 'ติดตั้ง', 'ติดตั้งครั้งแรก'].includes(t)) return [ctx.links.view ? ui.onboardMessage(ctx) : ui.setupMessage('cycle', user)];
+    if (['ตั้งค่าในแชท', 'ตั้งค่าแชท'].includes(t)) return [ui.setupMessage('cycle', user)];
     if (['จด', 'จดรายการ', 'จดรายรับรายจ่าย', 'บันทึก'].includes(t)) return [ui.recordPromptMessage()];
     if (['ลบข้อมูล', 'ลบข้อมูลทั้งหมด', 'ล้างข้อมูล', 'ลบบัญชี', 'ลบทั้งหมด', 'delete my data'].includes(t)) {
       if (sess.isGroup) return [ui.textMsg('การลบข้อมูลของกลุ่มทำได้จากแดชบอร์ดของกลุ่ม (หน้า ตั้งค่า) เพื่อกันการกดพลาดในแชทกลุ่มนะ')];
@@ -517,8 +520,8 @@ export function createBot(deps) {
     m = raw.trim().match(/^ประจำ\s+(.+?)\s+([\d,]+(?:\.\d+)?)\s*(?:บาท)?\s*(?:ทุก)?\s*(?:วันที่)?\s*(\d{1,2})?$/);
     if (m) {
       const note = m[1].replace(/^\+/, '').trim();
-      const isIncome = /^\+/.test(m[1]) || guessCategory(note, user.settings.customKeywords)?.type === 'income';
-      const guess = guessCategory(note, user.settings.customKeywords);
+      const isIncome = /^\+/.test(m[1]) || guessCategory(note, user.settings.customKeywords, user)?.type === 'income';
+      const guess = guessCategory(note, user.settings.customKeywords, user);
       const type = isIncome ? 'income' : 'expense';
       const day = Number(m[3] || todayStr(now()).slice(8, 10));
       const r = ops.addRecurring(user, {
@@ -552,6 +555,7 @@ export function createBot(deps) {
       customKeywords: user.settings.customKeywords,
       defaultWallet: user.settings.defaultWallet,
       accounts: user.accounts,
+      user,
     });
     // ประโยคยาว/กำกวมให้ AI ช่วยอ่าน (ถ้าตั้งค่า API key ไว้)
     const complex = text.length > 25 && /(แล้ว|กับ|และ|ไป|มา|อีก)/.test(text);
@@ -592,10 +596,11 @@ export function createBot(deps) {
 
   function findCategoryByName(name, user) {
     const q = name.toLowerCase();
+    const all = [...CATEGORIES, ...(user.settings.customCats || [])];
     return (
-      CATEGORIES.find((c) => c.name.toLowerCase() === q || c.id === q) ||
-      CATEGORIES.find((c) => c.name.toLowerCase().includes(q)) ||
-      (guessCategory(q, user.settings.customKeywords) && getCategory(guessCategory(q, user.settings.customKeywords).id))
+      all.find((c) => c.name.toLowerCase() === q || c.id === q) ||
+      all.find((c) => c.name.toLowerCase().includes(q)) ||
+      (guessCategory(q, user.settings.customKeywords, user) && getCategory(guessCategory(q, user.settings.customKeywords, user).id, user))
     );
   }
 
@@ -708,7 +713,7 @@ export function createBot(deps) {
       case 'cat': {
         const tx = user.txs.find((x) => x.id === p.id);
         if (!tx) return [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
-        const cat = getCategory(p.c);
+        const cat = getCategory(p.c, user);
         ops.updateTx(user, tx.id, { categoryId: cat.id, type: cat.type });
         if (tx.source !== 'slip') ops.learnKeyword(user, tx.note, cat.id);
         return [ui.textMsg(`ย้าย "${tx.note}" ไปหมวด ${cat.emoji} ${cat.name} แล้ว${tx.source !== 'slip' ? '\n(จำไว้แล้ว ครั้งหน้าจัดหมวดให้อัตโนมัติ)' : ''}`)];
@@ -748,7 +753,7 @@ export function createBot(deps) {
       }
       case 'edit': {
         const tx = user.txs.find((x) => x.id === p.id);
-        return tx ? [ui.editMenuMessage(tx)] : [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
+        return tx ? [ui.editMenuMessage(tx, ctxFor(user))] : [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
       }
       case 'flip': {
         const tx = user.txs.find((x) => x.id === p.id);
@@ -809,7 +814,9 @@ export function createBot(deps) {
     let messages = [];
     try {
       if (event.type === 'follow') {
-        messages = [ui.welcomeMessage(user.name, ctxFor(user)), ...(user.settings.onboarded ? [] : [ui.setupMessage('cycle', user)])];
+        const ctx = ctxFor(user);
+        const setup = ctx.links.view ? ui.onboardMessage(ctx) : ui.setupMessage('cycle', user);
+        messages = [ui.welcomeMessage(user.name, ctx), ...(user.settings.onboarded ? [] : [setup])];
       } else if (event.type === 'join') {
         messages = [ui.groupWelcomeMessage(ctxFor(user))];
       } else if (event.type === 'postback') {

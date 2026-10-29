@@ -61,28 +61,81 @@ export const CATEGORIES = [
 
 export const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]));
 
-export function getCategory(id) {
-  return CATEGORY_MAP[id] || CATEGORY_MAP.other;
+// หมวดที่แนะนำตอนตั้งค่าครั้งแรก (ที่เหลือเลือกเปิดเองได้)
+export const RECOMMENDED = ['food', 'transport', 'shopping', 'bills', 'fun', 'health', 'other', 'salary', 'sales', 'freelance', 'other_income'];
+// หมวดสำรองที่ปิดไม่ได้ (รายการที่เดาไม่ออกจะมาอยู่ที่นี่)
+export const FALLBACK = { expense: 'other', income: 'other_income' };
+
+/** หมวดที่ผู้ใช้สร้างเอง: รับ user / ctx ({ cats }) / array */
+function customOf(src) {
+  if (!src) return [];
+  if (Array.isArray(src)) return src;
+  return src.cats || src.settings?.customCats || [];
 }
 
-export function categoriesOf(type) {
-  return CATEGORIES.filter((c) => c.type === type);
+export function getCategory(id, src) {
+  return CATEGORY_MAP[id] || customOf(src).find((c) => c.id === id) || CATEGORY_MAP.other;
+}
+
+/** มีหมวดนี้จริง (รวมหมวดของผู้ใช้) */
+export function hasCategory(id, src) {
+  return !!(CATEGORY_MAP[id] || customOf(src).some((c) => c.id === id));
+}
+
+/** หมวดที่ผู้ใช้เปิดใช้ (หมวดตั้งต้นที่ไม่ได้ซ่อน + หมวดที่สร้างเอง) — ส่ง user หรือ ctx */
+export function categoriesOf(type, src) {
+  const hidden = new Set(src?.settings?.hiddenCats || src?.hiddenCats || []);
+  const list = CATEGORIES.filter((c) => c.type === type && (!hidden.has(c.id) || c.id === FALLBACK[type]));
+  const own = customOf(src).filter((c) => c.type === type);
+  // หมวดสำรองอยู่ท้ายสุดเสมอ
+  return [...list.filter((c) => c.id !== FALLBACK[type]), ...own, CATEGORY_MAP[FALLBACK[type]]];
+}
+
+/** หมวดทั้งหมดสำหรับแดชบอร์ด พร้อมสถานะ hidden / custom */
+export function categoryCatalog(user) {
+  const hidden = new Set(user.settings?.hiddenCats || []);
+  return [
+    ...CATEGORIES.map(({ keywords, ...c }) => ({ ...c, hidden: hidden.has(c.id) && c.id !== FALLBACK[c.type], recommended: RECOMMENDED.includes(c.id) })),
+    ...customOf(user).map((c) => ({ ...c, custom: true })),
+  ];
+}
+
+const CUSTOM_COLORS = ['#2A78D6', '#1BAF7A', '#EB6834', '#6250D6', '#E87BA4', '#9C6B30', '#008300', '#EDA100'];
+
+/** ทำความสะอาดหมวดที่ผู้ใช้สร้าง */
+export function cleanCustomCat(input, existing = []) {
+  const name = String(input?.name || '').trim().slice(0, 24);
+  if (!name) return null;
+  const type = input.type === 'income' ? 'income' : 'expense';
+  const emoji = [...String(input.emoji || '').trim()].slice(0, 2).join('') || (type === 'income' ? '💰' : '🏷️');
+  const id = /^c_[\w-]{1,20}$/.test(input.id || '') ? input.id : `c_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  return { id, name, emoji, type, color: CUSTOM_COLORS[existing.length % CUSTOM_COLORS.length] };
 }
 
 /**
  * เดาหมวดจากข้อความ คืน { id, type, score } หรือ null ถ้าไม่เจอ
  * customKeywords: { [keyword]: categoryId } ที่ผู้ใช้สอนเอง — ชนะคีย์เวิร์ดตั้งต้นเสมอ
  */
-export function guessCategory(text, customKeywords = {}) {
+export function guessCategory(text, customKeywords = {}, user) {
   const t = text.toLowerCase();
+  const own = customOf(user);
   let best = null;
-  for (const [kw, id] of Object.entries(customKeywords)) {
-    if (t.includes(kw.toLowerCase()) && CATEGORY_MAP[id]) {
+  for (const [kw, id] of Object.entries(customKeywords || {})) {
+    const c = CATEGORY_MAP[id] || own.find((x) => x.id === id);
+    if (t.includes(kw.toLowerCase()) && c) {
       const score = 1000 + kw.length;
-      if (!best || score > best.score) best = { id, type: CATEGORY_MAP[id].type, score };
+      if (!best || score > best.score) best = { id, type: c.type, score };
+    }
+  }
+  // ชื่อหมวดที่ผู้ใช้สร้างเองก็เป็นคีย์เวิร์ดด้วย ("ค่าแมว 300" → หมวด ค่าแมว)
+  for (const c of own) {
+    if (c.name.length >= 2 && t.includes(c.name.toLowerCase())) {
+      const score = 500 + c.name.length;
+      if (!best || score > best.score) best = { id: c.id, type: c.type, score };
     }
   }
   if (best) return best;
+  const hidden = new Set(user?.settings?.hiddenCats || []);
   for (const c of CATEGORIES) {
     for (const kw of c.keywords) {
       if (t.includes(kw.toLowerCase())) {
@@ -91,6 +144,8 @@ export function guessCategory(text, customKeywords = {}) {
       }
     }
   }
+  // หมวดที่ปิดไว้ → ไปหมวดสำรองของประเภทเดียวกัน
+  if (best && hidden.has(best.id)) best = { ...best, id: FALLBACK[best.type] };
   return best;
 }
 

@@ -144,7 +144,7 @@ export function parseEntries(text, opts = {}) {
     }
     for (const p of parts) {
       if (!(p.amount > 0) || p.amount > 100_000_000) continue;
-      const guess = guessCategory(p.note || line, customKeywords);
+      const guess = guessCategory(p.note || line, customKeywords, opts.user);
       let type = guess ? guess.type : 'expense';
       if (isIncome) type = 'income';
       if (isExpense) type = 'expense';

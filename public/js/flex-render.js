@@ -37,7 +37,7 @@ function renderBubble(b, onAction) {
   return root;
 }
 
-function applyCommon(node, n, parentLayout, isFirst) {
+function applyCommon(node, n, parentLayout, isFirst, onAction) {
   const s = node.style;
   if (n.position === 'absolute') {
     s.position = 'absolute';
@@ -96,7 +96,7 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
         }
         node.append(child);
       });
-      applyCommon(node, n, parentLayout, isFirst);
+      applyCommon(node, n, parentLayout, isFirst, onAction);
       if (n.width) s.flex = '0 0 auto';
       return node;
     }
@@ -120,7 +120,7 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
       if (n.align) s.textAlign = n.align === 'start' ? 'left' : n.align === 'end' ? 'right' : 'center';
       if (!n.wrap) node.classList.add('fx-nowrap');
       if (n.gravity) s.alignSelf = n.gravity === 'center' ? 'center' : n.gravity === 'bottom' ? 'flex-end' : 'flex-start';
-      applyCommon(node, n, parentLayout, isFirst);
+      applyCommon(node, n, parentLayout, isFirst, onAction);
       return node;
     }
     case 'image': {
@@ -136,7 +136,7 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
       }
       img.style.objectFit = n.aspectMode === 'cover' ? 'cover' : 'contain';
       node.append(img);
-      applyCommon(node, n, parentLayout, isFirst);
+      applyCommon(node, n, parentLayout, isFirst, onAction);
       return node;
     }
     case 'button': {
@@ -147,7 +147,7 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
       else if (n.color) node.style.backgroundColor = n.color;
       if (n.style === 'primary' && n.color && isLight(n.color)) node.style.color = '#111';
       if (n.height === 'sm') node.style.height = '40px';
-      applyCommon(node, { ...n, action: n.action }, parentLayout, isFirst);
+      applyCommon(node, { ...n, action: n.action }, parentLayout, isFirst, onAction);
       return node;
     }
     case 'separator': {

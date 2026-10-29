@@ -5,6 +5,7 @@ import { todayStr, thaiDate, TH_DAYS, TH_MONTHS, weekday, cycleOf, shiftCycle, d
 import { summarize } from '../core/ops.js';
 import { moodFor } from '../core/mood.js';
 import { badgeSvg } from '../core/accounts.js';
+import { newOnboard, onboardHTML, onboardAction, onboardAddCat, onboardPayload } from './onboard.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const SOURCE_LABEL = { chat: 'แชท', slip: 'สลิป', app: 'แอป', ai: 'AI', recurring: 'ประจำ', pdf: 'PDF' };
@@ -51,6 +52,8 @@ export function mountDashboard(root, backend, opts = {}) {
     rp: { period: 'cycle', offset: 0, tab: 'overview', chart: 'donut', show: { income: true, expense: true, transfer: true, debt: false } }, // หน้ารายงาน
     day: '', // วันที่เลือกในปฏิทิน
     an: 'overview', // แท็บย่อยหน้าวิเคราะห์: ภาพรวม | หมวด · บัญชี | สุขภาพการเงิน
+    ob: null, // หน้า "ติดตั้งครั้งแรก" (ถ้าเปิดอยู่)
+    obAuto: opts.view === 'onboard' ? 'open' : 'check',
   };
 
   root.classList.add('mt-app');
@@ -81,6 +84,9 @@ export function mountDashboard(root, backend, opts = {}) {
         if (tx) st.sheet = { kind: 'tx', tx };
         st.pendingEdit = null;
       }
+      // ผู้ใช้ใหม่ที่ยังไม่ตั้งค่า → เปิดหน้าติดตั้งครั้งแรกให้เอง (ครั้งเดียว)
+      if (st.obAuto === 'open' || (st.obAuto === 'check' && !st.data.settings.onboarded && !st.data.txs.length && !backend.reset)) st.ob = newOnboard(st.data);
+      st.obAuto = null;
       if (st.pendingAcct) {
         if (acctById(st.pendingAcct)) st.sheet = { kind: 'acct', id: st.pendingAcct };
         st.pendingAcct = null;
@@ -698,7 +704,7 @@ export function mountDashboard(root, backend, opts = {}) {
       <button class="${st.side === 'income' ? 'is-on is-inc' : ''}" data-act="side" data-v="income">รายรับ</button>
     </div>`;
     if (st.side === 'income') {
-      const inc = d.categories.filter((c) => c.type === 'income');
+      const inc = d.categories.filter((c) => c.type === 'income' && (!c.hidden || s.incomeCats.some((x) => x.id === c.id)));
       return `${seg}
         <div class="mt-row-h"><h2>รายรับ</h2>${cycleSwitch()}</div>
         <section class="mt-card"><div class="mt-big-l">รายรับรอบนี้</div><div class="mt-big num">${money(s.income)}</div></section>
@@ -709,7 +715,7 @@ export function mountDashboard(root, backend, opts = {}) {
           })
           .join('')}</ul>`;
     }
-    const expCats = d.categories.filter((c) => c.type === 'expense');
+    const expCats = d.categories.filter((c) => c.type === 'expense' && (!c.hidden || s.cats.some((x) => x.id === c.id) || d.settings.catBudgets?.[c.id]));
     const limits = d.settings.catBudgets || {};
     const sumCat = Object.values(limits).reduce((a, v) => a + v, 0);
     const stack = sumCat
@@ -1108,6 +1114,8 @@ export function mountDashboard(root, backend, opts = {}) {
       ['tab', 'wallets', 'wallets', 'กระเป๋าเงิน', 'บัญชี · บัตร · หนี้'],
       ['tab', 'analysis', 'analysis', 'วิเคราะห์', 'รายงาน · สุขภาพการเงิน'],
       ['opencal', '', 'cal', 'ปฏิทิน', 'รายรับรายจ่ายรายวัน'],
+      ['obcats', '', 'list', 'หมวดหมู่', 'เลือกหมวดที่ใช้ · เพิ่มหมวดเอง'],
+      ['obfull', '', 'gear', 'ติดตั้งครั้งแรก', 'ดูขั้นตอนตั้งค่าอีกครั้ง'],
       ['export', '', 'download', 'ส่งออกข้อมูล', 'CSV · Excel'],
     ];
     return `
@@ -1163,7 +1171,7 @@ export function mountDashboard(root, backend, opts = {}) {
     if (sh.kind === 'tx') {
       const t = sh.tx || { type: 'expense', amount: '', categoryId: 'food', note: '', date: todayStr(), wallet: st.data.settings.defaultWallet };
       const type = sh.type || t.type;
-      const cats = st.data.categories.filter((c) => c.type === type);
+      const cats = st.data.categories.filter((c) => c.type === type && (!c.hidden || c.id === t.categoryId));
       const curCat = sh.cat || (cat(t.categoryId).type === type ? t.categoryId : cats[0].id);
       inner = `
         <form class="mt-form" data-form="tx">
@@ -1350,7 +1358,7 @@ export function mountDashboard(root, backend, opts = {}) {
         <label for="mt-rec-note">รายการ</label><input id="mt-rec-note" name="note" required placeholder="เช่น ค่าเน็ต" maxlength="60">
         <div class="mt-row2"><div><label for="mt-rec-amount">จำนวนเงิน</label><input id="mt-rec-amount" name="amount" type="number" step="any" inputmode="decimal" min="1" required placeholder="599"></div>
         <div><label for="mt-rec-day">ทุกวันที่</label><input id="mt-rec-day" name="day" type="number" min="1" max="31" required value="1"></div></div>
-        <label for="mt-rec-cat">หมวด</label><select id="mt-rec-cat" name="categoryId">${st.data.categories.map((c) => `<option value="${c.id}">${c.emoji} ${esc(c.name)} (${c.type === 'income' ? 'รับ' : 'จ่าย'})</option>`).join('')}</select>
+        <label for="mt-rec-cat">หมวด</label><select id="mt-rec-cat" name="categoryId">${st.data.categories.filter((c) => !c.hidden).map((c) => `<option value="${c.id}">${c.emoji} ${esc(c.name)} (${c.type === 'income' ? 'รับ' : 'จ่าย'})</option>`).join('')}</select>
         <label for="mt-rec-wallet">บัญชี</label><select id="mt-rec-wallet" name="wallet">${walletOptions(st.data.settings.defaultWallet)}</select>
         <button class="mt-btn" type="submit">เพิ่มรายการประจำ</button></form>`;
     } else if (sh.kind === 'wipe') {
@@ -1411,6 +1419,11 @@ export function mountDashboard(root, backend, opts = {}) {
     const searchFocused = document.activeElement?.id === 'mt-search';
     const scroller = root.querySelector('.mt-main');
     const scrollTop = scroller?.scrollTop || 0;
+    if (st.ob) {
+      root.innerHTML = `<main class="mt-main ob-main">${onboardHTML(st.ob, st.data, opts)}</main>${st.toast ? `<div class="mt-toast" role="status">${esc(st.toast)}</div>` : ''}`;
+      root.dataset.tab = 'onboard';
+      return;
+    }
     const views = { home: homeView, analysis: analysisView, budget: budgetView, list: listView, settings: settingsView, wallets: walletsView, report: analysisView };
     root.innerHTML = `<main class="mt-main">${views[st.tab]()}</main>${nav()}${sheetView()}${st.toast ? `<div class="mt-toast" role="status">${esc(st.toast)}</div>` : ''}`;
     const main = root.querySelector('.mt-main');
@@ -1424,6 +1437,36 @@ export function mountDashboard(root, backend, opts = {}) {
   }
 
   // ---------------- events ----------------
+  async function onboardClick(a, b) {
+    const ob = st.ob;
+    const res = onboardAction(ob, a, b, st.data, root);
+    if (res === 'close') st.ob = null;
+    if (res === 'finish') {
+      const mode = ob.mode;
+      st.ob = null;
+      st.tab = mode === 'cats' ? 'settings' : 'home';
+      render();
+      if (mode !== 'cats') toast('🌀 พร้อมใช้งาน ลองจดรายการแรกเลย');
+      return;
+    }
+    render();
+    if (res === 'focus') root.querySelector('.ob-add input[name=name]')?.focus();
+    if (res === 'render' || res === 'save') root.querySelector('.mt-main')?.scrollTo(0, 0);
+    if (res === 'save') {
+      const started = Date.now();
+      try {
+        await backend.saveSettings(onboardPayload(ob));
+        // ให้เห็นนายหัวหมุนหมุนแป๊บนึง
+        await new Promise((r) => setTimeout(r, Math.max(0, 700 - (Date.now() - started))));
+        ob.i++;
+      } catch (e) {
+        ob.i--;
+        toast(`บันทึกไม่สำเร็จ: ${e.message}`);
+      }
+      await refresh();
+    }
+  }
+
   root.addEventListener('click', async (e) => {
     const b = e.target.closest('[data-act]');
     if (!b || !root.contains(b)) return;
@@ -1436,7 +1479,14 @@ export function mountDashboard(root, backend, opts = {}) {
       const fd = new FormData(f);
       Object.assign(sh, { amount: fd.get('amount'), note: fd.get('note'), date: fd.get('date'), wallet: fd.get('wallet'), ...(fd.has('countIn') || f.querySelector('[name=countIn]') ? { countIn: fd.get('countIn') === 'on' } : {}) });
     };
+    if (st.ob) return onboardClick(a, b);
     switch (a) {
+      case 'obcats':
+      case 'obfull':
+        st.ob = newOnboard(st.data, a === 'obcats' ? 'cats' : 'full');
+        render();
+        root.querySelector('.mt-main')?.scrollTo(0, 0);
+        break;
       case 'tab':
         st.tab = b.dataset.tab;
         st.sheet = null;
@@ -1694,6 +1744,16 @@ export function mountDashboard(root, backend, opts = {}) {
   });
 
   root.addEventListener('change', (e) => {
+    if (st.ob && e.target.dataset.change === 'obcycle') {
+      st.ob.cycle = Number(e.target.value);
+      render();
+      return;
+    }
+    if (st.ob && e.target.dataset.change === 'obbudget') {
+      // ไม่วาดใหม่ตอนพิมพ์ (ช่องกำลังโฟกัสอยู่) แค่จำค่าไว้
+      st.ob.budget = Math.max(0, Math.round(Number(e.target.value) * 100) / 100 || 0);
+      return;
+    }
     // เปลี่ยนวันที่/บัญชีในฟอร์มจด → วาดใหม่ เพื่อโชว์ตัวเลือก "นับรวมในยอด" ของรายการย้อนหลัง
     if (st.sheet?.kind === 'tx' && ['date', 'wallet'].includes(e.target.name)) {
       const fd = new FormData(e.target.form);
@@ -1715,6 +1775,10 @@ export function mountDashboard(root, backend, opts = {}) {
     const f = e.target;
     const fd = Object.fromEntries(new FormData(f));
     switch (f.dataset.form) {
+      case 'obcat':
+        onboardAddCat(st.ob, fd);
+        render();
+        break;
       case 'tx': {
         const body = { ...fd, amount: Number(fd.amount), countIn: fd.countIn === 'on' };
         if (st.sheet.tx) act(() => backend.updateTx(st.sheet.tx.id, body), 'บันทึกการแก้ไขแล้ว');
@@ -1817,6 +1881,7 @@ export function mountDashboard(root, backend, opts = {}) {
       // view อาจมีพารามิเตอร์ต่อท้าย เช่น "wallets&acct=<id>" (ลิงก์จากการ์ดบัญชีในแชท)
       const [tab, ...rest] = String(view || '').split('&');
       const acct = new URLSearchParams(rest.join('&')).get('acct');
+      if (tab === 'onboard' && st.data) st.ob = newOnboard(st.data);
       if (TABS.includes(tab)) st.tab = tab;
       if (acct && st.data && acctById(acct)) st.sheet = { kind: 'acct', id: acct };
       if (editId) {

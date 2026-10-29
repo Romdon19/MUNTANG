@@ -5,6 +5,7 @@ export function makeConfig(env = {}) {
     lineChannelSecret: env.LINE_CHANNEL_SECRET || '',
     lineAccessToken: env.LINE_CHANNEL_ACCESS_TOKEN || '',
     liffId: env.LIFF_ID || '',
+    richMenuLayout: env.RICHMENU_LAYOUT || '',
     lineLoginChannelId: env.LINE_LOGIN_CHANNEL_ID || '',
     anthropicApiKey: env.ANTHROPIC_API_KEY || '',
     claudeModel: env.CLAUDE_MODEL || 'claude-opus-5-5',

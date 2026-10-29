@@ -48,7 +48,10 @@ function boot(env) {
     speechToText: whisper(env.AI),
     // AI ฟรีสำหรับอ่านสลิป (ปิดได้ด้วย FREE_AI=off) เปลี่ยนโมเดลได้ด้วย WORKERS_AI_MODEL
     freeAi: env.FREE_AI === 'off' ? null : createWorkersAI(env.AI, env.WORKERS_AI_MODEL || undefined),
-    loadAsset: async (p) => (await env.ASSETS.fetch(new Request(`https://assets.local${p}`))).arrayBuffer(),
+    loadAsset: async (p) => {
+      const res = await env.ASSETS.fetch(new Request(`https://assets.local${p}`));
+      return res.ok ? res.arrayBuffer() : null;
+    },
   });
   return { cfg, store, app };
 }

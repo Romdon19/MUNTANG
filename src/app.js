@@ -3,7 +3,7 @@
 import { createLine } from './line.js';
 import { createAI } from './ai.js';
 import { createAuth } from './auth.js';
-import { setupRichMenu } from './richmenu.js';
+import { setupRichMenu, imagePaths } from './richmenu.js';
 import { createBot } from './core/bot.js';
 import * as ops from './core/ops.js';
 import { seedDemo } from './core/demo.js';
@@ -164,8 +164,15 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
   async function adminRichMenu(_req, url) {
     if (!cfg.adminKey || url.searchParams.get('key') !== cfg.adminKey) return text('ต้องใส่ ?key= ให้ตรงกับ APP_SECRET', 403);
     try {
-      const r = await setupRichMenu(cfg, await loadAsset('/assets/richmenu.png'));
-      return text(`✅ ตั้ง Rich Menu เรียบร้อย (${r.richMenuId})\nปุ่มแดชบอร์ดเปิดด้วย ${r.dashboard}\nปิดแอป LINE แล้วเปิดใหม่เพื่อดูเมนู`);
+      const layout = url.searchParams.get('layout') || cfg.richMenuLayout || 'grid';
+      let image = null;
+      for (const p of imagePaths(layout)) {
+        image = await loadAsset(p).catch(() => null);
+        if (image) break;
+      }
+      if (!image) throw new Error(`ไม่เจอไฟล์ภาพ ${imagePaths(layout).join(' หรือ ')}`);
+      const r = await setupRichMenu(cfg, image, layout);
+      return text(`✅ ตั้ง Rich Menu แบบ ${r.layout} เรียบร้อย (${r.richMenuId})\nปุ่มแดชบอร์ดเปิดด้วย ${r.dashboard}\nปิดแอป LINE แล้วเปิดใหม่เพื่อดูเมนู`);
     } catch (e) {
       return text(`❌ ${e.message}`, 500);
     }

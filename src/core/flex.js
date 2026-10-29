@@ -150,8 +150,8 @@ function walletOf(id, accounts) {
   return ACCOUNT_TYPES[id] ? decorate({ id, type: id }) : { id, name: '', short: '', emoji: '', color: C.muted };
 }
 
-function txRow(t, { withDate = false, deletable = false, accounts } = {}) {
-  const cat = getCategory(t.categoryId);
+function txRow(t, { withDate = false, deletable = false, accounts, ctx } = {}) {
+  const cat = getCategory(t.categoryId, ctx);
   const isInc = t.type === 'income';
   const contents = [
     box('vertical', [text(cat.emoji, { size: 'md', align: 'center' })], {
@@ -183,9 +183,9 @@ const timeOf = (t) => {
 };
 
 /** คำพูดนายหัวหมุนหลังจด: ดูงบหมวดก่อน แล้วค่อยดูงบรวม */
-export function mascotComment(info, tx) {
+export function mascotComment(info, tx, ctx) {
   const cs = info.catStatus?.[tx.categoryId];
-  const cat = getCategory(tx.categoryId);
+  const cat = getCategory(tx.categoryId, ctx);
   if (tx.type === 'expense' && cs?.limit) {
     const p = cs.spent / cs.limit;
     if (p >= 1) return `หมวด${cat.name} ทะลุงบมา ${Math.round((p - 1) * 100)}% แล้ว หัวหมุนติ้วเลย 🌀`;
@@ -269,7 +269,7 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
     g.txs.push(t);
   }
   groups.forEach((g, gi) => {
-    const cat = getCategory(g.categoryId);
+    const cat = getCategory(g.categoryId, ctx);
     const inc = g.type === 'income';
     body.push(
       box('horizontal', [tag(inc ? 'รายรับ' : 'รายจ่าย', C.chip, inc ? C.green : C.ink), text(`- ${cat.emoji} ${cat.name}`, { weight: 'bold', margin: 'sm', gravity: 'center' })], {
@@ -317,7 +317,7 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
 
   // แถบงบของหมวด (แบบป้านวล)
   const main = txs[txs.length - 1];
-  const cat = getCategory(main.categoryId);
+  const cat = getCategory(main.categoryId, ctx);
   const cs = info.catStatus?.[main.categoryId];
   body.push(sep({ color: C.ink, margin: 'lg' }));
   if (main.type === 'expense' && cs) {
@@ -335,7 +335,7 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
 
   // คอมเมนต์นายหัวหมุน
   body.push(
-    box('horizontal', [text('👦', { flex: 0 }), text(mascotComment(info, main), { size: 'xs', margin: 'sm' })], {
+    box('horizontal', [text('👦', { flex: 0 }), text(mascotComment(info, main, ctx), { size: 'xs', margin: 'sm' })], {
       margin: 'lg',
       paddingTop: 'md',
       borderWidth: 'none',
@@ -346,9 +346,9 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
   return bubble({ title, subtitle, body, ctx });
 }
 
-function entryQuickReplies(txs) {
+function entryQuickReplies(txs, ctx) {
   const t = txs[txs.length - 1];
-  const others = categoriesOf(t.type).filter((c) => c.id !== t.categoryId).slice(0, 8);
+  const others = categoriesOf(t.type, ctx).filter((c) => c.id !== t.categoryId).slice(0, 8);
   return quickReplies([
     ...(txs.length === 1 ? others.map((c) => ({ label: `${c.emoji} ${c.name}`, data: `action=cat&id=${t.id}&c=${c.id}`, displayText: `ย้ายไปหมวด ${c.name}` })) : []),
     { label: '🗑 ยกเลิกทั้งหมด', data: `action=undo&ids=${txs.map((x) => x.id).join(',')}`, displayText: 'ยกเลิกรายการที่เพิ่งจด' },
@@ -361,7 +361,7 @@ const SUBTITLES = ['อย่าลืมตรวจสอบรายการ
 export function recordedMessage(txs, info, ctx) {
   const alt = txs.map((x) => `${x.note} ${money(x.amount)}`).join(', ');
   const sub = info.budget?.pct >= 1 ? 'อื้อหือ ใช้เงินเกินงบแล้วนะ' : SUBTITLES[txs[0].amount % SUBTITLES.length | 0] || SUBTITLES[0];
-  return flex(`จดสำเร็จ: ${alt}`, entryCard({ title: 'จดสำเร็จ ✅', subtitle: sub, txs, info, ctx }), entryQuickReplies(txs));
+  return flex(`จดสำเร็จ: ${alt}`, entryCard({ title: 'จดสำเร็จ ✅', subtitle: sub, txs, info, ctx }), entryQuickReplies(txs, ctx));
 }
 
 export function slipMessage(tx, slip, info, ctx) {
@@ -377,7 +377,7 @@ export function slipMessage(tx, slip, info, ctx) {
       { backgroundColor: C.chip, cornerRadius: '10px', paddingAll: 'md', margin: 'md' }
     ),
   ];
-  return flex(`อ่านสลิป ${money(tx.amount)} ${tx.note}`, entryCard({ title: 'อ่านสลิปสำเร็จ 🧾', subtitle: 'ตรวจยอดกับสลิปอีกทีนะ', txs: [tx], info, ctx, extra }), entryQuickReplies([tx]));
+  return flex(`อ่านสลิป ${money(tx.amount)} ${tx.note}`, entryCard({ title: 'อ่านสลิปสำเร็จ 🧾', subtitle: 'ตรวจยอดกับสลิปอีกทีนะ', txs: [tx], info, ctx, extra }), entryQuickReplies([tx], ctx));
 }
 
 // ---------- การ์ดสถิติจดต่อเนื่อง ----------
@@ -414,8 +414,8 @@ export function recordPromptMessage() {
 }
 
 /** เมนูแก้ไขรายการ (เมื่อไม่มี LIFF) */
-export function editMenuMessage(tx) {
-  const others = categoriesOf(tx.type).filter((c) => c.id !== tx.categoryId).slice(0, 9);
+export function editMenuMessage(tx, ctx) {
+  const others = categoriesOf(tx.type, ctx).filter((c) => c.id !== tx.categoryId).slice(0, 9);
   return textMsg(
     `✏️ แก้ "${tx.note}" ${money(tx.amount)}\nเลือกหมวดใหม่ หรือพิมพ์ใหม่แล้วลบอันเดิมก็ได้นะ`,
     quickReplies([
@@ -490,7 +490,7 @@ export function summaryMessage(s, ctx, { budget } = {}) {
   } else {
     body.push(sep({ margin: 'lg' }));
     for (const c of s.cats.slice(0, 6)) {
-      const cat = getCategory(c.id);
+      const cat = getCategory(c.id, ctx);
       body.push(
         box(
           'horizontal',
@@ -521,7 +521,7 @@ export function summaryMessage(s, ctx, { budget } = {}) {
 
 export function listMessage(txs, ctx) {
   const body = txs.length
-    ? [text('แตะ ✕ เพื่อลบรายการ', { size: 'xxs', color: C.muted }), ...txs.map((t) => txRow(t, { withDate: true, deletable: true, accounts: ctx?.accounts }))]
+    ? [text('แตะ ✕ เพื่อลบรายการ', { size: 'xxs', color: C.muted }), ...txs.map((t) => txRow(t, { withDate: true, deletable: true, accounts: ctx?.accounts, ctx }))]
     : [text('ยังไม่มีรายการเลย เริ่มจดด้วยการพิมพ์ "กาแฟ 45"', { color: C.muted })];
   const footer = ctx?.links?.dashboard ? [btn('ดูทั้งหมด / แก้ไข', uri(ctx.links.dashboard))] : [];
   return flex('รายการล่าสุด', bubble({ title: 'รายการล่าสุด', subtitle: `${txs.length} รายการ`, body, footer, ctx }));
@@ -549,7 +549,7 @@ export function budgetMessage(b, ctx) {
   if (b.cats.length) {
     body.push(sep({ margin: 'lg' }));
     for (const c of b.cats) {
-      const cat = getCategory(c.id);
+      const cat = getCategory(c.id, ctx);
       body.push(
         box(
           'vertical',
@@ -591,7 +591,7 @@ export function goalsMessage(goals, ctx) {
 export function recurringMessage(items, ctx) {
   const body = items.length
     ? items.map((r, i) => {
-        const cat = getCategory(r.categoryId);
+        const cat = getCategory(r.categoryId, ctx);
         return box(
           'horizontal',
           [
@@ -622,6 +622,21 @@ export function welcomeMessage(name, ctx) {
   ];
   const footer = [btn('ลองจดรายการแรก', msg('กาแฟ 45')), btn('วิธีใช้ทั้งหมด', msg('วิธีใช้'), { style: 'primary', color: C.ink })];
   return flex('ยินดีต้อนรับสู่หมุนตังค์', bubble({ title: 'หมุนตังค์', subtitle: 'ผู้ช่วยจดเงินใน LINE', body, footer, ctx }));
+}
+
+/** ชวนเปิดหน้า "ติดตั้งครั้งแรก" ใน LIFF (เลือกหมวด · รอบเดือน · งบ) */
+export function onboardMessage(ctx) {
+  const step = (n, t) =>
+    box('horizontal', [box('vertical', [text(String(n), { size: 'xs', weight: 'bold', align: 'center', color: C.goldText })], { flex: 0, width: '22px', height: '22px', cornerRadius: '11px', backgroundColor: C.gold, justifyContent: 'center' }), text(t, { size: 'sm', margin: 'md', gravity: 'center' })], { margin: 'md', alignItems: 'center' });
+  const body = [
+    text('ตั้งค่า 4 ขั้น ใช้เวลาไม่ถึง 1 นาที', { weight: 'bold' }),
+    step(1, 'รู้จักหมุนตังค์จากไหน'),
+    step(2, 'เลือกหมวดรายจ่ายที่ใช้จริง'),
+    step(3, 'เลือกหมวดรายรับ'),
+    step(4, 'รอบเดือน · งบ · เวลาเตือน'),
+  ];
+  const footer = [btn('เริ่มต้น →', uri(ctx.links.view('onboard')), { style: 'primary', color: C.ink }), btn('ตั้งค่าในแชทแทน', msg('ตั้งค่าในแชท'))];
+  return flex('ติดตั้งครั้งแรก', bubble({ title: 'ติดตั้งครั้งแรก', subtitle: 'ให้นายหัวหมุนรู้จักคุณก่อน', body, footer, ctx }));
 }
 
 export function helpMessage(ctx) {
@@ -660,8 +675,8 @@ export function helpMessage(ctx) {
 
 export function categoriesMessage(ctx) {
   const list = (type) =>
-    categoriesOf(type).map((c) =>
-      box('horizontal', [text(c.emoji, { flex: 0 }), box('vertical', [text(c.name, { weight: 'bold', size: 'sm' }), text(c.keywords.slice(0, 6).join(', ') || '-', { size: 'xxs', color: C.muted })], { paddingStart: 'md' })], { margin: 'md' })
+    categoriesOf(type, ctx).map((c) =>
+      box('horizontal', [text(c.emoji, { flex: 0 }), box('vertical', [text(c.name, { weight: 'bold', size: 'sm' }), text(c.keywords?.slice(0, 6).join(', ') || (c.id.startsWith('c_') ? 'หมวดของฉัน · พิมพ์ชื่อหมวดในรายการได้เลย' : '-'), { size: 'xxs', color: C.muted })], { paddingStart: 'md' })], { margin: 'md' })
     );
   return flex('หมวดหมู่ทั้งหมด', {
     type: 'carousel',
@@ -745,7 +760,7 @@ export function importedMessage(txs, batch, fileName, ctx) {
     row('รายจ่าย', money(exp)),
     row('รายรับ', money(inc), { rightStyle: { color: C.green } }),
     sep(),
-    ...txs.slice(0, 5).map((t) => txRow(t, { withDate: true, accounts: ctx?.accounts })),
+    ...txs.slice(0, 5).map((t) => txRow(t, { withDate: true, accounts: ctx?.accounts, ctx })),
     ...(txs.length > 5 ? [text(`และอีก ${txs.length - 5} รายการ`, { size: 'xxs', color: C.muted, margin: 'md', align: 'end' })] : []),
   ];
   const footer = [btn('ยกเลิกการนำเข้าทั้งหมด', postback(`action=undobatch&b=${batch}`, 'ยกเลิกการนำเข้า'), { style: 'primary', color: C.ink })];

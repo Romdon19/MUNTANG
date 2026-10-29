@@ -1,5 +1,5 @@
 // การจัดการข้อมูลผู้ใช้ (ทำงานกับ user document ตรงๆ — ใช้ร่วมกันทั้งเซิร์ฟเวอร์และโหมดเดโมในเบราว์เซอร์)
-import { CATEGORIES, CATEGORY_MAP } from './categories.js';
+import { CATEGORIES, CATEGORY_MAP, FALLBACK, getCategory, hasCategory, categoryCatalog, cleanCustomCat } from './categories.js';
 import { ACCOUNT_TYPES, PROVIDER_MAP, LIABILITY, SPENDABLE, defaultAccounts, activeAccounts, findAccount, resolveWallet, accountBalances, accountTotals, decorate, guessProvider } from './accounts.js';
 import { insights } from './insights.js';
 import { todayStr, monthKey, rangeFor, daysInMonth, addDays, diffDays } from './dates.js';
@@ -29,6 +29,10 @@ export function newUser(id, profile = {}) {
       lastStreakCard: null,
       lastReport: null,
       onboarded: false,
+      // หมวดตั้งต้นที่ปิดไว้ + หมวดที่สร้างเอง [{ id: 'c_…', name, emoji, type, color }]
+      hiddenCats: [],
+      customCats: [],
+      heardFrom: null,
     },
     txs: [],
     accounts: defaultAccounts(),
@@ -53,14 +57,14 @@ function sanitizeTx(input, user) {
   const amount = Math.round(Number(input.amount) * 100) / 100;
   if (!(amount > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
   const type = input.type === 'income' ? 'income' : 'expense';
-  let categoryId = CATEGORY_MAP[input.categoryId] ? input.categoryId : type === 'income' ? 'other_income' : 'other';
-  if (CATEGORY_MAP[categoryId].type !== type) categoryId = type === 'income' ? 'other_income' : 'other';
+  let categoryId = hasCategory(input.categoryId, user) ? input.categoryId : FALLBACK[type];
+  if (getCategory(categoryId, user).type !== type) categoryId = FALLBACK[type];
   const date = /^\d{4}-\d{2}-\d{2}$/.test(input.date || '') ? input.date : todayStr();
   return {
     type,
     amount,
     categoryId,
-    note: String(input.note || '').slice(0, 120) || CATEGORY_MAP[categoryId].name,
+    note: String(input.note || '').slice(0, 120) || getCategory(categoryId, user).name,
     date,
     wallet: resolveWallet(user, input.wallet),
   };
@@ -107,7 +111,7 @@ export function lastTx(user) {
 /** สอนหมวด: ครั้งหน้าคำนี้จะเข้าหมวดนี้เสมอ */
 export function learnKeyword(user, note, categoryId) {
   const kw = String(note || '').trim().toLowerCase();
-  if (!kw || kw.length > 30 || !CATEGORY_MAP[categoryId]) return;
+  if (!kw || kw.length > 30 || !hasCategory(categoryId, user)) return;
   user.settings.customKeywords[kw] = categoryId;
 }
 
@@ -198,7 +202,7 @@ export function budgetAlerts(user, now = new Date()) {
     }
   };
   if (b.total) check('total', b.pct, 'งบรวมเดือนนี้');
-  for (const c of b.cats) check(c.id, c.pct, `งบหมวด${CATEGORY_MAP[c.id]?.name || c.id}`);
+  for (const c of b.cats) check(c.id, c.pct, `งบหมวด${getCategory(c.id, user).name}`);
   return out;
 }
 
@@ -334,7 +338,7 @@ export function toCSV(user) {
     .map((t) => [
       t.date,
       t.type === 'income' ? 'รายรับ' : 'รายจ่าย',
-      CATEGORY_MAP[t.categoryId]?.name || t.categoryId,
+      getCategory(t.categoryId, user).name,
       t.note,
       t.amount.toFixed(2),
       accountName(user, t.wallet),
@@ -377,7 +381,7 @@ export function publicState(user, { aiEnabled = false, now = new Date() } = {}) 
     streak: streak(user, now),
     tier: tierFor(streak(user, now)),
     catStatus: catStatusMap(user, now),
-    categories: CATEGORIES.map(({ keywords, ...c }) => c),
+    categories: categoryCatalog(user),
     wallets: (user.accounts || []).map(decorate),
     accounts: balances,
     accountTotals: totals,
@@ -395,7 +399,7 @@ export function applySettings(user, b = {}) {
   if (b.catBudgets && typeof b.catBudgets === 'object') {
     user.settings.catBudgets = Object.fromEntries(
       Object.entries(b.catBudgets)
-        .filter(([k, v]) => CATEGORY_MAP[k] && Number(v) > 0)
+        .filter(([k, v]) => hasCategory(k, user) && Number(v) > 0)
         .map(([k, v]) => [k, Number(v)])
     );
   }
@@ -405,7 +409,36 @@ export function applySettings(user, b = {}) {
   if (b.cycleStartDay !== undefined) user.settings.cycleStartDay = Math.min(31, Math.max(1, Number(b.cycleStartDay) || 1));
   if (b.monthlyReport !== undefined) user.settings.monthlyReport = !!b.monthlyReport;
   if (b.budgetMode === 'total' || b.budgetMode === 'category') user.settings.budgetMode = b.budgetMode;
+  if (b.categories) setCategories(user, b.categories);
+  if (typeof b.heardFrom === 'string') user.settings.heardFrom = b.heardFrom.slice(0, 40) || null;
+  if (b.onboarded !== undefined) user.settings.onboarded = !!b.onboarded;
   user.alerts = {};
+}
+
+/**
+ * เลือกหมวดที่ใช้ (หน้า "ติดตั้งครั้งแรก" / ตั้งค่า)
+ * { enabled: [id…] (หมวดตั้งต้นที่เปิด), custom: [{ id?, name, emoji, type }] }
+ * หมวดที่สร้างเองแล้วถูกลบ → รายการเดิมย้ายไปหมวดสำรอง
+ */
+export function setCategories(user, { enabled, custom } = {}) {
+  if (Array.isArray(enabled)) {
+    const on = new Set(enabled);
+    user.settings.hiddenCats = CATEGORIES.filter((c) => !on.has(c.id) && c.id !== FALLBACK[c.type]).map((c) => c.id);
+  }
+  if (Array.isArray(custom)) {
+    const out = [];
+    for (const c of custom.slice(0, 40)) {
+      const clean = cleanCustomCat(c, out);
+      if (clean && !out.some((x) => x.name === clean.name && x.type === clean.type)) out.push(clean);
+    }
+    const keep = new Set(out.map((c) => c.id));
+    for (const t of user.txs) if (t.categoryId?.startsWith('c_') && !keep.has(t.categoryId)) t.categoryId = FALLBACK[t.type];
+    for (const r of user.recurring || []) if (r.categoryId?.startsWith('c_') && !keep.has(r.categoryId)) r.categoryId = FALLBACK[r.type];
+    for (const [k, id] of Object.entries(user.settings.customKeywords || {})) if (id.startsWith('c_') && !keep.has(id)) delete user.settings.customKeywords[k];
+    for (const id of Object.keys(user.settings.catBudgets || {})) if (id.startsWith('c_') && !keep.has(id)) delete user.settings.catBudgets[id];
+    user.settings.customCats = out;
+  }
+  return categoryCatalog(user);
 }
 
 // ---------------- กระเป๋าเงิน (บัญชีธนาคาร / e-Wallet / บัตรเครดิต / เงินสด) ----------------
