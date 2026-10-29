@@ -108,7 +108,7 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
           const span = el('span');
           span.textContent = sp.text;
           if (sp.color) span.style.color = sp.color;
-          if (sp.weight === 'bold') span.style.fontWeight = '700';
+          if (sp.weight === 'bold') span.classList.add('fx-b');
           if (sp.size) span.style.fontSize = `${FS[sp.size] || parseInt(sp.size, 10) || 16}px`;
           node.append(span);
         }
@@ -116,7 +116,7 @@ function renderNode(n, onAction, parentLayout = 'vertical', isFirst = false) {
       const s = node.style;
       s.fontSize = `${FS[n.size || 'md'] || parseInt(n.size, 10) || 16}px`;
       if (n.color) s.color = n.color;
-      if (n.weight === 'bold') s.fontWeight = '700';
+      if (n.weight === 'bold') node.classList.add('fx-b');
       if (n.align) s.textAlign = n.align === 'start' ? 'left' : n.align === 'end' ? 'right' : 'center';
       if (!n.wrap) node.classList.add('fx-nowrap');
       if (n.gravity) s.alignSelf = n.gravity === 'center' ? 'center' : n.gravity === 'bottom' ? 'flex-end' : 'flex-start';

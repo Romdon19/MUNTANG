@@ -73,13 +73,15 @@ button { cursor: pointer; }
 .fx-horizontal { flex-direction: row; }
 .fx-baseline { flex-direction: row; align-items: baseline; }
 .fx-text { line-height: 1.4; overflow-wrap: anywhere; white-space: pre-line; }
+/* ตัวหนาในการ์ดแชท = Kanit เหมือนหัวข้อ/ตัวเลขในแอป */
+.fx-b { font-family: var(--font-display); font-weight: 500; }
 .fx-text.fx-nowrap { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fx-image { display: flex; }
 .fx-image img { display: block; max-width: 100%; }
 .fx-sep { height: 1px; background: #ddd; flex: 0 0 auto; }
 .fx-sep.fx-sep-v { width: 1px; height: auto; }
 .fx-filler { flex: 1 1 0; }
-.fx-button { border: 0; border-radius: 10px; font-weight: 700; font-size: 14px; padding: 0 12px; width: 100%; }
+.fx-button { border: 0; border-radius: 10px; font-family: var(--font-display); font-weight: 500; font-size: 14px; padding: 0 12px; width: 100%; }
 .fx-primary { background: #17c950; color: #fff; }
 .fx-secondary { background: #dcdfe5; color: #111; }
 .fx-link { background: transparent; }
