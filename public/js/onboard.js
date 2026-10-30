@@ -64,29 +64,30 @@ function head(ob, title, sub) {
 const foot = (label, { act = 'obnext', disabled = false, skip = '' } = {}) =>
   `<footer class="ob-foot">${skip ? `<button class="ob-skip" data-act="obskip">${skip}</button>` : ''}<button class="mt-btn ob-next" data-act="${act}" ${disabled ? 'disabled' : ''}>${label}</button></footer>`;
 
-/** โทรศัพท์จำลองบนการ์ดฟีเจอร์ */
-const phone = (inner) => `<div class="ob-phone" aria-hidden="true"><div class="ob-phone-bar"><i></i></div>${inner}</div>`;
+/** การ์ดฟีเจอร์หน้าแรก (ตามดีไซน์: การ์ดเหลือง ข้อความขาว สลับซ้าย-ขวา ภาพประกอบอีกฝั่ง) */
 const FEATURES = [
   {
     t: 'จดผ่านแชท LINE',
-    d: 'พิมพ์ "ข้าวมันไก่ 50" ส่งเหมือนคุยกับเพื่อน ไม่ต้องโหลดแอปเพิ่ม',
-    m: () =>
-      phone(`<div class="ob-bub is-me">ข้าวมันไก่ 50</div>
-        <div class="ob-card"><small>จดสำเร็จ ✅</small><div class="ob-row"><span>🍜 ข้าวมันไก่</span><b class="num">฿50</b></div><i class="ob-bar"><b style="width:38%"></b></i></div>`),
+    d: 'พิมพ์ “กาแฟ 50” ส่งเหมือนคุยกับเพื่อน ไม่ต้องโหลดแอปเพิ่ม',
+    side: 'right',
+    art: `<div class="ob-art-phone"><i class="ob-art-notch"></i>
+        <span class="ob-art-bub">กาแฟ 50</span>
+        <span class="ob-art-ok"><small>จดสำเร็จ ✅</small><b class="num">฿50</b></span></div>`,
   },
   {
     t: 'ส่งสลิป อ่านให้เอง',
     d: 'ถ่ายรูปสลิปหรือใบเสร็จ ส่งมา นายหัวหมุนอ่านยอดและจัดหมวดให้',
-    m: () =>
-      phone(`<div class="ob-bub is-me ob-slip"><i></i><i></i><i></i><b class="num">฿1,250</b></div>
-        <div class="ob-card"><small>อ่านสลิปสำเร็จ 🧾</small><div class="ob-row"><span>🛍️ ช้อปปิ้ง</span><b class="num">฿1,250</b></div></div>`),
+    side: 'left',
+    art: `<div class="ob-art-slip"><i></i><i></i><i class="is-s"></i><b class="num">฿1,250</b><i></i><i class="is-s"></i></div>
+        <span class="ob-art-scan"></span><span class="ob-art-check">✓</span>`,
   },
   {
     t: 'รู้ทันงบ ทุกบัญชี',
     d: 'งบรายวัน บัตรเครดิต หนี้ผ่อน และกระเป๋าเงินทุกใบ ในที่เดียว',
-    m: () =>
-      phone(`<div class="ob-card"><small>ใช้ได้อีกวันละ</small><b class="ob-big num">฿420</b><i class="ob-bar"><b style="width:62%"></b></i></div>
-        <div class="ob-chips"><span>💵 ฿1,200</span><span>🏦 ฿18,400</span><span>💳 ฿3,150</span></div>`),
+    side: 'right',
+    art: `<div class="ob-art-budget"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17" class="t"/><circle cx="22" cy="22" r="17" class="v" pathLength="100" stroke-dasharray="62 100"/></svg>
+        <span><small>ใช้ได้วันละ</small><b class="num">฿420</b></span></div>
+        <span class="ob-art-coins"><i></i><i></i><i></i></span>`,
   },
 ];
 
@@ -122,9 +123,8 @@ export function onboardHTML(ob, data, { logoUrl = '', moods = {} } = {}) {
   const mascot = (lvl = 'calm') => `<img class="ob-mascot" src="${esc(moods[lvl] || logoUrl)}" alt="">`;
   let inner = '';
   if (step === 'welcome') {
-    inner = `<header class="ob-head"><span></span><span></span><span></span></header>
-      <div class="ob-hello">${mascot('calm')}<h1>ยินดีต้อนรับ<br>สู่หมุนตังค์</h1><p>สวัสดี ${esc(data.user.name)} ผม "นายหัวหมุน" ผู้ช่วยจดเงินใน LINE ของคุณ</p></div>
-      <div class="ob-feats">${FEATURES.map((f, k) => `<article class="ob-feat"><div class="ob-feat-m">${f.m()}</div><div><b><span class="num">${k + 1}</span>${f.t}</b><p>${f.d}</p></div></article>`).join('')}</div>
+    inner = `<div class="ob-hello ob-hello-w">${mascot('spin')}<h1>ยินดีต้อนรับสู่หมุนตังค์</h1><p>ผู้ช่วยจัดการเรื่องเงินของคุณ</p></div>
+      <div class="ob-feats">${FEATURES.map((f) => `<article class="ob-feat is-${f.side}"><div class="ob-feat-art" aria-hidden="true">${f.art}</div><div class="ob-feat-t"><h2>${f.t}</h2><p>${f.d}</p></div></article>`).join('')}</div>
       ${foot('เริ่มตั้งค่า →')}`;
   } else if (step === 'heard') {
     inner = `${head(ob, 'รู้จักหมุนตังค์จากช่องทางไหน?', 'ช่วยบอกหน่อย จะได้รู้ว่าควรไปทักทายเพื่อนใหม่ที่ไหน')}
