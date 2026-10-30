@@ -72,3 +72,11 @@
 .sim-goal-t { display: flex; flex-direction: column; align-items: flex-start; }
 .sim-goal-t b { font-size: 14px; font-weight: 500; }
 .sim-goal-t small { font-size: 10.5px; color: var(--muted); font-family: var(--font-body); }
+
+/* ภาพริชเมนูจริง + ช่องกดโปร่งใส */
+.sim-rich.is-img { display: block; position: relative; padding: 0; background: #fff; border-top: 1px solid var(--border); }
+.sim-rich.is-img img { display: block; width: 100%; height: auto; }
+.sim-rich.is-img button[data-rich] { position: absolute; background: transparent; border-radius: 0; padding: 0; }
+.sim-rich.is-img button[data-rich]:hover { background: rgba(255, 255, 255, 0.18); }
+.sim-rich.is-img button[data-rich]:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }
+.sim-rich.is-img .sim-swap { position: absolute; right: 6px; top: 6px; padding: 3px 9px; border-radius: 999px; font-size: 10.5px; background: rgba(20, 20, 20, 0.72); color: #fff; font-family: var(--font-body); font-weight: 500; }

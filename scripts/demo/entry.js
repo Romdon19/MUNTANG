@@ -6,6 +6,7 @@ import { mountDashboard } from '../../public/js/dashboard.js';
 const logo = document.getElementById('mt-logo-src').getAttribute('src');
 const moods = JSON.parse(document.getElementById('mt-moods').textContent);
 const iconMap = JSON.parse(document.getElementById('mt-icons').textContent);
+const menuImages = JSON.parse(document.getElementById('mt-menus').textContent);
 const backend = localBackend({ logoUrl: logo, moods, iconMap });
 const shell = document.querySelector('.demo');
 
@@ -23,6 +24,7 @@ backend.authenticate().then(() => {
   };
   mountSimulator(document.getElementById('demo-chat'), backend, {
     logoUrl: logo,
+    menuImages,
     moods,
     onChange: () => dash.refresh(),
     onRichUri: (view) => openDash(view),

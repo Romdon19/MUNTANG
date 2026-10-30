@@ -3,7 +3,7 @@
 import { createLine } from './line.js';
 import { createAI } from './ai.js';
 import { createAuth } from './auth.js';
-import { setupRichMenu, imagePaths } from './richmenu.js';
+import { setupRichMenu, imagePaths, createMenuLinker } from './richmenu.js';
 import { createBot } from './core/bot.js';
 import * as ops from './core/ops.js';
 import { seedDemo } from './core/demo.js';
@@ -30,6 +30,10 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
   const ai = createAI(cfg) || freeAi || null;
   const auth = createAuth(cfg.appSecret);
   const hasLine = !!(cfg.lineChannelSecret && cfg.lineAccessToken);
+  const linkMenu = hasLine ? createMenuLinker(cfg) : null;
+  // LINE ID ของ OA (อ่านครั้งเดียวต่อ instance) สำหรับปุ่มเชิญเพื่อน
+  let oaIdP = null;
+  const oaId = () => (hasLine ? (oaIdP ||= line.basicId().catch(() => ((oaIdP = null), null))) : Promise.resolve(null));
 
   /** ลิงก์และโลโก้ในข้อความ สำหรับสมุดบัญชีหนึ่งเล่ม (ผู้ใช้ หรือกลุ่ม) */
   async function ctxFor(ledgerId, origin) {
@@ -63,6 +67,9 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
       logoUrl: ctx.logoUrl,
       moods: ctx.moods,
       iconUrl: ctx.iconUrl,
+      oaId: await oaId(),
+      linkMenu: linkMenu || undefined,
+      unlinkMenu: hasLine ? (id) => line.unlinkMenu(id) : undefined,
       links: { dashboard: () => ctx.links.dashboard, export: () => ctx.links.export, view: ctx.links.view, edit: ctx.links.edit },
       getProfile: hasLine ? (id) => (id.startsWith('U') ? line.profile(id) : null) : undefined,
       getGroupName: hasLine ? (id) => line.groupName(id) : undefined,
@@ -83,6 +90,8 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
     const bot = await botFor(userId, origin);
     const user = await bot.loadUser(userId);
     const result = await fn(user);
+    // ตั้งค่าเสร็จในแอป (หน้า "ติดตั้งครั้งแรก") → เปลี่ยนเป็นริชเมนูฉบับใช้งาน
+    if (linkMenu && ops.readyForMainMenu(user)) await linkMenu(user).catch(() => false);
     await store.save(user);
     return result;
   }
@@ -164,15 +173,16 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
   async function adminRichMenu(_req, url) {
     if (!cfg.adminKey || url.searchParams.get('key') !== cfg.adminKey) return text('ต้องใส่ ?key= ให้ตรงกับ APP_SECRET', 403);
     try {
-      const layout = url.searchParams.get('layout') || cfg.richMenuLayout || 'grid';
-      let image = null;
-      for (const p of imagePaths(layout)) {
-        image = await loadAsset(p).catch(() => null);
-        if (image) break;
-      }
-      if (!image) throw new Error(`ไม่เจอไฟล์ภาพ ${imagePaths(layout).join(' หรือ ')}`);
-      const r = await setupRichMenu(cfg, image, layout);
-      return text(`✅ ตั้ง Rich Menu แบบ ${r.layout} เรียบร้อย (${r.richMenuId})\nปุ่มแดชบอร์ดเปิดด้วย ${r.dashboard}\nปิดแอป LINE แล้วเปิดใหม่เพื่อดูเมนู`);
+      const layout = url.searchParams.get('layout') || cfg.richMenuLayout || 'duo';
+      const load = async (name) => {
+        for (const p of imagePaths(name)) {
+          const img = await loadAsset(p).catch(() => null);
+          if (img) return img;
+        }
+        return null;
+      };
+      const r = await setupRichMenu(cfg, load, layout);
+      return text(`✅ ตั้ง Rich Menu แบบ ${r.layout} เรียบร้อย (${Object.entries(r.ids).map(([k, v]) => `${k}: ${v}`).join(', ')})${r.layout === 'duo' ? '\nผู้ใช้ใหม่เห็นฉบับเริ่มต้น · ตั้งค่าเสร็จหรือจดรายการแรกแล้วเปลี่ยนเป็นฉบับใช้งานให้เอง' : ''}\nปุ่มแดชบอร์ดเปิดด้วย ${r.dashboard}\nปิดแอป LINE แล้วเปิดใหม่เพื่อดูเมนู`);
     } catch (e) {
       return text(`❌ ${e.message}`, 500);
     }

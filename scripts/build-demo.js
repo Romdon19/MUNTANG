@@ -31,12 +31,15 @@ const moods = JSON.stringify(Object.fromEntries(['idle', 'calm', 'ok', 'dizzy', 
 // ไอคอนธนาคารทั้งหมดฝังในไฟล์เดียว
 const iconDir = path.join(root, 'public/assets/banks');
 const icons = JSON.stringify(Object.fromEntries(fs.readdirSync(iconDir).filter((f) => f.endsWith('.png')).map((f) => [f.slice(0, -4), `data:image/png;base64,${fs.readFileSync(path.join(iconDir, f)).toString('base64')}`])));
+// ภาพริชเมนูจริง (ฉบับเริ่มต้น / ฉบับใช้งาน)
+const menus = JSON.stringify(Object.fromEntries(['start', 'main'].map((k) => [k, `data:image/jpeg;base64,${fs.readFileSync(path.join(root, `public/assets/richmenu-${k}.jpg`)).toString('base64')}`])));
 const html = fs
   .readFileSync(path.join(root, 'scripts/demo/template.html'), 'utf8')
   .replace('/*__CSS__*/', () => css)
   .replaceAll('__LOGO__', () => logo)
   .replace('__MOODS__', () => moods)
   .replace('__ICONS__', () => icons)
+  .replace('__MENUS__', () => menus)
   .replace('/*__JS__*/', () => js);
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(root, 'dist/muntang-demo.html'), html);

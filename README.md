@@ -6,7 +6,7 @@
 
 ธีม **Premium Tech Creator**: Deep Space Black `#0D0D0D` · Carbon `#1A1A1A` · Cosmic Gold `#FFC400` · Neon Amber `#FFB300` · Moon White `#F5F5F5` พร้อมมาสคอต "นายหัวหมุน"
 
-![Rich menu](public/assets/richmenu.png)
+![Rich menu](public/assets/richmenu-main.jpg)
 
 ## ดีไซน์
 
@@ -51,7 +51,7 @@
 | Streak จดต่อเนื่อง / No-Spend Day | `วันนี้ไม่ได้ใช้เงิน` |
 | ส่งออก Excel/CSV | `ส่งออก` |
 | แดชบอร์ด LIFF | ภาพรวมรายเดือน, กราฟรายวัน, อันดับหมวด, ค้นหา/กรอง, เพิ่ม-แก้-ลบรายการ, งบรายหมวด, เป้าหมาย, รายการประจำ, ตั้งค่า |
-| Rich Menu | 3 แบบ: `grid` · `banner` (แบนเนอร์เดียว) · `banner4` (แบนเนอร์ + ทางลัด 4 ช่อง) — สเปกออกแบบเอง: [docs/richmenu-spec.md](docs/richmenu-spec.md) |
+| Rich Menu | 2 เมนู (`duo`): ฉบับเริ่มต้นสำหรับผู้ใช้ใหม่ → เปลี่ยนเป็นฉบับใช้งานเองเมื่อตั้งค่าเสร็จ/จดรายการแรก · ปุ่ม PRO และเชิญเพื่อน (แชร์ OA) · แบบเมนูเดียว `grid` · `banner` · `banner4` — สเปกออกแบบเอง: [docs/richmenu-spec.md](docs/richmenu-spec.md) |
 | ติดตั้งครั้งแรก | หน้า LIFF `?view=onboard`: ยินดีต้อนรับ → รู้จักจากไหน → เลือกหมวดรายจ่าย/รายรับ (ปิดหมวด · เพิ่มหมวดเอง) → รอบเดือน · งบ · เวลาเตือน → พร้อมใช้งาน |
 
 ## ลองเล่นทันที (ไม่ต้องมีบัญชี LINE)
@@ -99,7 +99,7 @@ Developers Console → Messaging API → Webhook URL = `https://<โดเมน
 - ใส่ `LIFF_ID` และ `LINE_LOGIN_CHANNEL_ID` แล้วเปลี่ยน channel เป็น **Published**
 
 ### 5. Rich Menu
-เปิด `https://<โดเมน>/admin/setup-richmenu?key=<APP_SECRET>&layout=grid|banner|banner4` ในเบราว์เซอร์ (กดซ้ำได้ เมนูเก่าจะถูกแทนที่) หรือ `npm run richmenu:setup -- banner4` · สเปกภาพ: [docs/richmenu-spec.md](docs/richmenu-spec.md)
+เปิด `https://<โดเมน>/admin/setup-richmenu?key=<APP_SECRET>` ในเบราว์เซอร์ (ค่าเริ่มต้น duo · หรือ `&layout=grid|banner|banner4`) (กดซ้ำได้ เมนูเก่าจะถูกแทนที่) หรือ `npm run richmenu:setup -- banner4` · สเปกภาพ: [docs/richmenu-spec.md](docs/richmenu-spec.md)
 
 ### 6. AI อ่านสลิป
 - **ฟรี (ค่าเริ่มต้นบน Cloudflare):** ใช้ Cloudflare Workers AI (`@cf/meta/llama-4-scout-17b-16e-instruct`) ผ่าน binding `AI` ไม่ต้องมี API key ใช้โควตาฟรีรายวันของบัญชี อ่านรูปสลิป/ใบเสร็จและประโยคยาวได้ แต่ **อ่าน PDF ไม่ได้** · เปลี่ยนโมเดลด้วย `WORKERS_AI_MODEL` หรือปิดด้วย `FREE_AI=off`

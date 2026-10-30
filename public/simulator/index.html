@@ -23,6 +23,7 @@
     mountSimulator(document.getElementById('sim'), remoteBackend(), {
       logoUrl: '/assets/logo-256.png',
       moods: moodPics('/assets'),
+      menuImages: { start: '/assets/richmenu-start.jpg', main: '/assets/richmenu-main.jpg' },
       onUri: (uri) => window.open(uri, '_blank', 'noopener'),
     });
   </script>

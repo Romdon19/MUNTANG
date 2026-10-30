@@ -624,6 +624,30 @@ export function welcomeMessage(name, ctx) {
   return flex('ยินดีต้อนรับสู่หมุนตังค์', bubble({ title: 'หมุนตังค์', subtitle: 'ผู้ช่วยจดเงินใน LINE', body, footer, ctx }));
 }
 
+/** ปุ่ม "เชิญเพื่อน" ในริชเมนู: แชร์บัญชี LINE OA ให้เพื่อน */
+export function inviteMessage(ctx) {
+  const id = ctx?.oaId;
+  const body = [
+    text('จดเงินคนเดียวหัวหมุน ชวนเพื่อนมาหมุนด้วยกัน 🌀', { weight: 'bold', wrap: true }),
+    text('เพื่อนแค่เพิ่มเพื่อนแล้วพิมพ์ "ข้าว 50" ก็เริ่มจดได้เลย ฟรี ไม่ต้องโหลดแอป', { size: 'sm', color: C.muted, margin: 'md', wrap: true }),
+    ...(id ? [text(`LINE ID: ${id}`, { size: 'xs', color: C.muted, margin: 'lg' })] : []),
+  ];
+  const footer = id
+    ? [btn('แชร์ให้เพื่อน', uri(`https://line.me/R/nv/recommendOA/${encodeURIComponent(id)}`), { style: 'primary', color: C.ink }), btn('ชวนเข้ากลุ่ม จดร่วมกัน', msg('วิธีใช้กลุ่ม'))]
+    : [btn('ชวนเข้ากลุ่ม จดร่วมกัน', msg('วิธีใช้กลุ่ม'), { style: 'primary', color: C.ink })];
+  return flex('เชิญเพื่อนมาใช้หมุนตังค์', bubble({ title: 'เชิญเพื่อน', subtitle: 'แชร์หมุนตังค์ให้คนที่อยากเก็บเงิน', body, footer, ctx }));
+}
+
+/** ปุ่ม PRO ในริชเมนู (ยังไม่เปิดขาย ตอนนี้ใช้ได้ทุกฟีเจอร์) */
+export function proMessage(ctx) {
+  const body = [
+    text('หมุนตังค์ PRO กำลังจะมาเร็วๆ นี้ 👑', { weight: 'bold', wrap: true }),
+    text('ช่วงนี้ใช้ได้ทุกฟีเจอร์ฟรี ทั้งอ่านสลิป ข้อความเสียง กระเป๋าหลายบัญชี บัตรเครดิต หนี้ผ่อน และสุขภาพการเงิน', { size: 'sm', color: C.muted, margin: 'md', wrap: true }),
+  ];
+  const footer = [btn('ดูสุขภาพการเงิน', msg('สุขภาพการเงิน'), { style: 'primary', color: C.ink }), btn('วิธีใช้ทั้งหมด', msg('วิธีใช้'))];
+  return flex('หมุนตังค์ PRO', bubble({ title: 'หมุนตังค์ PRO', subtitle: 'ฟีเจอร์พิเศษสำหรับสายหมุนเงินจริงจัง', body, footer, ctx }));
+}
+
 /** ชวนเปิดหน้า "ติดตั้งครั้งแรก" ใน LIFF (เลือกหมวด · รอบเดือน · งบ) */
 export function onboardMessage(ctx) {
   const step = (n, t) =>

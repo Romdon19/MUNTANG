@@ -415,6 +415,11 @@ export function applySettings(user, b = {}) {
   user.alerts = {};
 }
 
+/** ถึงเวลาใช้ริชเมนู "ฉบับใช้งาน" หรือยัง (ตั้งค่าเสร็จ หรือเริ่มจดแล้ว) */
+export function readyForMainMenu(user) {
+  return /^U/.test(user.id || '') && !!(user.settings.onboarded || user.txs.length);
+}
+
 /**
  * เลือกหมวดที่ใช้ (หน้า "ติดตั้งครั้งแรก" / ตั้งค่า)
  * { enabled: [id…] (หมวดตั้งต้นที่เปิด), custom: [{ id?, name, emoji, type }] }

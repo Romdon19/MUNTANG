@@ -85,7 +85,8 @@ export function mountDashboard(root, backend, opts = {}) {
         st.pendingEdit = null;
       }
       // ผู้ใช้ใหม่ที่ยังไม่ตั้งค่า → เปิดหน้าติดตั้งครั้งแรกให้เอง (ครั้งเดียว)
-      if (st.obAuto === 'open' || (st.obAuto === 'check' && !st.data.settings.onboarded && !st.data.txs.length && !backend.reset)) st.ob = newOnboard(st.data);
+      // (ลิงก์ ?view=onboard จากริชเมนูฉบับเริ่มต้น: คนที่ตั้งค่าแล้วไปหน้าหลักแทน)
+      if (!st.data.settings.onboarded && (st.obAuto === 'open' || (st.obAuto === 'check' && !st.data.txs.length && !backend.reset))) st.ob = newOnboard(st.data);
       st.obAuto = null;
       if (st.pendingAcct) {
         if (acctById(st.pendingAcct)) st.sheet = { kind: 'acct', id: st.pendingAcct };

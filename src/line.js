@@ -33,6 +33,13 @@ export function createLine(cfg) {
         return false;
       }
     },
+    /** LINE ID ของบัญชี OA เช่น @123abcd (ใช้ทำลิงก์เชิญเพื่อน) */
+    async basicId() {
+      const info = await call(`${API}/info`, null, 'GET');
+      return info.basicId || null;
+    },
+    /** ยกเลิกเมนูที่ผูกรายคน → กลับไปเห็นเมนูตั้งต้น */
+    unlinkMenu: (userId) => call(`${API}/user/${userId}/richmenu`, null, 'DELETE'),
     reply: (replyToken, messages) => call(`${API}/message/reply`, { replyToken, messages }),
     push: (to, messages) => call(`${API}/message/push`, { to, messages }),
     async profile(userId) {

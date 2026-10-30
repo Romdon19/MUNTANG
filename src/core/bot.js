@@ -59,6 +59,7 @@ export function createBot(deps) {
       logoUrl: deps.logoUrl,
       moods: deps.moods,
       iconUrl: deps.iconUrl,
+      oaId: deps.oaId,
       accounts: ops.accountList(user, now()),
       cats: user.settings.customCats || [],
       hiddenCats: user.settings.hiddenCats || [],
@@ -356,6 +357,9 @@ export function createBot(deps) {
 
     if (['ตั้งค่า', 'ตั้งค่าเริ่มต้น', 'setup', 'ติดตั้ง', 'ติดตั้งครั้งแรก'].includes(t)) return [ctx.links.view ? ui.onboardMessage(ctx) : ui.setupMessage('cycle', user)];
     if (['ตั้งค่าในแชท', 'ตั้งค่าแชท'].includes(t)) return [ui.setupMessage('cycle', user)];
+    if (['pro', 'โปร', 'หมุนตังค์ pro'].includes(t)) return [ui.proMessage(ctx)];
+    if (['เชิญเพื่อน', 'ชวนเพื่อน', 'แชร์', 'invite'].includes(t)) return [ui.inviteMessage(ctx)];
+    if (['วิธีใช้กลุ่ม', 'ใช้ในกลุ่ม', 'จดในกลุ่ม'].includes(t)) return [ui.groupWelcomeMessage(ctx)];
     if (['จด', 'จดรายการ', 'จดรายรับรายจ่าย', 'บันทึก'].includes(t)) return [ui.recordPromptMessage()];
     if (['ลบข้อมูล', 'ลบข้อมูลทั้งหมด', 'ล้างข้อมูล', 'ลบบัญชี', 'ลบทั้งหมด', 'delete my data'].includes(t)) {
       if (sess.isGroup) return [ui.textMsg('การลบข้อมูลของกลุ่มทำได้จากแดชบอร์ดของกลุ่ม (หน้า ตั้งค่า) เพื่อกันการกดพลาดในแชทกลุ่มนะ')];
@@ -839,9 +843,12 @@ export function createBot(deps) {
       await deps.files?.deletePrefix?.(ops.filesPrefix(user.id)).catch((e) => console.error('delete files failed', e.message));
       if (mode === 'all' && deps.store.delete) {
         await deps.store.delete(user.id);
+        await deps.unlinkMenu?.(user.id).catch(() => {}); // กลับไปเห็นเมนูฉบับเริ่มต้น
         return { userId: ledgerId, messages };
       }
     }
+    // ผู้ใช้ใหม่เห็นริชเมนูฉบับเริ่มต้น พอตั้งค่าเสร็จ/เริ่มจด → เปลี่ยนเป็นฉบับใช้งาน
+    if (deps.linkMenu && ops.readyForMainMenu(user)) await deps.linkMenu(user).catch(() => false);
     await deps.store.save(user);
     return { userId: ledgerId, messages: messages.slice(0, 5) };
   }

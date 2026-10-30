@@ -1,5 +1,7 @@
-// หน้าแชทจำลอง LINE — mountSimulator(root, backend, { logoUrl, onUri, onRichUri, onChange })
+// หน้าแชทจำลอง LINE — mountSimulator(root, backend, { logoUrl, menuImages: { start, main }, onUri, onRichUri, onChange })
+// ถ้ามี menuImages จะแสดงภาพริชเมนูจริง (ช่องกดตาม LAYOUTS) แทนเมนูที่วาดเอง
 import { renderFlex } from './flex-render.js';
+import { LAYOUTS } from '../core/richmenu-layout.js';
 
 const HISTORY_KEY = 'muntang-sim-history-v1';
 
@@ -49,7 +51,8 @@ export function mountSimulator(root, backend, opts = {}) {
       <button type="submit" class="sim-send" aria-label="ส่ง">➤</button>
     </form>
     <button class="sim-menu-toggle" type="button" aria-expanded="true">เมนู ▾</button>
-    <nav class="sim-rich">${RICH_MENU.map((m, i) =>
+    ${opts.menuImages ? '<nav class="sim-rich is-img"></nav>' : ''}
+    <nav class="sim-rich" ${opts.menuImages ? 'hidden data-legacy' : ''}>${RICH_MENU.map((m, i) =>
       m.id === 'rec'
         ? `<button type="button" class="is-rec" data-rich="${i}"><b>จด</b><em>รายรับ · รายจ่าย</em>${logo ? `<img src="${logo}" alt="">` : ''}</button>`
         : m.id === 'goal'
@@ -60,7 +63,22 @@ export function mountSimulator(root, backend, opts = {}) {
   const log = root.querySelector('.sim-log');
   const qr = root.querySelector('.sim-qr');
   const input = root.querySelector('#sim-text');
-  const rich = root.querySelector('.sim-rich');
+  const rich = root.querySelector(opts.menuImages ? '.sim-rich.is-img' : '.sim-rich');
+  root.querySelector('[data-legacy]')?.remove();
+  // ช่องกดของภาพริชเมนู (พิกัดเป็น % ของภาพ) — page() เปิดหน้าใน LIFF, ไม่งั้นส่งข้อความ
+  let menuKind = 'main';
+  let imgAreas = [];
+  function drawImageMenu(kind) {
+    if (!opts.menuImages) return;
+    menuKind = kind;
+    const L = LAYOUTS[kind];
+    imgAreas = L.areas((label, view, text) => ({ label, view, text })).map((a) => ({ ...a.action, b: a.bounds }));
+    const pct = (v, of) => `${((v / of) * 100).toFixed(3)}%`;
+    rich.innerHTML = `<img src="${opts.menuImages[kind]}" alt="ริชเมนู${kind === 'start' ? 'ฉบับเริ่มต้น' : ''} หมุนตังค์">${imgAreas
+      .map((a, i) => `<button type="button" data-rich="${i}" aria-label="${a.label}" style="left:${pct(a.b.x, L.size.width)};top:${pct(a.b.y, L.size.height)};width:${pct(a.b.width, L.size.width)};height:${pct(a.b.height, L.size.height)}"></button>`)
+      .join('')}<button type="button" class="sim-swap" data-swap>${kind === 'start' ? 'ดูฉบับใช้งาน' : 'ดูฉบับเริ่มต้น'}</button>`;
+  }
+  drawImageMenu('main');
   const toggle = root.querySelector('.sim-menu-toggle');
   let history = [];
   let busy = false;
@@ -209,9 +227,10 @@ export function mountSimulator(root, backend, opts = {}) {
   });
 
   rich.addEventListener('click', (e) => {
+    if (e.target.closest('[data-swap]')) return drawImageMenu(menuKind === 'start' ? 'main' : 'start');
     const b = e.target.closest('[data-rich]');
     if (!b) return;
-    const m = RICH_MENU[Number(b.dataset.rich)];
+    const m = (opts.menuImages ? imgAreas : RICH_MENU)[Number(b.dataset.rich)];
     if (m.view && opts.onRichUri) opts.onRichUri(m.view);
     else sendText(m.text);
   });
