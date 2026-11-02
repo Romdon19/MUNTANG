@@ -3,13 +3,13 @@ import { todayStr, addDays, monthKey } from './dates.js';
 import * as ops from './ops.js';
 
 const DAILY = [
-  ['กาแฟ', 'food', 45, 75],
+  ['กาแฟ', 'cafe', 45, 75],
   ['ข้าวมันไก่', 'food', 50, 60],
   ['ข้าวกะเพรา', 'food', 55, 70],
-  ['ชานมไข่มุก', 'food', 40, 65],
+  ['ชานมไข่มุก', 'cafe', 40, 65],
   ['BTS', 'transport', 32, 59],
   ['วินมอไซ', 'transport', 20, 40],
-  ['เซเว่น', 'shopping', 35, 120],
+  ['เซเว่น', 'groceries', 35, 120],
   ['ส้มตำ', 'food', 60, 90],
 ];
 const OCCASIONAL = [
@@ -17,10 +17,10 @@ const OCCASIONAL = [
   ['Grab', 'transport', 89, 180],
   ['Shopee', 'shopping', 199, 890],
   ['ดูหนัง', 'fun', 220, 360],
-  ['เติมน้ำมัน', 'transport', 500, 800],
+  ['เติมน้ำมัน', 'fuel', 500, 800],
   ['ตัดผม', 'beauty', 150, 300],
   ['ยาแก้ปวด', 'health', 60, 150],
-  ['ทำบุญ', 'family', 100, 300],
+  ['ทำบุญ', 'donation', 100, 300],
 ];
 
 function rng(seed) {
@@ -73,7 +73,7 @@ export function seedDemo(user, now = new Date()) {
       add(d, note, cat, between(a, b), 'expense', rand() > 0.35 ? 'card' : 'kcard');
     }
     const day = Number(d.slice(8, 10));
-    if (day === 1) add(d, 'ค่าห้อง', 'bills', 4500, 'expense', 'bank');
+    if (day === 1) add(d, 'ค่าห้อง', 'housing', 4500, 'expense', 'bank');
     if (day === 5) add(d, 'ค่าเน็ต', 'bills', 599, 'expense', 'bank');
     if (day === 1) add(d, 'เงินเดือน', 'salary', 21000, 'income', 'bank');
     if (day === 20) add(d, 'งานฟรีแลนซ์', 'freelance', between(2000, 4000), 'income', 'bank');
@@ -89,6 +89,15 @@ export function seedDemo(user, now = new Date()) {
     if (day === 25 && bal.card.used > 0) move(d, 'bank', 'card', bal.card.used);
     if (day === 1 && bal.kcard.payNow > 0) move(d, 'bank', 'kcard', bal.kcard.payNow);
   }
+  // ทริปตัวอย่าง: เชียงใหม่ 3 วัน เมื่อ ~40 วันก่อน
+  user.trips = [];
+  const tStart = addDays(today, -42);
+  const trip = ops.addTrip(user, { name: 'เชียงใหม่', emoji: '⛰️', start: tStart, end: addDays(tStart, 2), budget: 8000 }, now);
+  for (const [k, note, cat, amount, w] of [
+    [0, 'เติมน้ำมันไปเชียงใหม่', 'fuel', 1200, 'card'], [0, 'โรงแรมนิมมาน 2 คืน', 'travel', 2600, 'kcard'], [0, 'ข้าวซอย', 'food', 120, 'cash'],
+    [1, 'คาเฟ่ดอยสุเทพ', 'cafe', 180, 'cash'], [1, 'ค่าเข้าชมสวน', 'travel', 200, 'cash'], [1, 'ขันโตก', 'food', 650, 'bank'],
+    [2, 'ของฝาก', 'travel', 900, 'bank'], [2, 'เติมน้ำมันกลับ', 'fuel', 1100, 'card'],
+  ]) ops.addTx(user, { date: addDays(tStart, k), note, categoryId: cat, amount, wallet: w, trip: trip.id }, 'chat');
   // createdAt ให้ตรงกับวันที่ (สำหรับนับ streak)
   for (const t of user.txs) t.createdAt = `${t.date}T12:00:00.000Z`;
   user.settings.monthlyBudget = 18000;
@@ -101,9 +110,9 @@ export function seedDemo(user, now = new Date()) {
   ops.depositGoal(user, g2.id, 21000);
   user.recurring = [];
   const month = monthKey(today);
-  ops.addRecurring(user, { note: 'ค่าห้อง', amount: 4500, categoryId: 'bills', day: 1, wallet: 'bank' }).lastRun = month;
+  ops.addRecurring(user, { note: 'ค่าห้อง', amount: 4500, categoryId: 'housing', day: 1, wallet: 'bank' }).lastRun = month;
   ops.addRecurring(user, { note: 'ค่าเน็ต', amount: 599, categoryId: 'bills', day: 5, wallet: 'bank' }).lastRun = month;
-  ops.addRecurring(user, { note: 'Netflix', amount: 419, categoryId: 'fun', day: 12, wallet: 'card' });
+  ops.addRecurring(user, { note: 'Netflix', amount: 419, categoryId: 'subscription', day: 12, wallet: 'card' });
   user.alerts = {};
   return user;
 }

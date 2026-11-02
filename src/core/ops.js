@@ -38,6 +38,7 @@ export function newUser(id, profile = {}) {
     accounts: defaultAccounts(),
     transfers: [],
     goals: [],
+    trips: [],
     recurring: [],
     slipRefs: [],
     alerts: {},
@@ -50,6 +51,7 @@ export function normalizeUser(u) {
   const out = { ...base, ...u, settings: { ...base.settings, ...(u.settings || {}) } };
   if (!Array.isArray(out.accounts) || !out.accounts.length) out.accounts = defaultAccounts();
   if (!Array.isArray(out.transfers)) out.transfers = [];
+  if (!Array.isArray(out.trips)) out.trips = [];
   return out;
 }
 
@@ -83,6 +85,9 @@ export function addTx(user, input, source = 'chat') {
   if (input.meta) tx.meta = input.meta;
   if (input.countIn) tx.countIn = true;
   if (input.countOut) tx.countOut = true;
+  // ทริป: ระบุมาเอง (id / '' = ไม่ใช่ค่าทริป) หรือจดระหว่างทริปที่กำลังเที่ยว → ติดป้ายทริปให้เอง
+  const trip = input.trip !== undefined ? findTrip(user, input.trip)?.id : ['recurring', 'pdf'].includes(source) ? null : autoTrip(user, tx);
+  if (trip) tx.trip = trip;
   user.txs.push(tx);
   return tx;
 }
@@ -96,6 +101,11 @@ export function updateTx(user, id, patch) {
     if (!(k in patch)) continue;
     if (patch[k]) tx[k] = true;
     else delete tx[k];
+  }
+  if ('trip' in patch) {
+    const t = findTrip(user, patch.trip);
+    if (t) tx.trip = t.id;
+    else delete tx.trip;
   }
   return tx;
 }
@@ -136,6 +146,8 @@ export function summarize(txs) {
       byWallet[t.wallet] = (byWallet[t.wallet] || 0) + t.amount;
     }
   }
+  // ค่าทริป (ไปเที่ยว/งานพิเศษ) แยกจากรายจ่ายประจำวัน
+  const tripExpense = txs.reduce((a, t) => a + (t.type === 'expense' && t.trip ? t.amount : 0), 0);
   const incomeByCat = {};
   for (const t of txs) if (t.type === 'income') incomeByCat[t.categoryId] = (incomeByCat[t.categoryId] || 0) + t.amount;
   const cats = Object.entries(byCat)
@@ -144,7 +156,7 @@ export function summarize(txs) {
   const incomeCats = Object.entries(incomeByCat)
     .map(([id, total]) => ({ id, total }))
     .sort((a, b) => b.total - a.total);
-  return { income, expense, net: income - expense, count: txs.length, cats, incomeCats, byDay, byWallet };
+  return { income, expense, net: income - expense, count: txs.length, cats, incomeCats, byDay, byWallet, tripExpense, dailyExpense: expense - tripExpense };
 }
 
 export function summaryFor(user, rangeName, now = new Date()) {
@@ -378,6 +390,7 @@ export function publicState(user, { aiEnabled = false, now = new Date() } = {}) 
     settings: { ...user.settings, customKeywords: undefined },
     txs: user.txs,
     goals: user.goals,
+    trips: tripList(user, now),
     recurring: user.recurring,
     budget,
     streak: streak(user, now),
@@ -645,4 +658,89 @@ export function insightsFor(user, now = new Date()) {
   const budget = budgetStatus(user, now);
   const balances = accountBalances(user, budget, now);
   return insights(user, now, { budget, balances, totals: accountTotals(balances) });
+}
+
+// ---------------- ทริป (ไปเที่ยว · งานพิเศษ) ----------------
+// รายการที่ติดป้ายทริปยังเป็นรายจ่ายตามหมวดปกติ แต่สรุปแยกได้ว่า "ค่าทริป" vs "ประจำวัน"
+
+export function findTrip(user, q) {
+  if (!q) return null;
+  const trips = user.trips || [];
+  const s = String(q).trim().replace(/^#/, '').toLowerCase();
+  return trips.find((t) => t.id === q) || trips.find((t) => t.name.toLowerCase() === s) || trips.find((t) => s.length >= 2 && t.name.toLowerCase().includes(s)) || null;
+}
+
+/** ทริปที่กำลังเที่ยวอยู่ (เริ่มแล้ว ยังไม่จบ) */
+export function activeTrip(user, now = new Date()) {
+  const today = todayStr(now);
+  return (user.trips || []).find((t) => !t.end && t.start <= today) || null;
+}
+
+/** จดระหว่างทริป (วันที่อยู่ในช่วงทริปที่ยังไม่จบ) → ติดป้ายทริปให้ */
+function autoTrip(user, tx) {
+  const t = (user.trips || []).find((x) => !x.end && x.start <= tx.date);
+  return t && tx.type === 'expense' ? t.id : null;
+}
+
+export function addTrip(user, { name, emoji, start, end, budget } = {}, now = new Date()) {
+  const n = String(name || '').trim().replace(/^#/, '').slice(0, 30);
+  if (!n) throw new Error('ตั้งชื่อทริปก่อน เช่น เชียงใหม่');
+  user.trips ||= [];
+  if (user.trips.length >= 100) throw new Error('มีทริปได้สูงสุด 100 ทริป');
+  if (findTrip(user, n)?.name === n) throw new Error(`มีทริป "${n}" แล้ว`);
+  const today = todayStr(now);
+  const t = {
+    id: newId('trip'),
+    name: n,
+    emoji: [...String(emoji || '').trim()].slice(0, 2).join('') || '🧳',
+    start: /^\d{4}-\d{2}-\d{2}$/.test(start || '') ? start : today,
+    end: /^\d{4}-\d{2}-\d{2}$/.test(end || '') ? end : null,
+    budget: Math.max(0, money2(budget)) || 0,
+    createdAt: now.toISOString(),
+  };
+  // ทริปเดียวที่กำลังเที่ยว: เริ่มทริปใหม่ = จบทริปเก่าที่ค้างอยู่
+  if (!t.end) for (const o of user.trips) if (!o.end) o.end = today;
+  user.trips.push(t);
+  return t;
+}
+
+export function updateTrip(user, id, patch = {}, now = new Date()) {
+  const t = findTrip(user, id);
+  if (!t) return null;
+  if (patch.name) t.name = String(patch.name).trim().slice(0, 30) || t.name;
+  if (patch.emoji) t.emoji = [...String(patch.emoji).trim()].slice(0, 2).join('') || t.emoji;
+  if (patch.budget !== undefined) t.budget = Math.max(0, money2(patch.budget)) || 0;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(patch.start || '')) t.start = patch.start;
+  if (patch.end === null || patch.end === '') t.end = null;
+  else if (patch.end === true || patch.end === 'today') t.end = todayStr(now);
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(patch.end || '')) t.end = patch.end;
+  return t;
+}
+
+/** ลบทริป: รายการยังอยู่ แค่เอาป้ายทริปออก */
+export function deleteTrip(user, id) {
+  const i = (user.trips || []).findIndex((t) => t.id === id);
+  if (i < 0) return null;
+  for (const tx of user.txs) if (tx.trip === id) delete tx.trip;
+  return user.trips.splice(i, 1)[0];
+}
+
+/** สรุปทริป: ใช้ไปเท่าไร หมวดไหน วันละเท่าไร */
+export function tripSummary(user, id, now = new Date()) {
+  const t = findTrip(user, id);
+  if (!t) return null;
+  const txs = user.txs.filter((x) => x.trip === t.id);
+  const s = summarize(txs);
+  const last = t.end || todayStr(now);
+  const days = Math.max(1, diffDays(t.start, last < t.start ? t.start : last) + 1);
+  return { ...t, active: !t.end, txs, ...s, days, perDay: Math.round(s.expense / days), budgetLeft: t.budget ? t.budget - s.expense : null };
+}
+
+export function tripList(user, now = new Date()) {
+  return (user.trips || [])
+    .map((t) => {
+      const { txs, byDay, byWallet, ...rest } = tripSummary(user, t.id, now);
+      return { ...rest, count: txs.length };
+    })
+    .sort((a, b) => (a.active !== b.active ? (a.active ? -1 : 1) : a.start < b.start ? 1 : -1));
 }

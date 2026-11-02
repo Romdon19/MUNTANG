@@ -51,8 +51,10 @@ export function mountDashboard(root, backend, opts = {}) {
     listMode: 'list', // รายการ | ปฏิทิน | สลิป
     rp: { period: 'cycle', offset: 0, tab: 'overview', chart: 'donut', show: { income: true, expense: true, transfer: true, debt: false } }, // หน้ารายงาน
     day: '', // วันที่เลือกในปฏิทิน
-    an: 'overview', // แท็บย่อยหน้าวิเคราะห์: ภาพรวม | หมวด · บัญชี | สุขภาพการเงิน
+    an: opts.trip ? 'trip' : 'overview', // แท็บย่อยหน้าวิเคราะห์: ภาพรวม | หมวด · บัญชี | สุขภาพการเงิน
     ob: null, // หน้า "ติดตั้งครั้งแรก" (ถ้าเปิดอยู่)
+    trip: opts.trip || '', // ทริปที่เปิดดูในแท็บวิเคราะห์ › ทริป
+    tripF: '', // กรองหน้ารายการตามทริป
     obAuto: opts.view === 'onboard' ? 'open' : 'check',
   };
 
@@ -259,6 +261,7 @@ export function mountDashboard(root, backend, opts = {}) {
             </section>`
           : ''
       }
+      ${activeTripStrip()}
       ${walletStrip()}
       <section class="mt-card">
         <div class="mt-card-h"><h3>ล่าสุด</h3><button class="mt-link" data-act="tab" data-tab="list">ทั้งหมด ›</button></div>
@@ -606,10 +609,66 @@ export function mountDashboard(root, backend, opts = {}) {
       <div class="mt-row-h"><h3 class="mt-sec">รอบบัญชี</h3>${cycleSwitch()}</div>`;
   }
 
+  // ---------------- ทริป ----------------
+  const tripById = (id) => (st.data.trips || []).find((t) => t.id === id);
+  const activeTripOf = () => (st.data.trips || []).find((t) => t.active);
+  const tripDates = (t) => `${thaiDate(t.start, { year: false })}${t.end && t.end !== t.start ? ` – ${thaiDate(t.end, { year: false })}` : t.end ? '' : ' – ตอนนี้'} · ${t.days} วัน`;
+
+  function activeTripStrip() {
+    const t = activeTripOf();
+    if (!t) return '';
+    return `<section class="mt-card mt-tripnow">
+      <button class="mt-tripnow-b" data-act="opentrip" data-id="${t.id}"><span class="mt-trip-emo">${esc(t.emoji)}</span>
+        <span class="mt-tx-main"><b>กำลังเที่ยว ${esc(t.name)}</b><span class="mt-sub">ใช้ไป <b class="num">${money(t.expense)}</b> · วันละ ${money(t.perDay)}${t.budget ? ` · เหลืองบ ${money(t.budgetLeft)}` : ''}</span>${t.budget ? bar(t.expense / t.budget, t.budgetLeft < 0 ? 'var(--red)' : 'var(--accent)') : ''}</span></button>
+      <button class="mt-btn-s" data-act="endtrip" data-id="${t.id}">จบทริป</button></section>`;
+  }
+
+  function tripsView() {
+    const trips = st.data.trips || [];
+    const sel = tripById(st.trip);
+    const s = summarize(cycleTxs());
+    const split = `<section class="mt-card"><div class="mt-card-h"><h3>รอบนี้ใช้ไป</h3>${cycleSwitch()}</div>
+      <div class="mt-hero-row mt-split"><div><span>🏠 ประจำวัน</span><b class="num">${money(s.dailyExpense ?? s.expense)}</b></div><div><span>🧳 ค่าทริป</span><b class="num">${money(s.tripExpense || 0)}</b></div></div>
+      ${s.expense ? bar((s.dailyExpense ?? s.expense) / s.expense, 'var(--ink)') : ''}
+      <p class="mt-sub">ไปเที่ยวหรือมีงานพิเศษ กด "เริ่มทริป" ก่อน รายจ่ายระหว่างนั้นจะแยกเป็นค่าทริปให้เอง · ในแชทพิมพ์ "เริ่มทริป เชียงใหม่ งบ 8000" หรือใส่ #ชื่อทริป ท้ายรายการ</p></section>`;
+    if (sel) {
+      const list = st.data.txs.filter((t) => t.trip === sel.id && t.type === 'expense');
+      const cats = summarize(list).cats;
+      return `${split}<section class="mt-card mt-tripcard">
+        <div class="mt-card-h"><h3>${esc(sel.emoji)} ${esc(sel.name)}</h3><button class="mt-link" data-act="opentrip" data-id="">ทริปทั้งหมด ›</button></div>
+        <div class="mt-big num">${money(sel.expense)}</div>
+        <p class="mt-sub">${tripDates(sel)} · เฉลี่ยวันละ ${money(sel.perDay)} · ${list.length} รายการ</p>
+        ${sel.budget ? `${bar(sel.expense / sel.budget, sel.budgetLeft < 0 ? 'var(--red)' : 'var(--accent)')}<p class="mt-sub">${sel.budgetLeft >= 0 ? `เหลืองบทริป ${money(sel.budgetLeft)} จาก ${money(sel.budget)}` : `เกินงบทริป ${money(-sel.budgetLeft)}`}</p>` : ''}
+        <ul class="mt-catlist">${cats
+          .map((c) => `<li><div class="mt-catrow"><span class="mt-catic">${cat(c.id).emoji}</span><span class="mt-catname">${esc(cat(c.id).name)}${bar(c.total / (cats[0].total || 1), 'var(--c-exp)')}</span><b class="num">${money(c.total)}</b></div></li>`)
+          .join('') || '<li class="mt-empty">ยังไม่มีรายจ่ายในทริปนี้</li>'}</ul>
+        <div class="mt-chips">
+          <button class="mt-chip" data-act="tripfilter" data-id="${sel.id}">ดูรายการทั้งหมด</button>
+          <button class="mt-chip" data-act="add" data-trip="${sel.id}">+ จดค่าทริป</button>
+          <button class="mt-chip" data-act="edittrip" data-id="${sel.id}">แก้ไขทริป</button>
+          ${sel.active ? `<button class="mt-chip is-on" data-act="endtrip" data-id="${sel.id}">จบทริป</button>` : ''}
+        </div></section>`;
+    }
+    return `${split}
+      <div class="mt-row-h"><h3 class="mt-sec">ทริปของฉัน</h3><button class="mt-btn-s" data-act="newtrip">+ เริ่มทริป</button></div>
+      ${
+        trips.length
+          ? `<ul class="mt-trips">${trips
+              .map(
+                (t) => `<li><button class="mt-tripcard-b" data-act="opentrip" data-id="${t.id}"><span class="mt-trip-emo">${esc(t.emoji)}</span>
+                  <span class="mt-tx-main"><b>${esc(t.name)}${t.active ? ' <em class="mt-chip-s is-good">กำลังเที่ยว</em>' : ''}</b><span class="mt-sub">${tripDates(t)} · ${t.count} รายการ</span>${t.budget ? bar(t.expense / t.budget, t.budgetLeft < 0 ? 'var(--red)' : 'var(--accent)') : ''}</span>
+                  <b class="num">${money(t.expense)}</b></button></li>`
+              )
+              .join('')}</ul>`
+          : `<section class="mt-card"><p class="mt-empty">ยังไม่มีทริป เริ่มทริปแรกก่อนไปเที่ยวได้เลย 🧳</p><button class="mt-btn" data-act="newtrip">เริ่มทริป</button></section>`
+      }`;
+  }
+
   function analysisView() {
     const tab = (v, l) => `<button class="${st.an === v ? 'is-on' : ''}" data-act="antab" data-v="${v}">${l}</button>`;
-    const head = `<div class="mt-row-h"><h2>วิเคราะห์</h2></div><div class="mt-tabs">${tab('overview', 'ภาพรวม')}${tab('category', 'หมวด · บัญชี')}${tab('health', 'สุขภาพการเงิน')}</div>`;
+    const head = `<div class="mt-row-h"><h2>วิเคราะห์</h2></div><div class="mt-tabs">${tab('overview', 'ภาพรวม')}${tab('category', 'หมวด · บัญชี')}${tab('trip', 'ทริป')}${tab('health', 'สุขภาพการเงิน')}</div>`;
     if (st.an === 'health') return head + insightsBlock() + cycleAnalysis();
+    if (st.an === 'trip') return head + tripsView();
     return head + reportView(st.an);
   }
 
@@ -805,7 +864,8 @@ export function mountDashboard(root, backend, opts = {}) {
 
   // ---------------- รายการ ----------------
   function listView() {
-    let txs = cycleTxs();
+    // กรองตามทริป: ดูทุกรายการของทริปนั้น ไม่จำกัดรอบบัญชี
+    let txs = st.tripF ? st.data.txs.filter((t) => t.trip === st.tripF) : cycleTxs();
     if (st.type !== 'all') txs = txs.filter((t) => t.type === st.type);
     if (st.cat) txs = txs.filter((t) => t.categoryId === st.cat);
     if (st.wallet) txs = txs.filter((t) => t.wallet === st.wallet);
@@ -830,6 +890,7 @@ export function mountDashboard(root, backend, opts = {}) {
         <div class="mt-chips">${chip('all', 'ทั้งหมด')}${chip('expense', 'รายจ่าย')}${chip('income', 'รายรับ')}
           ${st.cat ? `<button class="mt-chip is-on" data-act="filtercat" data-id="">${cat(st.cat).emoji} ${esc(cat(st.cat).name)} ✕</button>` : ''}
           ${st.wallet ? `<button class="mt-chip is-on" data-act="acctlist" data-id="">${wallet(st.wallet).emoji} ${esc(wallet(st.wallet).name)} ✕</button>` : ''}
+          ${st.tripF && tripById(st.tripF) ? `<button class="mt-chip is-on" data-act="tripfilter" data-id="">${esc(tripById(st.tripF).emoji)} ${esc(tripById(st.tripF).name)} ✕</button>` : ''}
         </div>
       </div>
       <div class="mt-list-sum"><span class="mt-sub">${txs.length} รายการ · จ่าย <b class="num">${money(s.expense)}</b> · รับ <b class="num is-inc">${money(s.income)}</b></span><button class="mt-btn-s" data-act="add">+ จดรายการ</button></div>
@@ -1213,6 +1274,13 @@ export function mountDashboard(root, backend, opts = {}) {
             return `<label class="mt-check mt-backdate"><input type="checkbox" name="countIn" ${checked ? 'checked' : ''}> นับรวมในยอดคงเหลือ ${esc(w.name)}</label>
               <span class="mt-sub">จดย้อนหลังได้ตามสบาย ระบบนับเข้ายอดให้ · เอาติ๊กออกถ้ายอดที่ตั้งไว้เมื่อ ${thaiDate(w.since)} รวมเงินก้อนนี้แล้ว (กันนับซ้ำ)</span>`;
           })()}
+          ${(() => {
+            // ทริป: จดใหม่ระหว่างทริปที่กำลังเที่ยว → เลือกทริปนั้นไว้ให้
+            const trips = (st.data.trips || []).filter((x) => x.active || x.id === (sh.trip ?? t.trip) || x.start >= addDays(todayStr(), -120)).slice(0, 12);
+            if (!trips.length) return '';
+            const cur = sh.trip ?? (sh.tx ? t.trip || '' : type === 'expense' ? activeTripOf()?.id || '' : '');
+            return `<label for="mt-txtrip">ทริป</label><select id="mt-txtrip" name="trip"><option value="">🏠 ไม่ใช่ค่าทริป (ประจำวัน)</option>${trips.map((x) => `<option value="${x.id}" ${x.id === cur ? 'selected' : ''}>${esc(x.emoji)} ${esc(x.name)}${x.active ? ' (กำลังเที่ยว)' : ''}</option>`).join('')}</select>`;
+          })()}
           ${sh.tx?.by ? `<p class="mt-sub">จดโดย ${esc(sh.tx.by)}</p>` : ''}
           ${sh.tx?.attachment && backend.fileUrl ? `<a class="mt-attach" href="${esc(backend.fileUrl(sh.tx.attachment))}" target="_blank" rel="noopener"><img src="${esc(backend.fileUrl(sh.tx.attachment))}" alt="รูปหลักฐานของรายการนี้" loading="lazy"><span>📎 หลักฐาน · แตะเพื่อดูเต็ม</span></a>` : ''}
           <button class="mt-btn" type="submit">${sh.tx ? 'บันทึกการแก้ไข' : 'บันทึก'}</button>
@@ -1394,6 +1462,20 @@ export function mountDashboard(root, backend, opts = {}) {
         <input id="mt-wipe" name="confirm" autocomplete="off" placeholder="ลบ" required>
         <button class="mt-btn is-danger" type="submit">${all ? 'ลบบัญชีถาวร' : 'ล้างรายการทั้งหมด'}</button>
         <button class="mt-btn is-ghost" type="button" data-act="close">ยกเลิก</button></form>`;
+    } else if (sh.kind === 'trip') {
+      const t = sh.id ? tripById(sh.id) : null;
+      inner = `<form class="mt-form" data-form="trip">
+          <p class="mt-sub">รายจ่ายที่จดตั้งแต่วันเริ่ม จนกว่าจะกด "จบทริป" จะติดป้ายทริปนี้ให้เอง ยังอยู่หมวดเดิม (อาหาร น้ำมัน ที่พัก) แต่สรุปแยกเป็นค่าทริปได้</p>
+          <div class="mt-row2"><div><label for="mt-tripemo">ไอคอน</label><input id="mt-tripemo" name="emoji" value="${esc(t?.emoji || '🧳')}" maxlength="4"></div>
+          <div><label for="mt-tripname">ชื่อทริป</label><input id="mt-tripname" name="name" value="${esc(t?.name || '')}" placeholder="เช่น เชียงใหม่, งานแต่งเพื่อน" maxlength="30" required></div></div>
+          <div class="mt-emo-pick">${['🧳', '✈️', '🏖️', '⛰️', '🏕️', '🚗', '🏯', '🎡', '💒', '🎓', '🏥', '🎉', '🍜', '🗼'].map((e) => `<button type="button" data-act="pickemo" data-v="${e}">${e}</button>`).join('')}</div>
+          <div class="mt-row2"><div><label for="mt-tripstart">เริ่มวันที่</label><input id="mt-tripstart" name="start" type="date" value="${t?.start || todayStr()}"></div>
+          <div><label for="mt-tripend">ถึงวันที่ (ว่าง = ยังเที่ยวอยู่)</label><input id="mt-tripend" name="end" type="date" value="${t?.end || ''}"></div></div>
+          <label for="mt-tripbud">งบทริป (ไม่ใส่ก็ได้)</label>
+          <div class="mt-amount is-sm"><span>฿</span><input id="mt-tripbud" name="budget" type="number" step="any" inputmode="decimal" min="0" value="${t?.budget || ''}" placeholder="0"></div>
+          <button class="mt-btn" type="submit">${t ? 'บันทึก' : 'เริ่มทริป'}</button>
+          ${t ? (sh.confirmDel ? `<button class="mt-btn is-danger" type="button" data-act="deltrip" data-id="${t.id}">ยืนยันลบทริป (รายการยังอยู่ แค่เอาป้ายทริปออก)</button>` : '<button class="mt-btn is-ghost is-danger-text" type="button" data-act="askdeltrip">ลบทริป</button>') : ''}
+        </form>`;
     } else if (sh.kind === 'csv') {
       inner = `<p class="mt-sub">ในเดโมนี้ดาวน์โหลดไฟล์ไม่ได้ คัดลอกข้อความด้านล่างไปวางใน Excel หรือ Google Sheets แทนได้ (ตัวจริงบนเซิร์ฟเวอร์ดาวน์โหลดเป็นไฟล์ .csv)</p>
         <textarea id="mt-csv" class="mt-csv" readonly rows="10">${esc(sh.csv.replace(/^﻿/, ''))}</textarea>
@@ -1412,6 +1494,7 @@ export function mountDashboard(root, backend, opts = {}) {
       goal: 'เป้าหมายใหม่',
       deposit: 'หยอดกระปุก',
       rec: 'รายการประจำใหม่',
+      trip: sh.id ? 'แก้ไขทริป' : 'เริ่มทริปใหม่',
     };
     return `<div class="mt-scrim" data-act="close"></div>
       <div class="mt-sheet" role="dialog" aria-modal="true" aria-label="${esc(titles[sh.kind])}">
@@ -1498,7 +1581,7 @@ export function mountDashboard(root, backend, opts = {}) {
       const f = root.querySelector('form[data-form="tx"]');
       if (!f) return;
       const fd = new FormData(f);
-      Object.assign(sh, { amount: fd.get('amount'), note: fd.get('note'), date: fd.get('date'), wallet: fd.get('wallet'), ...(fd.has('countIn') || f.querySelector('[name=countIn]') ? { countIn: fd.get('countIn') === 'on' } : {}) });
+      Object.assign(sh, { amount: fd.get('amount'), note: fd.get('note'), date: fd.get('date'), wallet: fd.get('wallet'), ...(fd.has('trip') ? { trip: fd.get('trip') } : {}), ...(fd.has('countIn') || f.querySelector('[name=countIn]') ? { countIn: fd.get('countIn') === 'on' } : {}) });
     };
     if (st.ob) return onboardClick(a, b);
     switch (a) {
@@ -1539,6 +1622,43 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'antab':
         st.an = b.dataset.v;
         render();
+        break;
+      case 'opentrip':
+        st.tab = 'analysis';
+        st.an = 'trip';
+        st.trip = b.dataset.id || '';
+        st.sheet = null;
+        render();
+        root.querySelector('.mt-main')?.scrollTo(0, 0);
+        break;
+      case 'tripfilter':
+        st.tripF = b.dataset.id || '';
+        if (st.tripF) {
+          st.tab = 'list';
+          st.listMode = 'list';
+        }
+        render();
+        break;
+      case 'newtrip':
+      case 'edittrip':
+        st.sheet = { kind: 'trip', id: b.dataset.id || '' };
+        render();
+        break;
+      case 'pickemo': {
+        const i = root.querySelector('#mt-tripemo');
+        if (i) i.value = b.dataset.v;
+        break;
+      }
+      case 'askdeltrip':
+        sh.confirmDel = true;
+        render();
+        break;
+      case 'deltrip':
+        st.trip = '';
+        act(() => backend.deleteTrip(b.dataset.id), 'ลบทริปแล้ว รายการยังอยู่ครบ');
+        break;
+      case 'endtrip':
+        act(() => backend.updateTrip(b.dataset.id, { end: 'today' }), '🏠 จบทริปแล้ว รายจ่ายต่อจากนี้เป็นประจำวัน');
         break;
       case 'rptab':
         st.rp.tab = b.dataset.v;
@@ -1646,7 +1766,7 @@ export function mountDashboard(root, backend, opts = {}) {
         root.querySelector('.mt-main')?.scrollTo(0, 0);
         break;
       case 'add':
-        st.sheet = { kind: 'tx', ...(b.dataset.date ? { date: b.dataset.date } : {}) };
+        st.sheet = { kind: 'tx', ...(b.dataset.date ? { date: b.dataset.date } : {}), ...(b.dataset.trip ? { trip: b.dataset.trip } : {}) };
         render();
         root.querySelector('#mt-amount')?.focus();
         break;
@@ -1875,6 +1995,17 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'xfer':
         act(() => backend.addTransfer({ ...fd, amount: Number(fd.amount), ...(f.querySelector('[name=countIn]') ? { countIn: fd.countIn === 'on', countOut: fd.countIn !== 'on' } : {}) }), fd.to && acctById(fd.to)?.type === 'card' ? '💳 บันทึกการจ่ายบัตรแล้ว' : '⇄ บันทึกการโอนแล้ว');
         break;
+      case 'trip': {
+        const body = { name: fd.name, emoji: fd.emoji, start: fd.start, end: fd.end || null, budget: Number(fd.budget) || 0 };
+        if (st.sheet.id) act(() => backend.updateTrip(st.sheet.id, body), 'บันทึกทริปแล้ว');
+        else
+          act(async () => {
+            const r = await backend.addTrip(body);
+            st.an = 'trip';
+            st.trip = r.trip?.id || '';
+          }, `🧳 เริ่มทริป ${fd.name} แล้ว รายจ่ายจากนี้เข้าค่าทริปให้เอง`);
+        break;
+      }
       case 'goal':
         act(() => backend.addGoal({ name: fd.name, target: Number(fd.target), emoji: fd.emoji }), 'สร้างเป้าหมายแล้ว');
         break;
@@ -1912,7 +2043,12 @@ export function mountDashboard(root, backend, opts = {}) {
     show(view, editId) {
       // view อาจมีพารามิเตอร์ต่อท้าย เช่น "wallets&acct=<id>" (ลิงก์จากการ์ดบัญชีในแชท)
       const [tab, ...rest] = String(view || '').split('&');
-      const acct = new URLSearchParams(rest.join('&')).get('acct');
+      const q = new URLSearchParams(rest.join('&'));
+      const acct = q.get('acct');
+      if (q.get('trip')) {
+        st.an = 'trip';
+        st.trip = q.get('trip');
+      }
       if (tab === 'onboard' && st.data) st.ob = newOnboard(st.data);
       if (TABS.includes(tab)) st.tab = tab;
       if (acct && st.data && acctById(acct)) st.sheet = { kind: 'acct', id: acct };

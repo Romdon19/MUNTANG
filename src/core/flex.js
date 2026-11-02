@@ -343,6 +343,8 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
     })
   );
   if (txs.length === 1) body.push(sep({ margin: 'md' }), ...walletChips(main, info.accounts || ctx?.accounts, info.defaultWallet, ctx));
+  const tripName = txs.find((x) => x.trip) && info.tripNames?.[txs.find((x) => x.trip).trip];
+  if (tripName) body.push(box('horizontal', [tag('ค่าทริป', C.gold, C.goldText), text(tripName, { size: 'xs', weight: 'bold', margin: 'sm', gravity: 'center' })], { margin: 'md' }));
 
   return bubble({ title, subtitle, body, ctx });
 }
@@ -352,6 +354,7 @@ function entryQuickReplies(txs, ctx) {
   const others = categoriesOf(t.type, ctx).filter((c) => c.id !== t.categoryId).slice(0, 8);
   return quickReplies([
     ...(txs.length === 1 ? others.map((c) => ({ label: `${c.emoji} ${c.name}`, data: `action=cat&id=${t.id}&c=${c.id}`, displayText: `ย้ายไปหมวด ${c.name}` })) : []),
+    ...(txs.some((x) => x.trip) ? [{ label: '🏠 ไม่ใช่ค่าทริป', data: `action=untrip&ids=${txs.filter((x) => x.trip).map((x) => x.id).join(',')}`, displayText: 'ไม่ใช่ค่าทริป (รายจ่ายประจำวัน)' }] : []),
     { label: '🗑 ยกเลิกทั้งหมด', data: `action=undo&ids=${txs.map((x) => x.id).join(',')}`, displayText: 'ยกเลิกรายการที่เพิ่งจด' },
     { label: '📊 สรุปวันนี้', text: 'สรุปวันนี้' },
   ]);
@@ -486,6 +489,12 @@ export function summaryMessage(s, ctx, { budget } = {}) {
       { spacing: 'sm', margin: 'lg' }
     ),
   ];
+  // แยกค่าทริปออกจากรายจ่ายประจำวัน
+  if (s.tripExpense > 0) {
+    body.push(
+      box('horizontal', [text('🏠 ประจำวัน', { size: 'xs', color: C.muted, flex: 3 }), text(money(s.dailyExpense), { size: 'sm', weight: 'bold', align: 'end', flex: 3 }), text('🧳 ค่าทริป', { size: 'xs', color: C.muted, flex: 3, margin: 'lg' }), text(money(s.tripExpense), { size: 'sm', weight: 'bold', align: 'end', flex: 3 })], { margin: 'md', alignItems: 'center' })
+    );
+  }
   if (!s.cats.length) {
     body.push(text('ยังไม่มีรายจ่ายในช่วงนี้ ลองพิมพ์ "ข้าว 50" ดูสิ', { color: C.muted, size: 'xs', margin: 'lg' }));
   } else {
@@ -623,6 +632,46 @@ export function welcomeMessage(name, ctx) {
   ];
   const footer = [btn('ลองจดรายการแรก', msg('กาแฟ 45')), btn('วิธีใช้ทั้งหมด', msg('วิธีใช้'), { style: 'primary', color: C.ink })];
   return flex('ยินดีต้อนรับสู่หมุนตังค์', bubble({ title: 'หมุนตังค์', subtitle: 'ผู้ช่วยจดเงินใน LINE', body, footer, ctx }));
+}
+
+// ---------- ทริป ----------
+const tripRange = (t) => `${thaiDate(t.start, { year: false })}${t.end && t.end !== t.start ? ` – ${thaiDate(t.end, { year: false })}` : t.end ? '' : ' – ตอนนี้'} · ${t.days} วัน`;
+
+/** สรุปทริปเดียว: ใช้ไปเท่าไร วันละเท่าไร หมวดไหน */
+export function tripMessage(t, ctx, { started = false, ended = false } = {}) {
+  const body = [
+    text(t.active ? 'กำลังเที่ยว' : 'จบทริปแล้ว', { size: 'xs', color: C.muted, align: 'center' }),
+    text(money(t.expense), { size: '3xl', weight: 'bold', align: 'center' }),
+    text(`${tripRange(t)} · เฉลี่ยวันละ ${money(t.perDay)}`, { size: 'xs', color: C.muted, align: 'center' }),
+  ];
+  if (t.budget) {
+    const p = t.expense / t.budget;
+    body.push(bar(p, budgetColor(p), 6), text(t.budgetLeft >= 0 ? `เหลืองบทริป ${money(t.budgetLeft)} จาก ${money(t.budget)}` : `เกินงบทริป ${money(-t.budgetLeft)}`, { size: 'xs', color: t.budgetLeft < 0 ? C.red : C.muted, align: 'center', margin: 'sm' }));
+  }
+  if (t.cats.length) {
+    body.push(sep({ margin: 'lg' }));
+    for (const c of t.cats.slice(0, 6)) {
+      const cat = getCategory(c.id, ctx);
+      body.push(box('horizontal', [text(cat.emoji, { flex: 0 }), text(cat.name, { flex: 5, margin: 'md' }), text(money(c.total), { flex: 3, align: 'end', weight: 'bold' })], { margin: 'md', alignItems: 'center' }));
+    }
+  } else body.push(text(started ? 'จดได้ตามปกติเลย เช่น "ค่าน้ำมัน 800" "โรงแรม 1500" ระหว่างทริปนี้รายจ่ายจะเข้า "ค่าทริป" ให้เอง จบทริปพิมพ์ "จบทริป"' : 'ยังไม่มีรายจ่ายในทริปนี้', { size: 'xs', color: C.muted, margin: 'lg' }));
+  const footer = [
+    ...(t.active ? [btn('จบทริป', msg('จบทริป'), { style: 'primary', color: C.ink })] : []),
+    ...(ctx?.links?.view ? [btn('ดูรายการทั้งหมด', uri(ctx.links.view(`analysis&trip=${t.id}`)))] : [btn('ทริปทั้งหมด', msg('ทริปทั้งหมด'))]),
+  ];
+  const title = started ? `เริ่มทริป ${t.emoji} ${t.name}` : `${t.emoji} ${t.name}`;
+  const subtitle = started ? 'เที่ยวให้สนุก เดี๋ยวนายหัวหมุนจดค่าทริปแยกให้' : ended ? `จบทริปแล้ว ${t.count || t.txs?.length || 0} รายการ` : 'สรุปค่าทริป';
+  return flex(`${title} ใช้ไป ${money(t.expense)}`, bubble({ title, subtitle, body, footer, ctx }));
+}
+
+export function tripsMessage(trips, ctx) {
+  const body = trips.length
+    ? trips.slice(0, 10).map((t) =>
+        box('horizontal', [text(t.emoji, { flex: 0 }), box('vertical', [text(t.name, { weight: 'bold' }), text(tripRange(t), { size: 'xxs', color: C.muted })], { margin: 'md', flex: 5 }), text(money(t.expense), { flex: 3, align: 'end', weight: 'bold', gravity: 'center' })], { margin: 'md', alignItems: 'center', action: msg(`สรุปทริป ${t.name}`) })
+      )
+    : [text('ยังไม่มีทริป', { weight: 'bold' })];
+  body.push(sep({ margin: 'lg' }), text('เริ่มทริป: "เริ่มทริป เชียงใหม่ งบ 8000"\nจบ: "จบทริป" · ติดป้ายเอง: "โรงแรม 1200 #เชียงใหม่"', { size: 'xxs', color: C.muted, margin: 'md' }));
+  return flex('ทริปทั้งหมด', bubble({ title: 'ทริปของฉัน', subtitle: 'ค่าเที่ยวแยกจากรายจ่ายประจำวัน', body, ctx }));
 }
 
 /** ปุ่ม "เชิญเพื่อน" ในริชเมนู: แชร์บัญชี LINE OA ให้เพื่อน */

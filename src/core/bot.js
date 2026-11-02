@@ -83,6 +83,7 @@ export function createBot(deps) {
       cycleStartDay: user.settings.cycleStartDay,
       accounts: ops.accountList(user, n),
       defaultWallet: user.settings.defaultWallet,
+      tripNames: Object.fromEntries((user.trips || []).map((t) => [t.id, `${t.emoji} ${t.name}`])),
     };
   }
 
@@ -358,6 +359,27 @@ export function createBot(deps) {
     if (['ตั้งค่า', 'ตั้งค่าเริ่มต้น', 'setup', 'ติดตั้ง', 'ติดตั้งครั้งแรก'].includes(t)) return [ctx.links.view ? ui.onboardMessage(ctx) : ui.setupMessage('cycle', user)];
     if (['ตั้งค่าในแชท', 'ตั้งค่าแชท'].includes(t)) return [ui.setupMessage('cycle', user)];
     if (['pro', 'โปร', 'หมุนตังค์ pro'].includes(t)) return [ui.proMessage(ctx)];
+
+    // ---------- ทริป ----------
+    let tm = raw.trim().match(/^(?:เริ่ม)?ทริป(?:ใหม่)?\s+(?!ทั้งหมด)(.+?)(?:\s+งบ\s*([\d,]+(?:\.\d+)?)\s*(k|K|พัน|หมื่น)?)?$/);
+    if (tm && /^(เริ่มทริป|ทริปใหม่)/.test(raw.trim())) {
+      const budget = tm[2] ? Number(tm[2].replace(/,/g, '')) * (tm[3] === 'หมื่น' ? 10000 : tm[3] ? 1000 : 1) : 0;
+      const trip = ops.addTrip(user, { name: tm[1], budget }, now());
+      return [ui.tripMessage(ops.tripSummary(user, trip.id, now()), ctx, { started: true })];
+    }
+    if (['จบทริป', 'ปิดทริป', 'กลับบ้านแล้ว', 'เที่ยวเสร็จแล้ว'].includes(t)) {
+      const a = ops.activeTrip(user, now());
+      if (!a) return [ui.textMsg('ตอนนี้ไม่มีทริปที่กำลังเที่ยวอยู่ เริ่มทริปได้โดยพิมพ์ "เริ่มทริป เชียงใหม่"')];
+      ops.updateTrip(user, a.id, { end: 'today' }, now());
+      return [ui.tripMessage(ops.tripSummary(user, a.id, now()), ctx, { ended: true })];
+    }
+    if (['ทริปทั้งหมด', 'ทริปของฉัน', 'trips'].includes(t)) return [ui.tripsMessage(ops.tripList(user, now()), ctx)];
+    tm = raw.trim().match(/^(?:สรุป)?ทริป(?:\s+(.+))?$/);
+    if (tm) {
+      const trip = tm[1] ? ops.findTrip(user, tm[1]) : ops.activeTrip(user, now()) || ops.tripList(user, now())[0];
+      if (!trip) return [ui.textMsg(tm[1] ? `ไม่เจอทริป "${tm[1]}" พิมพ์ "ทริปทั้งหมด" เพื่อดูรายชื่อ` : 'ยังไม่มีทริปเลย 🧳\nพิมพ์ "เริ่มทริป เชียงใหม่" ก่อนไปเที่ยว รายจ่ายระหว่างทริปจะแยกเป็น "ค่าทริป" ให้เอง\nหรือใส่ #ชื่อทริป ท้ายรายการ เช่น "ค่าโรงแรม 1200 #เชียงใหม่"')];
+      return [ui.tripMessage(ops.tripSummary(user, trip.id, now()), ctx)];
+    }
     if (['เชิญเพื่อน', 'ชวนเพื่อน', 'แชร์', 'invite'].includes(t)) return [ui.inviteMessage(ctx)];
     if (['วิธีใช้กลุ่ม', 'ใช้ในกลุ่ม', 'จดในกลุ่ม'].includes(t)) return [ui.groupWelcomeMessage(ctx)];
     if (['จด', 'จดรายการ', 'จดรายรับรายจ่าย', 'บันทึก'].includes(t)) return [ui.recordPromptMessage()];
@@ -554,6 +576,16 @@ export function createBot(deps) {
       text = raw.trim().replace(/^จด\s+/, '');
       if (!forced && !looksLikeGroupEntry(text)) return [];
     }
+    // "#เชียงใหม่" = ติดป้ายทริปนี้ (ไม่มีทริปชื่อนี้ → สร้างให้)
+    const tag = text.match(/#([^\s#]+)/);
+    let tripTag = {};
+    if (tag) {
+      text = text.replace(tag[0], ' ').trim();
+      let t = ops.findTrip(user, tag[1]);
+      // สร้างเป็นทริปที่จบแล้ว = แค่ป้าย ไม่ไปติดป้ายรายการอื่นอัตโนมัติ
+      if (!t) t = ops.addTrip(user, { name: tag[1], end: todayStr(now()) }, now());
+      tripTag = { trip: t.id };
+    }
     const parsed = parseEntries(text.replace(/^หารบิล/, 'หารบิล '), {
       now: now(),
       customKeywords: user.settings.customKeywords,
@@ -570,7 +602,7 @@ export function createBot(deps) {
         if (aiItems?.length) {
           // ชื่อบัญชีที่พิมพ์มา (เช่น "กสิกร") ชนะประเภทที่ AI เดา (cash/bank/card)
           const named = guessAccount(text, user.accounts, { strict: true })?.id;
-          const txs = aiItems.map((it) => ops.addTx(user, { ...it, ...by, wallet: named || (it.type === 'income' && it.wallet !== 'cash' ? ops.incomeWallet(user) : it.wallet || user.settings.defaultWallet) }, 'ai'));
+          const txs = aiItems.map((it) => ops.addTx(user, { ...it, ...by, ...tripTag, wallet: named || (it.type === 'income' && it.wallet !== 'cash' ? ops.incomeWallet(user) : it.wallet || user.settings.defaultWallet) }, 'ai'));
           return afterRecord(user, txs, ctx);
         }
       } catch (e) {
@@ -578,7 +610,7 @@ export function createBot(deps) {
       }
     }
     if (parsed.items.length) {
-      const txs = parsed.items.map((it) => ops.addTx(user, { ...it, ...by }, 'chat'));
+      const txs = parsed.items.map((it) => ops.addTx(user, { ...it, ...by, ...tripTag }, 'chat'));
       return afterRecord(user, txs, ctx);
     }
 
@@ -747,6 +779,12 @@ export function createBot(deps) {
         ops.updateTx(user, tx.id, { wallet: acc.id });
         const w = ops.accountList(user, now()).find((a) => a.id === acc.id);
         return [ui.textMsg(`เปลี่ยน "${tx.note}" เป็น ${w.emoji} ${w.name} แล้ว\n${ui.balanceText(w)}`)];
+      }
+      case 'untrip': {
+        const ids = (p.ids || '').split(',');
+        const txs = user.txs.filter((x) => ids.includes(x.id));
+        for (const x of txs) ops.updateTx(user, x.id, { trip: '' });
+        return [ui.textMsg(txs.length ? `เอา ${txs.length} รายการออกจากทริปแล้ว นับเป็นรายจ่ายประจำวัน` : 'ไม่เจอรายการนี้แล้ว')];
       }
       case 'countin':
       case 'countout': {

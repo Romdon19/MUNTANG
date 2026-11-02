@@ -711,3 +711,19 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 .mt-xskip .mt-chip { padding: 3px 10px; font-size: 12px; border-color: var(--ink); color: var(--ink); }
 .mt-xskip .mt-link { font-size: 12px; padding: 0; }
 .mt-xskip.is-ok { color: var(--muted); }
+
+/* ทริป */
+.mt-tripnow { flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px; background: var(--accent-soft); border-color: #f1df8f; }
+.mt-tripnow-b, .mt-tripcard-b { flex: 1; display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; text-align: left; color: inherit; min-width: 0; }
+.mt-tripnow-b .mt-tx-main, .mt-tripcard-b .mt-tx-main { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.mt-trip-emo { width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px; background: var(--card); display: grid; place-items: center; font-size: 22px; }
+.mt-tripnow .mt-trip-emo { background: #fff; }
+.mt-trips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mt-trips li { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-md); padding: 12px 14px; }
+.mt-trips .mt-trip-emo { background: var(--bg); }
+.mt-tripcard-b > b { font-family: var(--font-num); font-weight: 500; }
+.mt-tripcard-b em.mt-chip-s { font-style: normal; font-size: 10.5px; padding: 1px 7px; margin-left: 4px; vertical-align: 2px; }
+.mt-split { margin-top: 0; padding-top: 4px; border-top: 0; }
+.mt-emo-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.mt-emo-pick button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); font-size: 19px; }
+.mt-emo-pick button:hover { border-color: var(--ink); }

@@ -18,7 +18,7 @@ test('onboarding picks categories, adds custom ones and saves the setup', () => 
     onboarded: true,
   });
   const exp = categoriesOf('expense', u).map((c) => c.name);
-  assert.deepEqual(exp, ['อาหาร/เครื่องดื่ม', 'เดินทาง', 'ค่าแมว', 'อื่นๆ']);
+  assert.deepEqual(exp, ['อาหาร', 'เดินทาง', 'ค่าแมว', 'อื่นๆ']);
   assert.equal(categoriesOf('income', u).at(-1).id, 'other_income');
   assert.equal(u.settings.onboarded, true);
   assert.equal(u.settings.heardFrom, 'tiktok');

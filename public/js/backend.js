@@ -81,6 +81,9 @@ export function remoteBackend() {
     addTransfer: (b) => post('/api/transfers', b),
     deleteTransfer: (id) => req('DELETE', `/api/transfers/${id}`),
     updateTransfer: (id, b) => req('PATCH', `/api/transfers/${id}`, b),
+    addTrip: (b) => post('/api/trips', b),
+    updateTrip: (id, b) => req('PATCH', `/api/trips/${id}`, b),
+    deleteTrip: (id) => req('DELETE', `/api/trips/${id}`),
     addGoal: (b) => post('/api/goals', b),
     deposit: (id, amount) => post(`/api/goals/${id}/deposit`, { amount }),
     deleteGoal: (id) => req('DELETE', `/api/goals/${id}`),
@@ -97,7 +100,7 @@ export function remoteBackend() {
 }
 
 // ---------------- local (in-browser) ----------------
-const LS_KEY = 'muntang-local-v1';
+const LS_KEY = 'muntang-local-v2';
 const LOCAL_USER = 'local-user';
 
 export function localBackend({ logoUrl, moods, iconMap, onOpenDashboard } = {}) {
@@ -171,6 +174,9 @@ export function localBackend({ logoUrl, moods, iconMap, onOpenDashboard } = {}) 
     addTransfer: (b) => mutate((u) => ({ transfer: ops.addTransfer(u, b) })),
     deleteTransfer: (id) => mutate((u) => ({ transfer: ops.deleteTransfer(u, id) })),
     updateTransfer: (id, b) => mutate((u) => ({ transfer: ops.updateTransfer(u, id, b) })),
+    addTrip: (b) => mutate((u) => ({ trip: ops.addTrip(u, b) })),
+    updateTrip: (id, b) => mutate((u) => ({ trip: ops.updateTrip(u, id, b) })),
+    deleteTrip: (id) => mutate((u) => ({ trip: ops.deleteTrip(u, id) })),
     addGoal: (b) => mutate((u) => ({ goal: ops.addGoal(u, b) })),
     deposit: (id, amount) => mutate((u) => ({ goal: ops.depositGoal(u, id, amount) })),
     deleteGoal: (id) => mutate((u) => ({ goal: ops.deleteGoal(u, id) })),

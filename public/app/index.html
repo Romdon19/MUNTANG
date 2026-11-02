@@ -28,8 +28,9 @@
     const view = params.get('view') || liffState.get('view');
     const edit = params.get('edit') || liffState.get('edit');
     const acct = params.get('acct') || liffState.get('acct');
+    const trip = params.get('trip') || liffState.get('trip');
     const backend = remoteBackend();
-    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-256.png', moods: moodPics('/assets'), iconBase: '/assets/banks', view, edit, acct });
+    const dash = mountDashboard(root, backend, { logoUrl: '/assets/logo-256.png', moods: moodPics('/assets'), iconBase: '/assets/banks', view, edit, acct, trip });
     backend
       .authenticate()
       .then(() => dash.refresh())
