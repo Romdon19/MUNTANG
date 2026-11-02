@@ -4,13 +4,25 @@ import { money } from '../core/format.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+// โลโก้ช่องทาง (Simple Icons CC0 + สีแบรนด์) วาดเป็น SVG ในกรอบ 48×48
+const TT = 'M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z';
+const IG = 'M7.0301.084c-1.2768.0602-2.1487.264-2.911.5634-.7888.3075-1.4575.72-2.1228 1.3877-.6652.6677-1.075 1.3368-1.3802 2.127-.2954.7638-.4956 1.6365-.552 2.914-.0564 1.2775-.0689 1.6882-.0626 4.947.0062 3.2586.0206 3.6671.0825 4.9473.061 1.2765.264 2.1482.5635 2.9107.308.7889.72 1.4573 1.388 2.1228.6679.6655 1.3365 1.0743 2.1285 1.38.7632.295 1.6361.4961 2.9134.552 1.2773.056 1.6884.069 4.9462.0627 3.2578-.0062 3.668-.0207 4.9478-.0814 1.28-.0607 2.147-.2652 2.9098-.5633.7889-.3086 1.4578-.72 2.1228-1.3881.665-.6682 1.0745-1.3378 1.3795-2.1284.2957-.7632.4966-1.636.552-2.9124.056-1.2809.0692-1.6898.063-4.948-.0063-3.2583-.021-3.6668-.0817-4.9465-.0607-1.2797-.264-2.1487-.5633-2.9117-.3084-.7889-.72-1.4568-1.3876-2.1228C21.2982 1.33 20.628.9208 19.8378.6165 19.074.321 18.2017.1197 16.9244.0645 15.6471.0093 15.236-.005 11.977.0014 8.718.0076 8.31.0215 7.0301.0839m.1402 21.6932c-1.17-.0509-1.8053-.2453-2.2287-.408-.5606-.216-.96-.4771-1.3819-.895-.422-.4178-.6811-.8186-.9-1.378-.1644-.4234-.3624-1.058-.4171-2.228-.0595-1.2645-.072-1.6442-.079-4.848-.007-3.2037.0053-3.583.0607-4.848.05-1.169.2456-1.805.408-2.2282.216-.5613.4762-.96.895-1.3816.4188-.4217.8184-.6814 1.3783-.9003.423-.1651 1.0575-.3614 2.227-.4171 1.2655-.06 1.6447-.072 4.848-.079 3.2033-.007 3.5835.005 4.8495.0608 1.169.0508 1.8053.2445 2.228.408.5608.216.96.4754 1.3816.895.4217.4194.6816.8176.9005 1.3787.1653.4217.3617 1.056.4169 2.2263.0602 1.2655.0739 1.645.0796 4.848.0058 3.203-.0055 3.5834-.061 4.848-.051 1.17-.245 1.8055-.408 2.2294-.216.5604-.4763.96-.8954 1.3814-.419.4215-.8181.6811-1.3783.9-.4224.1649-1.0577.3617-2.2262.4174-1.2656.0595-1.6448.072-4.8493.079-3.2045.007-3.5825-.006-4.848-.0608M16.953 5.5864A1.44 1.44 0 1 0 18.39 4.144a1.44 1.44 0 0 0-1.437 1.4424M5.8385 12.012c.0067 3.4032 2.7706 6.1557 6.173 6.1493 3.4026-.0065 6.157-2.7701 6.1506-6.1733-.0065-3.4032-2.771-6.1565-6.174-6.1498-3.403.0067-6.156 2.771-6.1496 6.1738M8 12.0077a4 4 0 1 1 4.008 3.9921A3.9996 3.9996 0 0 1 8 12.0077';
+const SRC_ICON = {
+  friend: '<svg viewBox="0 0 48 48" fill="none" stroke="#f5c400" stroke-width="3" stroke-linecap="round"><circle cx="20" cy="17" r="6.5"/><circle cx="30.5" cy="14.5" r="5"/><path d="M8 38c0-7.2 5.4-12 12-12s12 4.8 12 12"/><path d="M29 24.5c6.2-.6 11 3.6 11 10.5"/></svg>',
+  tiktok: `<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#161823"/><g transform="translate(12 11.5) scale(1.05)"><path d="${TT}" fill="#25F4EE" transform="translate(-.7 -.5)"/><path d="${TT}" fill="#FE2C55" transform="translate(.7 .5)"/><path d="${TT}" fill="#fff"/></g></svg>`,
+  facebook: '<svg viewBox="0 0 48 48"><rect width="48" height="48" rx="11" fill="#1877F2"/><path fill="#fff" d="M31.5 15.2h-3.4c-1.3 0-1.9.8-1.9 2v3.4h5.2l-.8 5.3h-4.4V42h-5.9V25.9H17v-5.3h3.3v-3.9c0-4.6 2.7-7.3 7-7.3 1.9 0 3.6.2 4.2.3z"/></svg>',
+  instagram: `<svg viewBox="0 0 48 48"><defs><radialGradient id="ig-g" cx=".3" cy="1.07" r="1.2"><stop offset="0" stop-color="#FDD86C"/><stop offset=".25" stop-color="#FB8B2E"/><stop offset=".5" stop-color="#E1306C"/><stop offset=".75" stop-color="#C13584"/><stop offset="1" stop-color="#5B51D8"/></radialGradient></defs><rect width="48" height="48" rx="11" fill="url(#ig-g)"/><path d="${IG}" fill="#fff" transform="translate(10 10) scale(1.1667)"/></svg>`,
+  google: '<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/></svg>',
+  other: '<svg viewBox="0 0 48 48" fill="none" stroke="#f5c400" stroke-width="3"><circle cx="11" cy="24" r="4.5"/><circle cx="24" cy="24" r="4.5"/><circle cx="37" cy="24" r="4.5"/></svg>',
+};
+
 export const HEARD = [
-  ['friend', 'คนรู้จัก', '👥'],
-  ['tiktok', 'TikTok', '🎵'],
-  ['facebook', 'Facebook', '📘'],
-  ['instagram', 'Instagram', '📸'],
-  ['google', 'Google', '🔎'],
-  ['other', 'อื่นๆ', '✨'],
+  ['friend', 'คนรู้จัก'],
+  ['tiktok', 'TikTok'],
+  ['facebook', 'Facebook'],
+  ['instagram', 'Instagram'],
+  ['google', 'Google'],
+  ['other', 'อื่นๆ'],
 ];
 const FALLBACK = { expense: 'other', income: 'other_income' };
 const CYCLES = [1, 15, 25, 26, 28, 30];
@@ -93,9 +105,9 @@ const FEATURES = [
 
 function catChip(c, on, type) {
   const fixed = c.id === FALLBACK[type];
-  return `<button class="ob-cat ${on ? 'is-on' : ''} ${fixed ? 'is-fixed' : ''}" data-act="obcat" data-id="${esc(c.id)}" aria-pressed="${on}" ${fixed ? 'disabled title="หมวดสำรอง เปิดไว้เสมอ"' : ''}>
-    ${c.recommended ? '<em class="ob-star" aria-label="แนะนำ">★</em>' : ''}${c.custom ? `<em class="ob-del" data-act="obdelcat" data-id="${esc(c.id)}" aria-label="ลบหมวด ${esc(c.name)}">✕</em>` : ''}
-    <span class="ob-emo">${esc(c.emoji)}</span><span class="ob-name">${esc(c.name)}</span></button>`;
+  return `<button class="ob-cat ${on ? 'is-on' : ''} ${fixed ? 'is-fixed' : ''}" data-act="obcat" data-id="${esc(c.id)}" aria-pressed="${on}" ${fixed ? 'aria-disabled="true" title="หมวดสำรอง เปิดไว้เสมอ"' : ''}>
+    <span class="ob-emo" aria-hidden="true">${esc(c.emoji)}</span><span class="ob-name">${esc(c.name)}${fixed ? '<small>เปิดเสมอ</small>' : ''}</span>
+    ${c.recommended ? '<em class="ob-star" aria-label="แนะนำ">★</em>' : ''}${c.custom ? `<em class="ob-del" data-act="obdelcat" data-id="${esc(c.id)}" role="button" aria-label="ลบหมวด ${esc(c.name)}">✕</em>` : ''}</button>`;
 }
 
 function catStep(ob, data, type) {
@@ -104,16 +116,17 @@ function catStep(ob, data, type) {
   const own = ob.custom.filter((c) => c.type === type).map((c) => ({ ...c, custom: true }));
   const list = [...base.filter((c) => c.id !== FALLBACK[type]), ...own, base.find((c) => c.id === FALLBACK[type])];
   const count = list.filter((c) => c.custom || ob.enabled.has(c.id)).length;
-  return `${head(ob, inc ? 'เลือกหมวดรายรับ' : 'เลือกหมวดรายจ่าย', `${inc ? 'เงินเข้ามาจากทางไหนบ้าง' : 'ใช้เงินกับอะไรบ่อยๆ'} เลือกได้หลายอัน · ★ = แนะนำ`)}
-    <div class="ob-tools"><button class="mt-chip" data-act="obrec" data-v="${type}">★ เลือกที่แนะนำ</button><button class="mt-chip" data-act="obnone" data-v="${type}">ยกเลิกทั้งหมด</button><span class="mt-sub num">เลือกแล้ว ${count}</span></div>
-    <div class="ob-cats ${inc ? 'is-inc' : ''}">${list.map((c) => catChip(c, c.custom || ob.enabled.has(c.id), type)).join('')}
+  const last = inc && ob.mode === 'cats';
+  return `${head(ob, `เลือก ‘หมวด’ ${inc ? 'รายรับ' : 'รายจ่าย'}`, inc ? 'เลือกหมวดที่เหมาะกับคุณ เพื่อติดตามรายได้' : 'เลือกหมวดที่เหมาะกับคุณ เพื่อวางแผนการใช้จ่าย')}
+    <div class="ob-tools"><button class="ob-tool-rec" data-act="obrec" data-v="${type}">เลือกที่แนะนำ</button><button class="ob-tool-none" data-act="obnone" data-v="${type}">ยกเลิกทั้งหมด</button></div>
+    <div class="ob-cats ${inc ? 'is-inc' : 'is-exp'}">${list.map((c) => catChip(c, c.custom || ob.enabled.has(c.id), type)).join('')}
       ${
         ob.adding === type
           ? `<form class="ob-add" data-form="obcat"><input name="emoji" aria-label="อีโมจิ" placeholder="${inc ? '💰' : '🏷️'}" maxlength="4"><input name="name" aria-label="ชื่อหมวด" placeholder="ชื่อหมวด เช่น ${inc ? 'ค่าเช่าห้อง' : 'ค่าแมว'}" maxlength="24" required><button class="mt-btn-s" type="submit">เพิ่ม</button></form>`
-          : `<button class="ob-cat is-new" data-act="obadd" data-v="${type}"><span class="ob-emo">＋</span><span class="ob-name">เพิ่มหมวดเอง</span></button>`
+          : `<button class="ob-cat is-new" data-act="obadd" data-v="${type}"><span class="ob-emo" aria-hidden="true">＋</span><span class="ob-name">เพิ่มหมวดเอง</span></button>`
       }</div>
-    <p class="mt-sub ob-note">หมวดที่ไม่ได้เลือกจะซ่อนจากปุ่มเลือกหมวด รายการที่จดไปแล้วไม่หาย · แก้ทีหลังได้ที่ เมนู › หมวดหมู่</p>
-    ${foot(inc && ob.mode === 'cats' ? 'บันทึก' : 'ถัดไป')}`;
+    <p class="mt-sub ob-note">★ = แนะนำ · หมวดที่ไม่ได้เลือกจะซ่อนจากปุ่มเลือกหมวด รายการเดิมไม่หาย · แก้ทีหลังได้ที่ เมนู › หมวดหมู่</p>
+    <footer class="ob-foot"><button class="ob-bigbtn ${inc ? 'is-ink' : 'is-yellow'}" data-act="obnext">${last ? 'บันทึก' : 'ถัดไป'}<small>เลือกแล้ว ${count} หมวด</small></button></footer>`;
 }
 
 const chip = (act, v, label, on) => `<button class="mt-chip ${on ? 'is-on' : ''}" data-act="${act}" data-v="${v}">${label}</button>`;
@@ -127,9 +140,9 @@ export function onboardHTML(ob, data, { logoUrl = '', moods = {} } = {}) {
       <div class="ob-feats">${FEATURES.map((f) => `<article class="ob-feat is-${f.side}"><div class="ob-feat-art" aria-hidden="true">${f.art}</div><div class="ob-feat-t"><h2>${f.t}</h2><p>${f.d}</p></div></article>`).join('')}</div>
       ${foot('เริ่มตั้งค่า →')}`;
   } else if (step === 'heard') {
-    inner = `${head(ob, 'รู้จักหมุนตังค์จากช่องทางไหน?', 'ช่วยบอกหน่อย จะได้รู้ว่าควรไปทักทายเพื่อนใหม่ที่ไหน')}
-      <div class="ob-opts">${HEARD.map(([v, l, e]) => `<button class="ob-opt ${ob.heard === v ? 'is-on' : ''}" data-act="obheard" data-v="${v}" aria-pressed="${ob.heard === v}"><span>${e}</span>${l}</button>`).join('')}</div>
-      ${foot('ถัดไป', { disabled: !ob.heard, skip: 'ข้าม' })}`;
+    inner = `<div class="ob-panel">${head(ob, 'รู้จักหมุนตังค์ช่องไหน?', 'ช่วยบอกหน่อยจะได้หมุนตังค์ไปพร้อมกัน')}
+      <div class="ob-opts">${HEARD.map(([v, l]) => `<button class="ob-opt ${ob.heard === v ? 'is-on' : ''}" data-act="obheard" data-v="${v}" aria-pressed="${ob.heard === v}"><span class="ob-opt-ic" aria-hidden="true">${SRC_ICON[v]}</span>${l}</button>`).join('')}</div>
+      ${foot('ถัดไป', { disabled: !ob.heard, skip: 'ข้าม' })}</div>`;
   } else if (step === 'expense' || step === 'income') {
     inner = catStep(ob, data, step);
   } else if (step === 'setup') {
