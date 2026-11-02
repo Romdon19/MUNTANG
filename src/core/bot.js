@@ -558,6 +558,7 @@ export function createBot(deps) {
       now: now(),
       customKeywords: user.settings.customKeywords,
       defaultWallet: user.settings.defaultWallet,
+      incomeWallet: ops.incomeWallet(user),
       accounts: user.accounts,
       user,
     });
@@ -569,7 +570,7 @@ export function createBot(deps) {
         if (aiItems?.length) {
           // ชื่อบัญชีที่พิมพ์มา (เช่น "กสิกร") ชนะประเภทที่ AI เดา (cash/bank/card)
           const named = guessAccount(text, user.accounts, { strict: true })?.id;
-          const txs = aiItems.map((it) => ops.addTx(user, { ...it, ...by, wallet: named || it.wallet || user.settings.defaultWallet }, 'ai'));
+          const txs = aiItems.map((it) => ops.addTx(user, { ...it, ...by, wallet: named || (it.type === 'income' && it.wallet !== 'cash' ? ops.incomeWallet(user) : it.wallet || user.settings.defaultWallet) }, 'ai'));
           return afterRecord(user, txs, ctx);
         }
       } catch (e) {

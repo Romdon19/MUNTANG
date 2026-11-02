@@ -1645,12 +1645,16 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'preset':
         root.querySelector('#mt-total').value = b.dataset.v;
         break;
-      case 'sheettype':
+      case 'sheettype': {
         keepForm();
+        // จดใหม่: ถ้ายังไม่ได้เลือกบัญชีเอง ให้รายรับเข้าธนาคาร รายจ่ายออกจากบัญชีจ่ายประจำ
+        const def = (v) => (v === 'income' ? st.data.incomeWallet || st.data.settings.defaultWallet : st.data.settings.defaultWallet);
+        if (!sh.tx && sh.wallet === def(sh.type || 'expense')) sh.wallet = def(b.dataset.v);
         sh.type = b.dataset.v;
         sh.cat = null;
         render();
         break;
+      }
       case 'sheetcat':
         keepForm();
         sh.cat = b.dataset.v;

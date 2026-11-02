@@ -101,12 +101,12 @@ function splitLine(line) {
 }
 
 /**
- * parseEntries(text, { now, customKeywords, defaultWallet, accounts })
+ * parseEntries(text, { now, customKeywords, defaultWallet, incomeWallet, accounts })
  * accounts = กระเป๋าเงินของผู้ใช้ ใช้เดาบัญชีจากคำในข้อความ เช่น "ข้าว 50 กสิกร"
  * คืน { items: [{ note, amount, type, categoryId, date, wallet }], unparsed: [lines] }
  */
 export function parseEntries(text, opts = {}) {
-  const { now = new Date(), customKeywords = {}, defaultWallet = 'cash', accounts = null } = opts;
+  const { now = new Date(), customKeywords = {}, defaultWallet = 'cash', accounts = null, incomeWallet = defaultWallet } = opts;
   const lines = String(text)
     .split(/\n|;/)
     .map((l) => l.trim())
@@ -130,13 +130,18 @@ export function parseEntries(text, opts = {}) {
     const isIncome = INCOME_PREFIX_RE.test(withoutTime);
     const isExpense = EXPENSE_PREFIX_RE.test(withoutTime);
     let wallet = defaultWallet;
+    let named = false;
     let line = withoutTime;
     if (accounts) {
       const hit = guessAccount(withoutTime, accounts, { defaultWallet, types: SPENDABLE });
       if (hit) wallet = hit.id;
+      named = !!hit;
       // ตัดชื่อบัญชีออกจากชื่อรายการ: "ข้าว 50 กสิกร" → "ข้าว"
       if (hit?.word) line = line.replace(new RegExp(hit.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ');
-    } else wallet = guessWallet(withoutTime) || defaultWallet;
+    } else {
+      named = !!guessWallet(withoutTime);
+      wallet = guessWallet(withoutTime) || defaultWallet;
+    }
     const parts = splitLine(line);
     if (!parts.length) {
       unparsed.push(raw);
@@ -155,7 +160,8 @@ export function parseEntries(text, opts = {}) {
         type,
         categoryId,
         date: lineDate,
-        wallet,
+        // รายรับที่ไม่ได้บอกบัญชี → เข้าบัญชีรับเงินตั้งต้น (ธนาคาร)
+        wallet: type === 'income' && !named ? incomeWallet : wallet,
       });
     }
   }

@@ -387,6 +387,7 @@ export function publicState(user, { aiEnabled = false, now = new Date() } = {}) 
     accountTotals: totals,
     insights: insights(user, now, { budget, balances, totals }),
     accountTypes: ACCOUNT_TYPES,
+    incomeWallet: incomeWallet(user),
     providers: Object.values(PROVIDER_MAP).map(({ words, ...p }) => p),
     transfers: user.transfers,
     aiEnabled,
@@ -413,6 +414,18 @@ export function applySettings(user, b = {}) {
   if (typeof b.heardFrom === 'string') user.settings.heardFrom = b.heardFrom.slice(0, 40) || null;
   if (b.onboarded !== undefined) user.settings.onboarded = !!b.onboarded;
   user.alerts = {};
+}
+
+/**
+ * บัญชีรับเงินตั้งต้น: รายรับส่วนใหญ่โอนเข้าธนาคาร เลยไม่ใช้ "เงินสด" แม้จะเป็นบัญชีจ่ายประจำ
+ * ใช้บัญชีจ่ายประจำถ้าเป็นธนาคาร/วอลเล็ท ไม่งั้นธนาคารแรก (ที่ตั้งยอดแล้วก่อน)
+ */
+export function incomeWallet(user) {
+  const live = activeAccounts(user);
+  const def = live.find((a) => a.id === user.settings.defaultWallet);
+  if (def && ['bank', 'ewallet'].includes(def.type)) return def.id;
+  const banks = live.filter((a) => a.type === 'bank');
+  return (banks.find((a) => a.since) || banks[0] || def || live[0])?.id || user.settings.defaultWallet;
 }
 
 /** ถึงเวลาใช้ริชเมนู "ฉบับใช้งาน" หรือยัง (ตั้งค่าเสร็จ หรือเริ่มจดแล้ว) */

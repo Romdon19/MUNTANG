@@ -173,3 +173,15 @@ test('minimum card payment keeps the rest as card debt; card interest is an expe
   assert.equal(u.txs.at(-1).type, 'expense');
   assert.equal(bal(u, 'card').used, 6535);
 });
+
+test('income without an account goes to the bank, not cash', async () => {
+  const store = memStore();
+  const bot = createBot({ store, now: () => now, links: {} });
+  await say(bot, 'เพิ่มบัญชี กสิกร 1000');
+  await say(bot, '+เงินเดือน 25000');
+  await say(bot, '+ขายของ 300 เงินสด');
+  await say(bot, 'ข้าว 50');
+  const u = store.db.U1;
+  assert.equal(bal(u, 'bank').balance, 26000);
+  assert.equal(bal(u, 'cash').balance, 300 - 50);
+});
