@@ -22,6 +22,19 @@ function toAmount(intPart, dec, mult) {
   return Math.round(n * 100) / 100;
 }
 
+// ชื่อเดือนไทย (ย่อ/เต็ม) สำหรับจดย้อนหลัง เช่น "15 ก.ย. ค่าไฟ 850"
+const TH_MONTH_WORDS = [
+  ['มค', 'มกรา', 'มกราคม'], ['กพ', 'กุมภา', 'กุมภาพันธ์'], ['มีค', 'มีนา', 'มีนาคม'], ['เมย', 'เมษา', 'เมษายน'],
+  ['พค', 'พฤษภา', 'พฤษภาคม'], ['มิย', 'มิถุนา', 'มิถุนายน'], ['กค', 'กรกฎา', 'กรกฎาคม'], ['สค', 'สิงหา', 'สิงหาคม'],
+  ['กย', 'กันยา', 'กันยายน'], ['ตค', 'ตุลา', 'ตุลาคม'], ['พย', 'พฤศจิกา', 'พฤศจิกายน'], ['ธค', 'ธันวา', 'ธันวาคม'],
+];
+const TH_MONTH_RE = new RegExp(
+  `(?<![\\d.])(\\d{1,2})\\s*(${TH_MONTH_WORDS.flat()
+    .sort((a, b) => b.length - a.length)
+    .map((w) => (w.length === 2 || w === 'มีค' || w === 'เมย' || w === 'มิย' ? [...w].join('\\.?') + '\\.?' : w))
+    .join('|')})(?:\\s*(\\d{2,4})(?![\\d,.]*\\s*(?:บาท|฿)))?(?=\\s|$)`
+);
+
 /** ดึงวันที่ออกจากข้อความ คืน { date, rest } */
 export function extractDate(text, now = new Date()) {
   const today = todayStr(now);
@@ -39,6 +52,11 @@ export function extractDate(text, now = new Date()) {
       break;
     }
   }
+  // "15 ก.ย." / "15 กันยายน 68" → แปลงเป็น 15/9/68 ก่อน
+  rest = rest.replace(TH_MONTH_RE, (all, d, mon, y) => {
+    const mo = TH_MONTH_WORDS.findIndex((ws) => ws.some((w) => mon.replace(/\./g, '') === w)) + 1;
+    return mo ? ` ${d}/${mo}${y ? `/${y}` : ''} ` : all;
+  });
   const m = rest.match(DATE_NUM_RE);
   if (m) {
     const d = Number(m[1]);

@@ -184,15 +184,19 @@ export function guessProvider(text, type) {
 }
 
 /** รายการนี้นับรวมในยอดบัญชีไหม (นับเฉพาะหลังวันที่ตั้งยอดล่าสุด) */
-/** รายการนี้นับรวมในยอดของบัญชี a ไหม (รายการก่อนวันตั้งยอดไม่นับ เว้นแต่สั่ง countIn) */
+/**
+ * รายการนี้นับรวมในยอดของบัญชี a ไหม
+ * ยอดที่ตั้ง = ยอดจริง ณ ตอนตั้ง (รวมทุกรายการที่จดไว้ก่อนหน้า) → รายการที่จด "หลังตั้งยอด" นับหมด
+ * ไม่ว่าจะลงวันที่ย้อนหลังไปกี่เดือน · countOut = ผู้ใช้บอกว่ายอดที่ตั้งไว้รวมรายการนี้แล้ว
+ */
 export function countsIn(a, item) {
   return counts(a, item);
 }
 
 function counts(a, item) {
-  if (!a.since || item.countIn) return true; // countIn = รายการย้อนหลังที่ผู้ใช้สั่งให้นับรวมยอด
-
-  if (item.date !== a.since) return item.date > a.since;
+  if (item.countOut) return false;
+  if (!a.since || item.countIn) return true; // countIn = รายการเก่า (จดก่อนตั้งยอด) ที่ผู้ใช้สั่งให้นับ
+  if (item.date > a.since) return true;
   return (item.createdAt || '') >= (a.balanceAt || '');
 }
 

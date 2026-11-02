@@ -1023,8 +1023,8 @@ export function mountDashboard(root, backend, opts = {}) {
                     <span class="mt-tx-main"><span class="mt-tx-note">${esc(x.note)}</span><span class="mt-sub">${thaiDate(x.date)} · ${esc(wallet(x.from).name)} → ${esc(wallet(x.to).name)}</span>${
                       skip.length
                         ? `<span class="mt-xskip">ไม่นับในยอด ${skip.map((a) => esc(a.name)).join(', ')} (ก่อนวันตั้งยอด) <button class="mt-chip" data-act="xfercount" data-id="${x.id}">นับรวมในยอด</button></span>`
-                        : x.countIn
-                          ? `<span class="mt-xskip">นับรวมในยอดแล้ว <button class="mt-link" data-act="xferuncount" data-id="${x.id}">ไม่นับ</button></span>`
+                        : [acctById(x.from), acctById(x.to)].some((a) => a?.since && x.date < a.since)
+                          ? `<span class="mt-xskip is-ok">จดย้อนหลัง · นับในยอดแล้ว <button class="mt-link" data-act="xferuncount" data-id="${x.id}">ไม่นับ (ยอดที่ตั้งรวมแล้ว)</button></span>`
                           : ''
                     }</span>
                     <span class="num mt-amt">${money(x.amount)}</span>
@@ -1206,12 +1206,12 @@ export function mountDashboard(root, backend, opts = {}) {
             <div><label for="mt-txwallet">${type === 'income' ? 'เข้าบัญชี' : 'จ่ายจากบัญชี'}</label><select id="mt-txwallet" name="wallet">${walletOptions(sh.wallet ?? t.wallet)}</select></div>
           </div>
           ${(() => {
-            // จดย้อนหลังก่อนวันตั้งยอดบัญชี → ถามว่าจะนับเข้ายอดคงเหลือไหม
+            // จดย้อนหลังก่อนวันตั้งยอดบัญชี → นับเข้ายอดให้ (ค่าเริ่มต้น) เอาติ๊กออกได้ถ้ายอดที่ตั้งรวมไปแล้ว
             const w = acctById(sh.wallet ?? t.wallet);
             if (!w?.since || (sh.date ?? t.date) >= w.since) return '';
-            const checked = sh.countIn ?? !!t.countIn;
-            return `<label class="mt-check mt-backdate"><input type="checkbox" name="countIn" ${checked ? 'checked' : ''}> นับรวมในยอดคงเหลือ ${esc(w.name)} แม้ลงวันที่ก่อน ${thaiDate(w.since)} (วันที่ตั้งยอด)</label>
-              <span class="mt-sub">ปกติรายการก่อนวันตั้งยอดจะไม่นับ เพราะยอดที่ตั้งไว้รวมแล้ว · ติ๊กถ้ายอดที่ตั้งไว้ยังไม่รวมเงินก้อนนี้</span>`;
+            const checked = sh.countIn ?? (sh.tx ? countsIn(w, sh.tx) : true);
+            return `<label class="mt-check mt-backdate"><input type="checkbox" name="countIn" ${checked ? 'checked' : ''}> นับรวมในยอดคงเหลือ ${esc(w.name)}</label>
+              <span class="mt-sub">จดย้อนหลังได้ตามสบาย ระบบนับเข้ายอดให้ · เอาติ๊กออกถ้ายอดที่ตั้งไว้เมื่อ ${thaiDate(w.since)} รวมเงินก้อนนี้แล้ว (กันนับซ้ำ)</span>`;
           })()}
           ${sh.tx?.by ? `<p class="mt-sub">จดโดย ${esc(sh.tx.by)}</p>` : ''}
           ${sh.tx?.attachment && backend.fileUrl ? `<a class="mt-attach" href="${esc(backend.fileUrl(sh.tx.attachment))}" target="_blank" rel="noopener"><img src="${esc(backend.fileUrl(sh.tx.attachment))}" alt="รูปหลักฐานของรายการนี้" loading="lazy"><span>📎 หลักฐาน · แตะเพื่อดูเต็ม</span></a>` : ''}
@@ -1333,8 +1333,8 @@ export function mountDashboard(root, backend, opts = {}) {
             const d = sh.date ?? todayStr();
             const before = [acctById(from), toAcc].filter((a) => a?.since && d < a.since);
             if (!before.length) return '';
-            return `<label class="mt-check mt-backdate"><input type="checkbox" name="countIn" ${sh.countIn ? 'checked' : ''}> นับรวมในยอด ${before.map((a) => esc(a.name)).join(', ')} แม้ลงวันที่ก่อนวันตั้งยอด</label>
-              <span class="mt-sub">ปกติรายการก่อนวันตั้งยอดไม่นับ เพราะยอดที่ตั้งไว้รวมแล้ว · ติ๊กถ้ายอดที่ตั้งไว้ยังไม่รวมการโอนนี้</span>`;
+            return `<label class="mt-check mt-backdate"><input type="checkbox" name="countIn" ${sh.countIn ?? true ? 'checked' : ''}> นับรวมในยอด ${before.map((a) => esc(a.name)).join(', ')}</label>
+              <span class="mt-sub">โอนย้อนหลังได้ ระบบนับเข้ายอดให้ · เอาติ๊กออกถ้ายอดที่ตั้งไว้รวมการโอนนี้แล้ว (กันนับซ้ำ)</span>`;
           })()}
           <button class="mt-btn" type="submit">${toAcc?.type === 'card' ? 'บันทึกการจ่ายบัตร' : toAcc?.type === 'loan' ? 'บันทึกการจ่ายหนี้' : 'บันทึกการโอน'}</button>
         </form>`;
@@ -1636,7 +1636,7 @@ export function mountDashboard(root, backend, opts = {}) {
         break;
       case 'xfercount':
       case 'xferuncount':
-        act(() => backend.updateTransfer(b.dataset.id, { countIn: a === 'xfercount' }), a === 'xfercount' ? 'นับรวมในยอดแล้ว ยอดทั้งสองบัญชีอัปเดตแล้ว' : 'ไม่นับรายการนี้ในยอดแล้ว');
+        act(() => backend.updateTransfer(b.dataset.id, { countIn: a === 'xfercount', countOut: a !== 'xfercount' }), a === 'xfercount' ? 'นับรวมในยอดแล้ว ยอดทั้งสองบัญชีอัปเดตแล้ว' : 'ไม่นับรายการนี้ในยอดแล้ว');
         break;
       case 'acctlist':
         st.wallet = b.dataset.id || '';
@@ -1792,7 +1792,8 @@ export function mountDashboard(root, backend, opts = {}) {
     }
     if (e.target.dataset.change === 'xfer' && st.sheet?.kind === 'xfer') {
       const fd = Object.fromEntries(new FormData(e.target.form));
-      Object.assign(st.sheet, { from: fd.from, to: fd.to, amount: e.target.name === 'to' ? undefined : fd.amount, date: fd.date, note: fd.note, countIn: fd.countIn === 'on' });
+      const box = e.target.form.querySelector('[name=countIn]');
+      Object.assign(st.sheet, { from: fd.from, to: fd.to, amount: e.target.name === 'to' ? undefined : fd.amount, date: fd.date, note: fd.note, countIn: box ? box.checked : undefined });
       render();
       return;
     }
@@ -1809,7 +1810,9 @@ export function mountDashboard(root, backend, opts = {}) {
         render();
         break;
       case 'tx': {
-        const body = { ...fd, amount: Number(fd.amount), countIn: fd.countIn === 'on' };
+        // มีช่องติ๊ก "นับรวมในยอด" (จดย้อนหลัง) → ส่งค่าที่เลือก ไม่มีก็ไม่ต้องแตะ
+        const hasCount = !!f.querySelector('[name=countIn]');
+        const body = { ...fd, amount: Number(fd.amount), ...(hasCount ? { countIn: fd.countIn === 'on', countOut: fd.countIn !== 'on' } : {}) };
         if (st.sheet.tx) act(() => backend.updateTx(st.sheet.tx.id, body), 'บันทึกการแก้ไขแล้ว');
         else act(() => backend.addTx(body), `🪙 จดแล้ว ${money(body.amount)}`).then((ok) => ok && coinBurst());
         break;
@@ -1870,7 +1873,7 @@ export function mountDashboard(root, backend, opts = {}) {
         break;
       }
       case 'xfer':
-        act(() => backend.addTransfer({ ...fd, amount: Number(fd.amount), countIn: fd.countIn === 'on' }), fd.to && acctById(fd.to)?.type === 'card' ? '💳 บันทึกการจ่ายบัตรแล้ว' : '⇄ บันทึกการโอนแล้ว');
+        act(() => backend.addTransfer({ ...fd, amount: Number(fd.amount), ...(f.querySelector('[name=countIn]') ? { countIn: fd.countIn === 'on', countOut: fd.countIn !== 'on' } : {}) }), fd.to && acctById(fd.to)?.type === 'card' ? '💳 บันทึกการจ่ายบัตรแล้ว' : '⇄ บันทึกการโอนแล้ว');
         break;
       case 'goal':
         act(() => backend.addGoal({ name: fd.name, target: Number(fd.target), emoji: fd.emoji }), 'สร้างเป้าหมายแล้ว');

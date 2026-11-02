@@ -104,17 +104,17 @@ export function createBot(deps) {
     return out;
   }
 
-  /** จดย้อนหลังก่อนวันตั้งยอด → บอกว่ายังไม่นับเข้ายอดคงเหลือ และให้กดเลือกนับได้ */
+  /** จดย้อนหลังก่อนวันตั้งยอด → นับเข้ายอดให้แล้ว บอกไว้เผื่อยอดที่ตั้งรวมไปแล้ว (กดไม่นับได้) */
   function backdatedNote(user, txs) {
     const old = txs.filter((t) => ops.beforeSnapshot(user, t));
     if (!old.length) return [];
     const acc = user.accounts.find((a) => a.id === old[0].wallet);
     return [
       ui.textMsg(
-        `📌 รายการนี้ลงวันที่ก่อนวันที่ตั้งยอด "${acc.name}" (${thaiDate(acc.since)}) เลยยังไม่บวก/หักในยอดคงเหลือ เพราะยอดที่ตั้งไว้น่าจะรวมเงินก้อนนี้แล้ว\nถ้ายอดที่ตั้งไว้ยังไม่รวม แตะ "นับเข้ายอด" ได้เลย (สรุปรายรับรายจ่ายนับให้ตามปกติอยู่แล้ว)`,
+        `📌 จดย้อนหลังแล้ว นับเข้ายอด "${acc.name}" ให้ด้วย\nถ้ายอดที่ตั้งไว้เมื่อ ${thaiDate(acc.since)} รวมเงินก้อนนี้ไปแล้ว แตะ "ไม่นับในยอด" กันนับซ้ำ`,
         ui.quickReplies([
-          { label: '✅ นับเข้ายอด', data: `action=countin&ids=${old.map((t) => t.id).join(',')}`, displayText: 'นับเข้ายอดคงเหลือด้วย' },
-          { label: '👌 ไม่ต้อง ยอดรวมแล้ว', text: 'บัญชี' },
+          { label: '🚫 ไม่นับในยอด', data: `action=countout&ids=${old.map((t) => t.id).join(',')}`, displayText: 'ไม่ต้องนับในยอดคงเหลือ (ยอดที่ตั้งรวมแล้ว)' },
+          { label: '👌 ถูกแล้ว', text: 'บัญชี' },
         ])
       ),
     ];
@@ -699,7 +699,12 @@ export function createBot(deps) {
       return [ui.textMsg('อ่าน PDF นี้ไม่ออก 😵‍💫 ถ้าไฟล์มีรหัสผ่าน (Statement ธนาคารส่วนใหญ่ล็อกด้วยวันเกิด) ให้ปลดล็อกก่อนส่งนะ')];
     }
     const batch = ops.newId('b');
-    const txs = items.map((it) => ops.addTx(user, { ...it, wallet: it.wallet || 'bank', batch, ...(sess.by ? { by: sess.by } : {}) }, 'pdf'));
+    // รายการจาก statement ที่เก่ากว่าวันตั้งยอด = อยู่ในยอดธนาคารแล้ว ไม่นับซ้ำ
+    const txs = items.map((it) => {
+      const wallet = it.wallet || 'bank';
+      const acc = user.accounts.find((a) => a.id === wallet);
+      return ops.addTx(user, { ...it, wallet, batch, countOut: !!(acc?.since && it.date < acc.since), ...(sess.by ? { by: sess.by } : {}) }, 'pdf');
+    });
     return [ui.importedMessage(txs, batch, name, ctxFor(user))];
   }
   // ---------------- postback ----------------
@@ -743,13 +748,15 @@ export function createBot(deps) {
         const w = ops.accountList(user, now()).find((a) => a.id === acc.id);
         return [ui.textMsg(`เปลี่ยน "${tx.note}" เป็น ${w.emoji} ${w.name} แล้ว\n${ui.balanceText(w)}`)];
       }
-      case 'countin': {
+      case 'countin':
+      case 'countout': {
         const ids = (p.ids || '').split(',');
         const txs = user.txs.filter((t) => ids.includes(t.id));
         if (!txs.length) return [ui.textMsg('ไม่เจอรายการนี้แล้ว')];
-        for (const t of txs) ops.updateTx(user, t.id, { countIn: true });
+        const on = p.action === 'countin';
+        for (const t of txs) ops.updateTx(user, t.id, { countIn: on, countOut: !on });
         const w = ops.accountList(user, now()).find((a) => a.id === txs[0].wallet);
-        return [ui.textMsg(`นับรายการย้อนหลังเข้ายอด ${w.name} แล้ว\n${ui.balanceText(w)}`)];
+        return [ui.textMsg(`${on ? 'นับรายการย้อนหลังเข้ายอด' : 'ไม่นับรายการนี้ในยอด'} ${w.name} แล้ว\n${ui.balanceText(w)}`)];
       }
       case 'wallets': {
         const tx = user.txs.find((x) => x.id === p.id);

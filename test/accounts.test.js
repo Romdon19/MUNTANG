@@ -146,17 +146,16 @@ test('installments through a credit card hold the limit and are paid with the ca
   assert.equal(card.payNow, 0);
 });
 
-test('backdated entries before the set balance are flagged and can be counted in', async () => {
+test('entries recorded later count toward the balance however far back they are dated, with an opt-out', async () => {
   const store = memStore();
   const bot = createBot({ store, now: () => now, links: {} });
   await say(bot, 'เพิ่มบัญชี กสิกร 10000');
-  const r = await say(bot, '20/9 +ขายของ 2000 กสิกร');
-  const note = r.messages.find((m) => m.type === 'text' && /ก่อนวันที่ตั้งยอด/.test(m.text));
-  assert.ok(note, 'should explain why the balance did not change');
-  assert.equal(bal(store.db.U1, 'bank').balance, 10000);
-  const data = note.quickReply.items[0].action.data;
-  await bot.handleEvent({ type: 'postback', source: U, postback: { data } });
+  const r = await say(bot, '20/8 +ขายของ 2000 กสิกร'); // ย้อนหลัง 2 เดือน
   assert.equal(bal(store.db.U1, 'bank').balance, 12000);
+  const note = r.messages.find((m) => m.type === 'text' && /จดย้อนหลัง/.test(m.text));
+  assert.ok(note, 'should say it was counted and offer to undo');
+  await bot.handleEvent({ type: 'postback', source: U, postback: { data: note.quickReply.items[0].action.data } });
+  assert.equal(bal(store.db.U1, 'bank').balance, 10000);
 });
 
 test('minimum card payment keeps the rest as card debt; card interest is an expense', async () => {
@@ -204,11 +203,15 @@ test('a backdated transfer before the set balance can be counted in on both acco
   const u = ops.newUser('U1');
   const salary = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS Salary', balance: 24781.25 }, now);
   const plus = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS', balance: 0 }, now);
-  const x = ops.addTransfer(u, { from: salary.id, to: plus.id, amount: 1400, date: '2026-10-20' }, now);
-  assert.equal(bal(u, plus.id).balance, 0); // ก่อนวันตั้งยอด → ไม่นับ
+  // โอนที่จดก่อนตั้งยอด (ยอดที่ตั้งรวมแล้ว) ไม่นับ — กด "นับรวมในยอด" ได้
+  const x = ops.addTransfer(u, { from: salary.id, to: plus.id, amount: 1400, date: '2026-10-20' }, new Date(now.getTime() - 60e3));
+  assert.equal(bal(u, plus.id).balance, 0);
   ops.updateTransfer(u, x.id, { countIn: true });
   assert.equal(bal(u, salary.id).balance, 23381.25);
   assert.equal(bal(u, plus.id).balance, 1400);
+  // โอนย้อนหลังที่จดหลังตั้งยอด นับเลย
+  ops.addTransfer(u, { from: salary.id, to: plus.id, amount: 100, date: '2026-09-01' }, new Date(now.getTime() + 60e3));
+  assert.equal(bal(u, plus.id).balance, 1500);
 });
 
 test('a new account without a balance counts every entry until the real balance is set', () => {
@@ -219,4 +222,13 @@ test('a new account without a balance counts every entry until the real balance 
   ops.addTransfer(u, { from: k.id, to: a.id, amount: 700, date: '2026-10-01' }, now);
   assert.equal(bal(u, a.id).balance, 700);
   assert.equal(bal(u, a.id).estimated, true);
+});
+
+test('Thai month names set the date for backdated entries', () => {
+  const n = new Date('2026-11-02T05:00:00Z');
+  const p = (t) => parseEntries(t, { now: n }).items[0];
+  assert.equal(p('15 ก.ย. ค่าไฟ 850').date, '2026-09-15');
+  assert.equal(p('3 ส.ค. 68 ค่าเน็ต 599').date, '2025-08-03');
+  assert.equal(p('15 กันยายน +เงินเดือน 25000').type, 'income');
+  assert.equal(p('ข้าว 50').date, '2026-11-02');
 });

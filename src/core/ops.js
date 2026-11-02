@@ -82,6 +82,7 @@ export function addTx(user, input, source = 'chat') {
   if (input.batch) tx.batch = String(input.batch);
   if (input.meta) tx.meta = input.meta;
   if (input.countIn) tx.countIn = true;
+  if (input.countOut) tx.countOut = true;
   user.txs.push(tx);
   return tx;
 }
@@ -91,9 +92,10 @@ export function updateTx(user, id, patch) {
   if (!tx) return null;
   const merged = sanitizeTx({ ...tx, ...patch }, user);
   Object.assign(tx, merged, { updatedAt: new Date().toISOString() });
-  if ('countIn' in patch) {
-    if (patch.countIn) tx.countIn = true;
-    else delete tx.countIn;
+  for (const k of ['countIn', 'countOut']) {
+    if (!(k in patch)) continue;
+    if (patch[k]) tx[k] = true;
+    else delete tx[k];
   }
   return tx;
 }
@@ -593,14 +595,14 @@ function transferNote(fromAcc, toAcc) {
   return `โอนเข้า ${n(toAcc)}`;
 }
 
-/** รายการที่ลงวันที่ก่อนวันตั้งยอดของบัญชี (ยังไม่นับรวมยอดคงเหลือ) */
+/** ลงวันที่ก่อนวันตั้งยอดของบัญชี (นับเข้ายอดให้แล้ว แต่ถ้ายอดที่ตั้งไว้รวมไปแล้วจะซ้ำ → ถามผู้ใช้) */
 export function beforeSnapshot(user, tx) {
   const a = findAccount(user, tx.wallet);
-  return !!(a?.since && !tx.countIn && tx.date < a.since);
+  return !!(a?.since && !tx.countOut && tx.date < a.since);
 }
 
 /** โอนเงินระหว่างบัญชี / จ่ายบัตรเครดิต / เติม e-Wallet (ไม่นับเป็นรายรับรายจ่าย) */
-export function addTransfer(user, { from, to, amount, date, note, countIn } = {}, now = new Date()) {
+export function addTransfer(user, { from, to, amount, date, note, countIn, countOut } = {}, now = new Date()) {
   const amt = money2(amount);
   if (!(amt > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
   if (!findAccount(user, from) || !findAccount(user, to)) throw new Error('ไม่พบบัญชี');
@@ -616,16 +618,20 @@ export function addTransfer(user, { from, to, amount, date, note, countIn } = {}
     createdAt: now.toISOString(),
   };
   if (countIn) x.countIn = true;
+  if (countOut) x.countOut = true;
   user.transfers.push(x);
   return x;
 }
 
 /** นับ/ไม่นับรายการโอนย้อนหลัง (ก่อนวันตั้งยอด) ในยอดคงเหลือ */
-export function updateTransfer(user, id, { countIn } = {}) {
+export function updateTransfer(user, id, patch = {}) {
   const x = user.transfers.find((t) => t.id === id);
   if (!x) return null;
-  if (countIn) x.countIn = true;
-  else delete x.countIn;
+  for (const k of ['countIn', 'countOut']) {
+    if (!(k in patch)) continue;
+    if (patch[k]) x[k] = true;
+    else delete x[k];
+  }
   return x;
 }
 
