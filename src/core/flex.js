@@ -206,6 +206,7 @@ export function balanceText(a) {
     const inst = a.instOwed ? ` · ผ่อน ${money(a.instOwed)}` : '';
     return a.limit ? `รูดค้าง ${money(a.used)}${inst} · วงเงินเหลือ ${money(a.available)}` : `ยอดค้างจ่าย ${money(a.used)}${inst}`;
   }
+  if (a.estimated) return `คงเหลือ ${money(a.balance)} (จากรายการที่จด)`;
   return a.known ? `คงเหลือ ${money(a.balance)}` : `รอบนี้ใช้ไป ${money(a.spent || 0)} (ยังไม่ได้ตั้งยอด)`;
 }
 
@@ -834,7 +835,7 @@ function accountRow(a, ctx) {
   } else if (a.type === 'loan') {
     sub = [a.monthlyPayment ? `ผ่อน ${money(a.monthlyPayment)}/เดือน` : 'ยอดค้าง', a.installments ? `งวด ${a.paidInstallments}/${a.installments}` : a.monthsLeft ? `อีก ${a.monthsLeft} งวด` : '', a.viaCard ? 'ผ่านบัตร' : ''].filter(Boolean).join(' · ');
   } else if (a.type === 'receivable') sub = 'ยังไม่ได้คืน';
-  else sub = `${a.typeName} · รอบนี้ใช้ ${money(a.spent || 0)}`;
+  else sub = a.estimated ? `${a.typeName} · คิดจากรายการที่จด` : `${a.typeName} · รอบนี้ใช้ ${money(a.spent || 0)}`;
   const tap = ctx?.links?.view ? { action: uri(ctx.links.view(`wallets&acct=${a.id}`)) } : {};
   const color = !a.known && !liab ? C.goldText : a.type === 'card' && a.pctUsed >= 0.8 ? C.red : a.type === 'loan' ? C.red : a.balance < 0 ? C.red : C.ink;
   const out = [

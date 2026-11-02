@@ -185,3 +185,17 @@ test('income without an account goes to the bank, not cash', async () => {
   assert.equal(bal(u, 'bank').balance, 26000);
   assert.equal(bal(u, 'cash').balance, 300 - 50);
 });
+
+test('an account without a set balance still shows what was recorded into it', () => {
+  const u = ops.newUser('U1');
+  // บัญชีธนาคารตั้งต้นที่แก้ชื่อ/โลโก้ แต่ไม่ได้ใส่ยอด
+  const k = ops.updateAccount(u, 'bank', { name: 'บัญชีธนาคาร น้ำมัน', provider: 'kbank' }, now);
+  assert.equal(bal(u, k.id).known, false);
+  ops.addTx(u, { type: 'income', amount: 25000, note: 'เงินเดือน', categoryId: 'salary', wallet: k.id });
+  const a = bal(u, k.id);
+  assert.equal(a.balance, 25000);
+  assert.equal(a.estimated, true);
+  assert.equal(ops.publicState(u, now).accountTotals.cash, 25000);
+  ops.setBalance(u, k.id, 30000, now);
+  assert.equal(bal(u, k.id).estimated, false);
+});

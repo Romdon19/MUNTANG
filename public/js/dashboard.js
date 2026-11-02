@@ -874,6 +874,7 @@ export function mountDashboard(root, backend, opts = {}) {
     }
     if (a.type === 'loan') return [a.monthlyPayment ? `ผ่อน ${money(a.monthlyPayment)}/เดือน` : 'ยอดค้างจ่าย', a.rate ? `ดอก ${a.rate}%` : '', a.installments ? `งวด ${a.paidInstallments}/${a.installments}` : a.monthsLeft ? `อีก ${a.monthsLeft} งวด` : '', a.viaCard ? `ผ่านบัตร ${wallet(a.viaCard).name}` : ''].filter(Boolean).join(' · ');
     if (a.type === 'receivable') return 'ยังไม่ได้คืน';
+    if (a.estimated) return 'คิดจากรายการที่จด · แตะเพื่อตั้งยอดจริง';
     return `รอบนี้ใช้ ${money(a.spent || 0)}`;
   }
   const cardTone = (p) => (p >= 0.9 ? 'var(--red)' : p >= 0.7 ? 'var(--amber)' : 'var(--ink)');
@@ -989,6 +990,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const hidden = st.data.accounts.filter((a) => a.archived);
     const xfers = [...st.data.transfers].sort(byNewest).slice(0, 8);
     const unset = list.filter((a) => !a.known).length;
+    const est = list.filter((a) => a.estimated);
     const sections = GROUPS.map((g) => ({ ...g, list: list.filter((a) => inGroup(g, a)) }));
     const addLabel = { cash: '+ เพิ่ม', bank: '+ เพิ่มบัญชี', ewallet: '+ เพิ่ม e-Wallet', receivable: '+ ให้ยืม', loan: '+ เพิ่มหนี้', card: '+ เพิ่มบัตร' };
     return `
@@ -996,6 +998,7 @@ export function mountDashboard(root, backend, opts = {}) {
       ${worthCard()}
       ${debtCard()}
       ${unset ? `<p class="mt-sub mt-note">มี ${unset} บัญชีที่ยังไม่ได้ตั้งยอด แตะบัญชีแล้วใส่ยอดตอนนี้ ระบบจะคิดยอดให้ทุกครั้งที่จด</p>` : ''}
+      ${est.length ? `<p class="mt-sub mt-note">ยอดของ ${est.map((a) => esc(a.name)).join(', ')} คิดจากรายการที่จด (เริ่มจาก ฿0) ถ้าไม่ตรงกับในแอปธนาคาร แตะบัญชีแล้วใส่ยอดจริงตอนนี้</p>` : ''}
       ${sections
         .filter((g) => g.list.length || ['bank', 'card', 'loan'].includes(g.key))
         .map(
@@ -1220,7 +1223,7 @@ export function mountDashboard(root, backend, opts = {}) {
         ${
           a
             ? `<div class="mt-acct-head">${acctImg(a.icon, 'is-lg')}
-                <div><b class="num ${a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</b><span class="mt-sub">${esc(a.type === 'loan' || a.type === 'receivable' ? acctSub(a) : a.type === 'card' ? (a.known ? 'ยอดใช้รวม (รูดค้าง + ผ่อน)' : 'รูดรอบนี้ (ยังไม่ตั้งยอด)') : `${a.known ? 'ยอดคงเหลือ' : 'ยังไม่ได้ตั้งยอด'} · รอบนี้ใช้ ${money(a.spent || 0)}`)}</span></div></div>
+                <div><b class="num ${a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</b><span class="mt-sub">${esc(a.type === 'loan' || a.type === 'receivable' ? acctSub(a) : a.type === 'card' ? (a.known ? 'ยอดใช้รวม (รูดค้าง + ผ่อน)' : 'รูดรอบนี้ (ยังไม่ตั้งยอด)') : `${a.estimated ? 'ยอดจากรายการที่จด (ยังไม่ได้ตั้งยอดจริง)' : a.known ? 'ยอดคงเหลือ' : 'ยังไม่ได้ตั้งยอด'} · รอบนี้ใช้ ${money(a.spent || 0)}`)}</span></div></div>
               ${a.type === 'card' && a.known ? cardDetail(a) : ''}
               ${a.type === 'loan' && a.principal ? bar(a.pctPaid, 'var(--ink)', 'is-lg') : ''}`
             : ''

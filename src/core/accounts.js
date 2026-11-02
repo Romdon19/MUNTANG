@@ -338,7 +338,9 @@ export function accountBalances(user, cycle, now = new Date()) {
       };
     }
     if (a.type === 'loan') return loans.find((l) => l.id === a.id);
-    return { ...d, known, balance: round((a.opening || 0) + f.in - f.out), spent: round(f.spent), count: f.count };
+    // ยังไม่ได้ตั้งยอด แต่มีรายการแล้ว → นับจาก 0 + เงินเข้า − เงินออก (บอกว่าเป็นยอดประมาณ)
+    const estimated = !known && f.count > 0;
+    return { ...d, known: known || estimated, estimated, balance: round((a.opening || 0) + f.in - f.out), spent: round(f.spent), count: f.count };
   });
 }
 
