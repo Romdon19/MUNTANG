@@ -523,6 +523,16 @@ export function setBalance(user, id, value, now = new Date()) {
   return a;
 }
 
+/**
+ * ยอดตั้งต้นตอนเพิ่มบัญชี: บัญชีเงิน (เงินสด/ธนาคาร/วอลเล็ท) ที่ไม่ได้ใส่ยอด → null = ยังไม่ตั้งยอด
+ * (นับทุกรายการรวมย้อนหลัง จนกว่าจะใส่ยอดจริง) · บัตร/หนี้/ค้างรับ ไม่ใส่ = 0
+ */
+function startBalance(a, input) {
+  const v = input.balance ?? input.used;
+  if (v !== undefined && v !== null && v !== '') return v;
+  return SPENDABLE.includes(a.type) && a.type !== 'card' ? null : 0;
+}
+
 export function addAccount(user, input = {}, now = new Date()) {
   if (activeAccounts(user).length >= 30) throw new Error('มีบัญชีได้สูงสุด 30 บัญชี');
   const plan = input.type === 'loan' ? installmentPlan(input) : null;
@@ -532,14 +542,16 @@ export function addAccount(user, input = {}, now = new Date()) {
   const holder = generic && user.accounts.find((x) => x.id === generic.id && x.name === generic.name && !x.provider && !x.since && !x.archived);
   if (holder) {
     Object.assign(holder, clean, { updatedAt: now.toISOString() });
-    setBalance(user, holder.id, input.balance ?? input.used ?? 0, now);
+    const start = startBalance(holder, input);
+    if (start !== null) setBalance(user, holder.id, start, now);
     return holder;
   }
   const a = { id: newId('a'), ...clean, createdAt: now.toISOString() };
   checkViaCard(user, a);
   if (a.type === 'loan' && !a.principal) a.principal = money2(input.balance ?? input.used ?? 0);
   user.accounts.push(a);
-  setBalance(user, a.id, plan ? plan.balance : input.balance ?? input.used ?? 0, now);
+  const start = plan ? plan.balance : startBalance(a, input);
+  if (start !== null) setBalance(user, a.id, start, now);
   return a;
 }
 
@@ -588,7 +600,7 @@ export function beforeSnapshot(user, tx) {
 }
 
 /** โอนเงินระหว่างบัญชี / จ่ายบัตรเครดิต / เติม e-Wallet (ไม่นับเป็นรายรับรายจ่าย) */
-export function addTransfer(user, { from, to, amount, date, note } = {}, now = new Date()) {
+export function addTransfer(user, { from, to, amount, date, note, countIn } = {}, now = new Date()) {
   const amt = money2(amount);
   if (!(amt > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
   if (!findAccount(user, from) || !findAccount(user, to)) throw new Error('ไม่พบบัญชี');
@@ -603,7 +615,17 @@ export function addTransfer(user, { from, to, amount, date, note } = {}, now = n
     note: String(note || transferNote(findAccount(user, from), toAcc)).slice(0, 80),
     createdAt: now.toISOString(),
   };
+  if (countIn) x.countIn = true;
   user.transfers.push(x);
+  return x;
+}
+
+/** นับ/ไม่นับรายการโอนย้อนหลัง (ก่อนวันตั้งยอด) ในยอดคงเหลือ */
+export function updateTransfer(user, id, { countIn } = {}) {
+  const x = user.transfers.find((t) => t.id === id);
+  if (!x) return null;
+  if (countIn) x.countIn = true;
+  else delete x.countIn;
   return x;
 }
 

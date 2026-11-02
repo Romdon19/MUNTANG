@@ -705,3 +705,8 @@ select.ob-sel { appearance: none; padding-right: 14px; }
   .mt-main.ob-main .ob { min-height: calc(100% - 0px); }
   .mt-app[data-tab='onboard'] .mt-toast { left: 50%; }
 }
+
+/* โอนย้อนหลังที่ไม่นับในยอด */
+.mt-xskip { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--amber); }
+.mt-xskip .mt-chip { padding: 3px 10px; font-size: 12px; border-color: var(--ink); color: var(--ink); }
+.mt-xskip .mt-link { font-size: 12px; padding: 0; }

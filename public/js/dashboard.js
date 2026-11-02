@@ -4,7 +4,7 @@ import { money } from '../core/format.js';
 import { todayStr, thaiDate, TH_DAYS, TH_MONTHS, weekday, cycleOf, shiftCycle, diffDays, addDays } from '../core/dates.js';
 import { summarize } from '../core/ops.js';
 import { moodFor } from '../core/mood.js';
-import { badgeSvg } from '../core/accounts.js';
+import { badgeSvg, countsIn } from '../core/accounts.js';
 import { newOnboard, onboardHTML, onboardAction, onboardAddCat, onboardPayload } from './onboard.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -1015,11 +1015,21 @@ export function mountDashboard(root, backend, opts = {}) {
           xfers.length
             ? `<ul class="mt-txs">${xfers
                 .map(
-                  (x) => `<li><div class="mt-tx">
+                  (x) => {
+                    // โอนย้อนหลังก่อนวันตั้งยอด → ไม่นับในยอดบัญชีนั้น (บอกให้รู้ + กดนับรวมได้)
+                    const skip = [acctById(x.from), acctById(x.to)].filter((a) => a && !countsIn(a, x));
+                    return `<li><div class="mt-tx">
                     <span class="mt-xfer">${acctImg(wallet(x.from).icon || 'bank', 'is-xs')}<i>→</i>${acctImg(wallet(x.to).icon || 'bank', 'is-xs')}</span>
-                    <span class="mt-tx-main"><span class="mt-tx-note">${esc(x.note)}</span><span class="mt-sub">${thaiDate(x.date)} · ${esc(wallet(x.from).name)} → ${esc(wallet(x.to).name)}</span></span>
+                    <span class="mt-tx-main"><span class="mt-tx-note">${esc(x.note)}</span><span class="mt-sub">${thaiDate(x.date)} · ${esc(wallet(x.from).name)} → ${esc(wallet(x.to).name)}</span>${
+                      skip.length
+                        ? `<span class="mt-xskip">ไม่นับในยอด ${skip.map((a) => esc(a.name)).join(', ')} (ก่อนวันตั้งยอด) <button class="mt-chip" data-act="xfercount" data-id="${x.id}">นับรวมในยอด</button></span>`
+                        : x.countIn
+                          ? `<span class="mt-xskip">นับรวมในยอดแล้ว <button class="mt-link" data-act="xferuncount" data-id="${x.id}">ไม่นับ</button></span>`
+                          : ''
+                    }</span>
                     <span class="num mt-amt">${money(x.amount)}</span>
-                    <button class="mt-x" data-act="delxfer" data-id="${x.id}" aria-label="ลบรายการนี้">✕</button></div></li>`
+                    <button class="mt-x" data-act="delxfer" data-id="${x.id}" aria-label="ลบรายการนี้">✕</button></div></li>`;
+                  }
                 )
                 .join('')}</ul>`
             : '<p class="mt-empty">ย้ายเงินระหว่างบัญชี เติม e-Wallet จ่ายบัตร จ่ายหนี้ ให้ยืม — ไม่นับเป็นรายรับรายจ่าย</p>'
@@ -1316,9 +1326,16 @@ export function mountDashboard(root, backend, opts = {}) {
           <div class="mt-amount"><span>฿</span><input id="mt-xamt" name="amount" type="number" step="any" inputmode="decimal" min="0" required value="${sh.amount ?? suggest}" placeholder="0"></div>
           ${toAcc && isLiab(toAcc) ? `<p class="mt-sub">${esc(toAcc.name)} ${toAcc.known ? (toAcc.type === 'card' ? `ต้องจ่ายบิล ${money(toAcc.payNow)}${toAcc.instDue ? ` (รวมค่างวดผ่อน ${money(toAcc.instDue)} ระบบตัดให้เอง)` : ''}` : `ยอดค้างจ่าย ${money(toAcc.used)}`) : 'ยังไม่ได้ตั้งยอด'}</p>` : ''}
           <div class="mt-row2">
-            <div><label for="mt-xdate">วันที่</label><input id="mt-xdate" name="date" type="date" value="${sh.date ?? todayStr()}" max="${todayStr()}"></div>
+            <div><label for="mt-xdate">วันที่</label><input id="mt-xdate" name="date" type="date" value="${sh.date ?? todayStr()}" max="${todayStr()}" data-change="xfer"></div>
             <div><label for="mt-xnote">บันทึก</label><input id="mt-xnote" name="note" value="${esc(sh.note ?? '')}" placeholder="ไม่ใส่ก็ได้" maxlength="80"></div>
           </div>
+          ${(() => {
+            const d = sh.date ?? todayStr();
+            const before = [acctById(from), toAcc].filter((a) => a?.since && d < a.since);
+            if (!before.length) return '';
+            return `<label class="mt-check mt-backdate"><input type="checkbox" name="countIn" ${sh.countIn ? 'checked' : ''}> นับรวมในยอด ${before.map((a) => esc(a.name)).join(', ')} แม้ลงวันที่ก่อนวันตั้งยอด</label>
+              <span class="mt-sub">ปกติรายการก่อนวันตั้งยอดไม่นับ เพราะยอดที่ตั้งไว้รวมแล้ว · ติ๊กถ้ายอดที่ตั้งไว้ยังไม่รวมการโอนนี้</span>`;
+          })()}
           <button class="mt-btn" type="submit">${toAcc?.type === 'card' ? 'บันทึกการจ่ายบัตร' : toAcc?.type === 'loan' ? 'บันทึกการจ่ายหนี้' : 'บันทึกการโอน'}</button>
         </form>`;
     } else if (sh.kind === 'catbudget') {
@@ -1617,6 +1634,10 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'delxfer':
         act(() => backend.deleteTransfer(b.dataset.id), 'ลบรายการโอนแล้ว');
         break;
+      case 'xfercount':
+      case 'xferuncount':
+        act(() => backend.updateTransfer(b.dataset.id, { countIn: a === 'xfercount' }), a === 'xfercount' ? 'นับรวมในยอดแล้ว ยอดทั้งสองบัญชีอัปเดตแล้ว' : 'ไม่นับรายการนี้ในยอดแล้ว');
+        break;
       case 'acctlist':
         st.wallet = b.dataset.id || '';
         st.tab = 'list';
@@ -1771,7 +1792,7 @@ export function mountDashboard(root, backend, opts = {}) {
     }
     if (e.target.dataset.change === 'xfer' && st.sheet?.kind === 'xfer') {
       const fd = Object.fromEntries(new FormData(e.target.form));
-      Object.assign(st.sheet, { from: fd.from, to: fd.to, amount: e.target.name === 'to' ? undefined : fd.amount, date: fd.date, note: fd.note });
+      Object.assign(st.sheet, { from: fd.from, to: fd.to, amount: e.target.name === 'to' ? undefined : fd.amount, date: fd.date, note: fd.note, countIn: fd.countIn === 'on' });
       render();
       return;
     }
@@ -1849,7 +1870,7 @@ export function mountDashboard(root, backend, opts = {}) {
         break;
       }
       case 'xfer':
-        act(() => backend.addTransfer({ ...fd, amount: Number(fd.amount) }), fd.to && acctById(fd.to)?.type === 'card' ? '💳 บันทึกการจ่ายบัตรแล้ว' : '⇄ บันทึกการโอนแล้ว');
+        act(() => backend.addTransfer({ ...fd, amount: Number(fd.amount), countIn: fd.countIn === 'on' }), fd.to && acctById(fd.to)?.type === 'card' ? '💳 บันทึกการจ่ายบัตรแล้ว' : '⇄ บันทึกการโอนแล้ว');
         break;
       case 'goal':
         act(() => backend.addGoal({ name: fd.name, target: Number(fd.target), emoji: fd.emoji }), 'สร้างเป้าหมายแล้ว');

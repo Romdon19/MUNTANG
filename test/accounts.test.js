@@ -199,3 +199,24 @@ test('an account without a set balance still shows what was recorded into it', (
   ops.setBalance(u, k.id, 30000, now);
   assert.equal(bal(u, k.id).estimated, false);
 });
+
+test('a backdated transfer before the set balance can be counted in on both accounts', () => {
+  const u = ops.newUser('U1');
+  const salary = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS Salary', balance: 24781.25 }, now);
+  const plus = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS', balance: 0 }, now);
+  const x = ops.addTransfer(u, { from: salary.id, to: plus.id, amount: 1400, date: '2026-10-20' }, now);
+  assert.equal(bal(u, plus.id).balance, 0); // ก่อนวันตั้งยอด → ไม่นับ
+  ops.updateTransfer(u, x.id, { countIn: true });
+  assert.equal(bal(u, salary.id).balance, 23381.25);
+  assert.equal(bal(u, plus.id).balance, 1400);
+});
+
+test('a new account without a balance counts every entry until the real balance is set', () => {
+  const u = ops.newUser('U1');
+  const a = ops.addAccount(u, { type: 'bank', name: 'SCB' }, now);
+  ops.addAccount(u, { type: 'bank', name: 'กสิกร', balance: 5000 }, now);
+  const k = u.accounts.find((x) => x.name === 'กสิกร');
+  ops.addTransfer(u, { from: k.id, to: a.id, amount: 700, date: '2026-10-01' }, now);
+  assert.equal(bal(u, a.id).balance, 700);
+  assert.equal(bal(u, a.id).estimated, true);
+});

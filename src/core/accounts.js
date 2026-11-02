@@ -184,6 +184,11 @@ export function guessProvider(text, type) {
 }
 
 /** รายการนี้นับรวมในยอดบัญชีไหม (นับเฉพาะหลังวันที่ตั้งยอดล่าสุด) */
+/** รายการนี้นับรวมในยอดของบัญชี a ไหม (รายการก่อนวันตั้งยอดไม่นับ เว้นแต่สั่ง countIn) */
+export function countsIn(a, item) {
+  return counts(a, item);
+}
+
 function counts(a, item) {
   if (!a.since || item.countIn) return true; // countIn = รายการย้อนหลังที่ผู้ใช้สั่งให้นับรวมยอด
 

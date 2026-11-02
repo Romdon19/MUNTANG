@@ -117,6 +117,7 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
     ['PATCH', /^\/api\/accounts\/([\w-]+)$/, api((u, b, id) => ({ account: ops.updateAccount(u, id, b) }))],
     ['DELETE', /^\/api\/accounts\/([\w-]+)$/, api((u, _b, id) => ({ account: ops.deleteAccount(u, id) }))],
     ['POST', /^\/api\/transfers$/, api((u, b) => ({ transfer: ops.addTransfer(u, b) }))],
+    ['PATCH', /^\/api\/transfers\/([\w-]+)$/, api((u, b, id) => ({ transfer: ops.updateTransfer(u, id, b) }))],
     ['DELETE', /^\/api\/transfers\/([\w-]+)$/, api((u, _b, id) => ({ transfer: ops.deleteTransfer(u, id) }))],
     ['POST', /^\/api\/goals$/, api((u, b) => ({ goal: ops.addGoal(u, b) }))],
     ['POST', /^\/api\/goals\/([\w-]+)\/deposit$/, api((u, b, id) => ({ goal: ops.depositGoal(u, id, b.amount) }))],
