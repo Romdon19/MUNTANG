@@ -1,6 +1,6 @@
 // การจัดการข้อมูลผู้ใช้ (ทำงานกับ user document ตรงๆ — ใช้ร่วมกันทั้งเซิร์ฟเวอร์และโหมดเดโมในเบราว์เซอร์)
 import { CATEGORIES, CATEGORY_MAP, FALLBACK, getCategory, hasCategory, categoryCatalog, cleanCustomCat } from './categories.js';
-import { ACCOUNT_TYPES, PROVIDER_MAP, LIABILITY, SPENDABLE, defaultAccounts, activeAccounts, findAccount, resolveWallet, accountBalances, accountTotals, decorate, guessProvider } from './accounts.js';
+import { ACCOUNT_TYPES, PROVIDER_MAP, LIABILITY, SPENDABLE, defaultAccounts, activeAccounts, findAccount, resolveWallet, accountBalances, accountTotals, decorate, guessProvider, countsIn } from './accounts.js';
 import { insights } from './insights.js';
 import { todayStr, monthKey, rangeFor, daysInMonth, addDays, diffDays } from './dates.js';
 
@@ -368,7 +368,7 @@ export function clearData(user) {
   const n = user.txs.length;
   user.txs = [];
   user.transfers = [];
-  for (const a of user.accounts || []) delete a.since;
+  for (const a of user.accounts || []) delete a.since, delete a.setAt, delete a.anchorFree;
   user.goals = [];
   user.recurring = [];
   user.slipRefs = [];
@@ -440,7 +440,7 @@ export function incomeWallet(user) {
   const def = live.find((a) => a.id === user.settings.defaultWallet);
   if (def && ['bank', 'ewallet'].includes(def.type)) return def.id;
   const banks = live.filter((a) => a.type === 'bank');
-  return (banks.find((a) => a.since) || banks[0] || def || live[0])?.id || user.settings.defaultWallet;
+  return (banks.find((a) => a.since || a.setAt) || banks[0] || def || live[0])?.id || user.settings.defaultWallet;
 }
 
 /** ถึงเวลาใช้ริชเมนู "ฉบับใช้งาน" หรือยัง (ตั้งค่าเสร็จ หรือเริ่มจดแล้ว) */
@@ -528,14 +528,31 @@ function checkViaCard(user, a) {
   if (a.viaCard && findAccount(user, a.viaCard)?.type !== 'card') a.viaCard = null;
 }
 
-/** ตั้งยอดปัจจุบันของบัญชี (บัตรเครดิต = ยอดที่ใช้ไป/ค้างจ่าย) นับรายการต่อจากนี้ */
+/**
+ * ตั้งยอดปัจจุบันของบัญชี (บัตรเครดิต/หนี้ = ยอดที่ใช้ไป/ค้างจ่าย)
+ * ยอดที่ใส่ = ยอดตอนนี้ (รวมทุกรายการที่จดไว้แล้ว) ระบบคิดยอดตั้งต้นย้อนกลับให้
+ * → ทุกรายการนับหมดเสมอ ทั้งที่จดก่อนและหลังตั้งยอด ไม่มีรายการไหน "ไม่ได้นับ"
+ */
 export function setBalance(user, id, value, now = new Date()) {
   const a = findAccount(user, id);
   if (!a) return null;
-  a.opening = money2(value);
-  a.since = todayStr(now);
-  a.balanceAt = now.toISOString();
+  const v = money2(value);
+  Object.assign(a, { opening: 0, setAt: now.toISOString(), setValue: v, anchorFree: true });
+  delete a.since;
+  delete a.balanceAt;
+  const cur = accountBalances(user, null, now).find((x) => x.id === id);
+  a.opening = money2(v - (LIABILITY.includes(a.type) ? cur.used : cur.balance));
   return a;
+}
+
+/** นับรายการที่เคยไม่ได้นับ (จดก่อนตั้งยอดแบบเดิม) ของบัญชีนี้ทั้งหมด */
+export function countAllFor(user, id) {
+  const a = findAccount(user, id);
+  if (!a) return 0;
+  let n = 0;
+  for (const t of user.txs) if (t.wallet === id && !countsIn(a, t)) (t.countIn = true), delete t.countOut, n++;
+  for (const x of user.transfers) if ((x.from === id || x.to === id) && !countsIn(a, x)) (x.countIn = true), delete x.countOut, n++;
+  return n;
 }
 
 /**
@@ -554,7 +571,7 @@ export function addAccount(user, input = {}, now = new Date()) {
   const clean = cleanAccount({ ...input, ...(plan ? { principal: plan.principal } : {}) });
   // บัญชีแรกของประเภทนั้น: ใช้แทนบัญชีกลางๆ ที่สร้างไว้ให้ (บัญชีธนาคาร/บัตรเครดิต) รายการเก่าจะตามมาด้วย
   const generic = defaultAccounts().find((d) => d.id === clean.type);
-  const holder = generic && user.accounts.find((x) => x.id === generic.id && x.name === generic.name && !x.provider && !x.since && !x.archived);
+  const holder = generic && user.accounts.find((x) => x.id === generic.id && x.name === generic.name && !x.provider && !x.since && !x.setAt && !x.archived);
   if (holder) {
     Object.assign(holder, clean, { updatedAt: now.toISOString() });
     const start = startBalance(holder, input);
@@ -580,7 +597,7 @@ export function updateAccount(user, id, input = {}, now = new Date()) {
   if (bal !== undefined && bal !== '' && bal !== null) {
     const cur = accountBalances(user, null, now).find((x) => x.id === id);
     const curVal = LIABILITY.includes(a.type) ? cur.used : cur.balance;
-    if (!a.since || money2(bal) !== curVal) setBalance(user, id, bal, now);
+    if (!(a.since || a.setAt) || money2(bal) !== curVal) setBalance(user, id, bal, now);
   }
   return a;
 }
@@ -611,7 +628,7 @@ function transferNote(fromAcc, toAcc) {
 /** ลงวันที่ก่อนวันตั้งยอดของบัญชี (นับเข้ายอดให้แล้ว แต่ถ้ายอดที่ตั้งไว้รวมไปแล้วจะซ้ำ → ถามผู้ใช้) */
 export function beforeSnapshot(user, tx) {
   const a = findAccount(user, tx.wallet);
-  return !!(a?.since && !tx.countOut && tx.date < a.since);
+  return !!(a?.since && !a.anchorFree && !tx.countOut && tx.date < a.since);
 }
 
 /** โอนเงินระหว่างบัญชี / จ่ายบัตรเครดิต / เติม e-Wallet (ไม่นับเป็นรายรับรายจ่าย) */

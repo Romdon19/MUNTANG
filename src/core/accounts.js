@@ -195,7 +195,7 @@ export function countsIn(a, item) {
 
 function counts(a, item) {
   if (item.countOut) return false;
-  if (!a.since || item.countIn) return true; // countIn = รายการเก่า (จดก่อนตั้งยอด) ที่ผู้ใช้สั่งให้นับ
+  if (a.anchorFree || !a.since || item.countIn) return true; // countIn = รายการเก่า (จดก่อนตั้งยอด) ที่ผู้ใช้สั่งให้นับ
   if (item.date > a.since) return true;
   return (item.createdAt || '') >= (a.balanceAt || '');
 }
@@ -302,7 +302,7 @@ export function accountBalances(user, cycle, now = new Date()) {
       const paidThis = (paidOn[a.id] || []).some((d) => (card ? d > card.statementDate : d.slice(0, 7) === today.slice(0, 7)));
       return {
         ...decorate(a),
-        known: !!a.since,
+        known: !!(a.since || a.setAt),
         used,
         principal,
         pctPaid: principal ? Math.max(0, Math.min(1, 1 - used / principal)) : 0,
@@ -318,7 +318,7 @@ export function accountBalances(user, cycle, now = new Date()) {
   return accs.map((a) => {
     const f = flow[a.id];
     const d = decorate(a);
-    const known = !!a.since;
+    const known = !!(a.since || a.setAt);
     if (a.type === 'card') {
       const used = round((a.opening || 0) + f.out - f.in);
       const limit = a.limit || 0;
@@ -356,7 +356,7 @@ export function accountBalances(user, cycle, now = new Date()) {
     if (a.type === 'loan') return loans.find((l) => l.id === a.id);
     // ยังไม่ได้ตั้งยอด แต่มีรายการแล้ว → นับจาก 0 + เงินเข้า − เงินออก (บอกว่าเป็นยอดประมาณ)
     const estimated = !known && f.count > 0;
-    const breakdown = { opening: a.opening || 0, since: a.since || null, txIn: round(f.txIn), txOut: round(f.txOut), xIn: round(f.in - f.txIn), xOut: round(f.xOut), skip: round(f.skip), skipN: f.skipN };
+    const breakdown = { opening: a.opening || 0, since: a.since || null, setAt: a.setAt || null, setValue: a.setValue ?? null, txIn: round(f.txIn), txOut: round(f.txOut), xIn: round(f.in - f.txIn), xOut: round(f.xOut), skip: round(f.skip), skipN: f.skipN };
     return { ...d, known: known || estimated, estimated, balance: round((a.opening || 0) + f.in - f.out), spent: round(f.spent), count: f.count, breakdown };
   });
 }

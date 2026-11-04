@@ -146,16 +146,19 @@ test('installments through a credit card hold the limit and are paid with the ca
   assert.equal(card.payNow, 0);
 });
 
-test('entries recorded later count toward the balance however far back they are dated, with an opt-out', async () => {
+test('every recorded entry counts toward the balance, however far back it is dated', async () => {
   const store = memStore();
   const bot = createBot({ store, now: () => now, links: {} });
-  await say(bot, 'เพิ่มบัญชี กสิกร 10000');
-  const r = await say(bot, '20/8 +ขายของ 2000 กสิกร'); // ย้อนหลัง 2 เดือน
-  assert.equal(bal(store.db.U1, 'bank').balance, 12000);
-  const note = r.messages.find((m) => m.type === 'text' && /จดย้อนหลัง/.test(m.text));
-  assert.ok(note, 'should say it was counted and offer to undo');
-  await bot.handleEvent({ type: 'postback', source: U, postback: { data: note.quickReply.items[0].action.data } });
+  await say(bot, 'เพิ่มบัญชี กสิกร');
+  await say(bot, 'ข้าว 50 กสิกร'); // จดก่อนตั้งยอด
+  await say(bot, 'ยอด กสิกร 10000'); // ยอดตอนนี้ (หักข้าวไปแล้ว)
   assert.equal(bal(store.db.U1, 'bank').balance, 10000);
+  await say(bot, '20/8 +ขายของ 2000 กสิกร'); // ย้อนหลัง 2 เดือน
+  await say(bot, 'ค่าน้ำ 100 กสิกร');
+  assert.equal(bal(store.db.U1, 'bank').balance, 11900);
+  // ลบรายการที่จดก่อนตั้งยอด → ยอดเปลี่ยนตาม
+  ops.deleteTx(store.db.U1, store.db.U1.txs.find((t) => t.note === 'ข้าว').id);
+  assert.equal(bal(store.db.U1, 'bank').balance, 11950);
 });
 
 test('minimum card payment keeps the rest as card debt; card interest is an expense', async () => {
@@ -199,19 +202,24 @@ test('an account without a set balance still shows what was recorded into it', (
   assert.equal(bal(u, k.id).estimated, false);
 });
 
-test('a backdated transfer before the set balance can be counted in on both accounts', () => {
+test('old-style balances: entries skipped before the set balance can all be counted in one go', () => {
   const u = ops.newUser('U1');
-  const salary = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS Salary', balance: 24781.25 }, now);
-  const plus = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS', balance: 0 }, now);
-  // โอนที่จดก่อนตั้งยอด (ยอดที่ตั้งรวมแล้ว) ไม่นับ — กด "นับรวมในยอด" ได้
-  const x = ops.addTransfer(u, { from: salary.id, to: plus.id, amount: 1400, date: '2026-10-20' }, new Date(now.getTime() - 60e3));
-  assert.equal(bal(u, plus.id).balance, 0);
-  ops.updateTransfer(u, x.id, { countIn: true });
-  assert.equal(bal(u, salary.id).balance, 23381.25);
+  const salary = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS Salary' }, now);
+  const plus = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS' }, now);
+  ops.addTx(u, { amount: 595, note: 'ข้าว', wallet: salary.id, date: '2026-10-24' });
+  ops.addTransfer(u, { from: salary.id, to: plus.id, amount: 1400, date: '2026-10-20' }, now);
+  // ยอดแบบเก่า: snapshot ณ วันตั้งยอด รายการที่จดก่อนหน้าไม่นับ
+  Object.assign(u.accounts.find((a) => a.id === salary.id), { opening: 2512.18, since: '2026-10-24', balanceAt: new Date(Date.now() + 864e5).toISOString() });
+  Object.assign(u.accounts.find((a) => a.id === plus.id), { opening: 0, since: '2026-10-24', balanceAt: new Date(Date.now() + 864e5).toISOString() });
+  assert.equal(bal(u, salary.id).balance, 2512.18);
+  assert.equal(bal(u, salary.id).breakdown.skipN, 2);
+  ops.countAllFor(u, salary.id);
+  assert.equal(bal(u, salary.id).balance, 517.18);
   assert.equal(bal(u, plus.id).balance, 1400);
-  // โอนย้อนหลังที่จดหลังตั้งยอด นับเลย
-  ops.addTransfer(u, { from: salary.id, to: plus.id, amount: 100, date: '2026-09-01' }, new Date(now.getTime() + 60e3));
-  assert.equal(bal(u, plus.id).balance, 1500);
+  // ตั้งยอดใหม่ = ยอดตอนนี้ ทุกรายการยังนับ ไม่มีรายการค้าง
+  ops.setBalance(u, salary.id, 1917.18, now);
+  assert.equal(bal(u, salary.id).balance, 1917.18);
+  assert.equal(bal(u, salary.id).breakdown.skipN, 0);
 });
 
 test('a new account without a balance counts every entry until the real balance is set', () => {

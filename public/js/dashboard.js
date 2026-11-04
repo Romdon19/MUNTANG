@@ -1050,17 +1050,30 @@ export function mountDashboard(root, backend, opts = {}) {
   function balanceBreakdown(a) {
     const b = a.breakdown;
     const row = (l, v, cls = '') => `<div><dt>${l}</dt><dd class="num ${cls}">${v}</dd></div>`;
-    return `<details class="mt-breakdown"><summary>ยอดนี้มาจากไหน</summary>
+    // รายการที่ยังไม่ได้หัก/บวกในยอด (จดไว้ก่อนตั้งยอดแบบเดิม)
+    const skipped = [
+      ...st.data.txs.filter((t) => t.wallet === a.id && !countsIn(a, t)).map((t) => ({ note: t.note, date: t.date, v: t.type === 'income' ? t.amount : -t.amount })),
+      ...st.data.transfers.filter((x) => (x.from === a.id || x.to === a.id) && !countsIn(a, x)).map((x) => ({ note: x.note, date: x.date, v: x.to === a.id ? x.amount : -x.amount })),
+    ].sort((p, q) => (p.date < q.date ? 1 : -1));
+    const label = b.setAt ? `ยอดตั้งต้น (ตั้งยอด ${money(b.setValue)} เมื่อ ${thaiDate(b.setAt.slice(0, 10))})` : b.since ? `ยอดที่ตั้งไว้ (${thaiDate(b.since)})` : 'เริ่มจาก (ยังไม่ได้ตั้งยอด)';
+    return `<details class="mt-breakdown" ${skipped.length ? 'open' : ''}><summary>ยอดนี้มาจากไหน</summary>
+      ${
+        skipped.length
+          ? `<div class="mt-skipbox"><b>⚠️ ยังไม่ได้${skipped.reduce((s, x) => s + x.v, 0) < 0 ? 'หัก' : 'นับ'} ${skipped.length} รายการ รวม ${money(Math.abs(skipped.reduce((s, x) => s + x.v, 0)))}</b>
+              <ul>${skipped.slice(0, 8).map((x) => `<li><span>${thaiDate(x.date, { year: false })} · ${esc(x.note)}</span><span class="num">${x.v > 0 ? '+' : '−'}${money(Math.abs(x.v))}</span></li>`).join('')}${skipped.length > 8 ? `<li class="mt-sub">และอีก ${skipped.length - 8} รายการ</li>` : ''}</ul>
+              <button class="mt-btn" type="button" data-act="countall" data-id="${a.id}">นับทั้งหมด → ยอดจะเป็น ${money(a.balance + skipped.reduce((s, x) => s + x.v, 0))}</button>
+              <span class="mt-sub">รายการเหล่านี้จดไว้ก่อนตั้งยอด ระบบเดิมเลยไม่นับ ถ้ายอดที่ตั้งยังไม่ได้รวมรายการพวกนี้ กด "นับทั้งหมด"</span></div>`
+          : ''
+      }
       <dl class="mt-kv">
-        ${row(b.since ? `ยอดที่ตั้งไว้ (${thaiDate(b.since)})` : 'เริ่มจาก (ยังไม่ได้ตั้งยอด)', money(b.opening))}
-        ${b.txIn ? row('+ รายรับที่จดหลังตั้งยอด', `+${money(b.txIn)}`, 'is-inc') : ''}
-        ${b.txOut ? row('− รายจ่ายที่จดหลังตั้งยอด', `−${money(b.txOut)}`) : ''}
+        ${row(label, money(b.opening))}
+        ${b.txIn ? row('+ รายรับ', `+${money(b.txIn)}`, 'is-inc') : ''}
+        ${b.txOut ? row('− รายจ่าย', `−${money(b.txOut)}`) : ''}
         ${b.xIn ? row('+ โอนเข้า', `+${money(b.xIn)}`, 'is-inc') : ''}
         ${b.xOut ? row('− โอนออก / จ่ายบัตร', `−${money(b.xOut)}`) : ''}
         ${row('<b>= ยอดคงเหลือ</b>', `<b>${money(a.balance)}</b>`)}
       </dl>
-      ${b.skipN ? `<p class="mt-sub">ไม่ได้นับ ${b.skipN} รายการ (รวม ${money(Math.abs(b.skip))}) เพราะจดไว้ก่อนวันตั้งยอด ถือว่ายอดที่ตั้งรวมไปแล้ว</p>` : ''}
-      <p class="mt-sub">ไม่ตรงกับแอปธนาคาร? มักเป็นเพราะมีรายการที่ยังไม่ได้จด ใส่ยอดจริงในช่องด้านบนแล้วกดบันทึก ระบบจะนับต่อจากยอดใหม่</p>
+      <p class="mt-sub">ทุกรายการที่จดในบัญชีนี้ หัก/บวกในยอดให้หมด ไม่ว่าจะจดย้อนหลังแค่ไหน</p>
     </details>`;
   }
 
@@ -1071,6 +1084,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const xfers = [...st.data.transfers].sort(byNewest).slice(0, 8);
     const unset = list.filter((a) => !a.known).length;
     const est = list.filter((a) => a.estimated);
+    const skipAcc = list.filter((a) => a.breakdown?.skipN);
     const sections = GROUPS.map((g) => ({ ...g, list: list.filter((a) => inGroup(g, a)) }));
     const addLabel = { cash: '+ เพิ่ม', bank: '+ เพิ่มบัญชี', ewallet: '+ เพิ่ม e-Wallet', receivable: '+ ให้ยืม', loan: '+ เพิ่มหนี้', card: '+ เพิ่มบัตร' };
     return `
@@ -1078,6 +1092,7 @@ export function mountDashboard(root, backend, opts = {}) {
       ${worthCard()}
       ${debtCard()}
       ${unset ? `<p class="mt-sub mt-note">มี ${unset} บัญชีที่ยังไม่ได้ตั้งยอด แตะบัญชีแล้วใส่ยอดตอนนี้ ระบบจะคิดยอดให้ทุกครั้งที่จด</p>` : ''}
+      ${skipAcc.map((a) => `<button class="mt-skipnote" data-act="acct" data-id="${a.id}">⚠️ ${esc(a.name)} ยังมี ${a.breakdown.skipN} รายการที่ไม่ได้หัก/บวกในยอด · แตะเพื่อตรวจและนับ ›</button>`).join('')}
       ${est.length ? `<p class="mt-sub mt-note">ยอดของ ${est.map((a) => esc(a.name)).join(', ')} คิดจากรายการที่จด (เริ่มจาก ฿0) ถ้าไม่ตรงกับในแอปธนาคาร แตะบัญชีแล้วใส่ยอดจริงตอนนี้</p>` : ''}
       ${sections
         .filter((g) => g.list.length || ['bank', 'card', 'loan'].includes(g.key))
@@ -1771,6 +1786,9 @@ export function mountDashboard(root, backend, opts = {}) {
         render();
         break;
       }
+      case 'countall':
+        act(() => backend.countAll(b.dataset.id), 'นับรายการที่ค้างเข้ายอดแล้ว');
+        break;
       case 'delxfer':
         act(() => backend.deleteTransfer(b.dataset.id), 'ลบรายการโอนแล้ว');
         break;

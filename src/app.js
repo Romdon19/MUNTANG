@@ -114,6 +114,7 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
     ['DELETE', /^\/api\/tx\/([\w-]+)$/, api((u, _b, id) => ({ tx: ops.deleteTx(u, id) }))],
     ['PUT', /^\/api\/settings$/, api((u, b) => (ops.applySettings(u, b), publicState(u)))],
     ['POST', /^\/api\/accounts$/, api((u, b) => ({ account: ops.addAccount(u, b) }))],
+    ['POST', /^\/api\/accounts\/([\w-]+)\/countall$/, api((u, _b, id) => ({ counted: ops.countAllFor(u, id) }))],
     ['PATCH', /^\/api\/accounts\/([\w-]+)$/, api((u, b, id) => ({ account: ops.updateAccount(u, id, b) }))],
     ['DELETE', /^\/api\/accounts\/([\w-]+)$/, api((u, _b, id) => ({ account: ops.deleteAccount(u, id) }))],
     ['POST', /^\/api\/transfers$/, api((u, b) => ({ transfer: ops.addTransfer(u, b) }))],
