@@ -230,7 +230,8 @@ export function accountBalances(user, cycle, now = new Date()) {
   const accs = user.accounts || [];
   const byId = Object.fromEntries(accs.map((a) => [a.id, a]));
   const today = todayStr(now);
-  const flow = Object.fromEntries(accs.map((a) => [a.id, { in: 0, out: 0, spent: 0, count: 0, cardCycle: 0 }]));
+  // txIn/txOut/xIn/xOut/skip = ที่มาของยอด (โชว์ให้ผู้ใช้ตรวจว่ายอดมาจากไหน)
+  const flow = Object.fromEntries(accs.map((a) => [a.id, { in: 0, out: 0, spent: 0, count: 0, cardCycle: 0, txIn: 0, txOut: 0, xIn: 0, xOut: 0, skip: 0, skipN: 0 }]));
   const cyc = Object.fromEntries(accs.filter((a) => a.type === 'card').map((a) => [a.id, cardCycle(a.statementDay, a.dueDay, today)]));
   for (const t of user.txs || []) {
     const f = flow[t.wallet];
@@ -240,9 +241,13 @@ export function accountBalances(user, cycle, now = new Date()) {
     if (cycle && t.type === 'expense' && t.date >= cycle.from && t.date <= cycle.to) f.spent += t.amount;
     const cc = cyc[t.wallet];
     if (cc && t.type === 'expense' && t.date >= cc.from && t.date <= cc.to) f.cardCycle += t.amount;
-    if (!counts(a, t)) continue;
-    if (t.type === 'income') f.in += t.amount;
-    else f.out += t.amount;
+    if (!counts(a, t)) {
+      f.skip += t.type === 'income' ? t.amount : -t.amount;
+      f.skipN++;
+      continue;
+    }
+    if (t.type === 'income') (f.in += t.amount), (f.txIn += t.amount);
+    else (f.out += t.amount), (f.txOut += t.amount);
   }
 
   // ยอดหนี้ผ่อนแบบสะสม (ไว้รู้ว่ายังเหลือให้ตัดค่างวดไหม) + เดือนที่จ่ายงวดแล้ว
@@ -256,7 +261,8 @@ export function accountBalances(user, cycle, now = new Date()) {
     let amount = x.amount;
     if (from) {
       flow[from.id].count++;
-      if (counts(from, x)) flow[from.id].out += x.amount;
+      if (counts(from, x)) (flow[from.id].out += x.amount), (flow[from.id].xOut += x.amount);
+      else (flow[from.id].skip -= x.amount), flow[from.id].skipN++;
       if (owedNow[from.id] !== undefined && counts(from, x)) owedNow[from.id] += x.amount;
     }
     if (!to) continue;
@@ -279,6 +285,7 @@ export function accountBalances(user, cycle, now = new Date()) {
       }
     }
     if (counts(to, x)) flow[to.id].in += amount;
+    else (flow[to.id].skip += amount), flow[to.id].skipN++;
   }
 
   const round = (n) => Math.round(n * 100) / 100;
@@ -349,7 +356,8 @@ export function accountBalances(user, cycle, now = new Date()) {
     if (a.type === 'loan') return loans.find((l) => l.id === a.id);
     // ยังไม่ได้ตั้งยอด แต่มีรายการแล้ว → นับจาก 0 + เงินเข้า − เงินออก (บอกว่าเป็นยอดประมาณ)
     const estimated = !known && f.count > 0;
-    return { ...d, known: known || estimated, estimated, balance: round((a.opening || 0) + f.in - f.out), spent: round(f.spent), count: f.count };
+    const breakdown = { opening: a.opening || 0, since: a.since || null, txIn: round(f.txIn), txOut: round(f.txOut), xIn: round(f.in - f.txIn), xOut: round(f.xOut), skip: round(f.skip), skipN: f.skipN };
+    return { ...d, known: known || estimated, estimated, balance: round((a.opening || 0) + f.in - f.out), spent: round(f.spent), count: f.count, breakdown };
   });
 }
 

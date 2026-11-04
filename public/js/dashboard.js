@@ -1046,6 +1046,24 @@ export function mountDashboard(root, backend, opts = {}) {
     </section>`;
   }
 
+  /** ที่มาของยอดคงเหลือ: ยอดตั้งต้น + รับ − จ่าย ± โอน (และรายการที่ไม่ได้นับ) ให้ตรวจเทียบกับแอปธนาคารได้ */
+  function balanceBreakdown(a) {
+    const b = a.breakdown;
+    const row = (l, v, cls = '') => `<div><dt>${l}</dt><dd class="num ${cls}">${v}</dd></div>`;
+    return `<details class="mt-breakdown"><summary>ยอดนี้มาจากไหน</summary>
+      <dl class="mt-kv">
+        ${row(b.since ? `ยอดที่ตั้งไว้ (${thaiDate(b.since)})` : 'เริ่มจาก (ยังไม่ได้ตั้งยอด)', money(b.opening))}
+        ${b.txIn ? row('+ รายรับที่จดหลังตั้งยอด', `+${money(b.txIn)}`, 'is-inc') : ''}
+        ${b.txOut ? row('− รายจ่ายที่จดหลังตั้งยอด', `−${money(b.txOut)}`) : ''}
+        ${b.xIn ? row('+ โอนเข้า', `+${money(b.xIn)}`, 'is-inc') : ''}
+        ${b.xOut ? row('− โอนออก / จ่ายบัตร', `−${money(b.xOut)}`) : ''}
+        ${row('<b>= ยอดคงเหลือ</b>', `<b>${money(a.balance)}</b>`)}
+      </dl>
+      ${b.skipN ? `<p class="mt-sub">ไม่ได้นับ ${b.skipN} รายการ (รวม ${money(Math.abs(b.skip))}) เพราะจดไว้ก่อนวันตั้งยอด ถือว่ายอดที่ตั้งรวมไปแล้ว</p>` : ''}
+      <p class="mt-sub">ไม่ตรงกับแอปธนาคาร? มักเป็นเพราะมีรายการที่ยังไม่ได้จด ใส่ยอดจริงในช่องด้านบนแล้วกดบันทึก ระบบจะนับต่อจากยอดใหม่</p>
+    </details>`;
+  }
+
   function walletsView() {
     const t = st.data.accountTotals;
     const list = activeAccts();
@@ -1304,6 +1322,7 @@ export function mountDashboard(root, backend, opts = {}) {
             ? `<div class="mt-acct-head">${acctImg(a.icon, 'is-lg')}
                 <div><b class="num ${a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</b><span class="mt-sub">${esc(a.type === 'loan' || a.type === 'receivable' ? acctSub(a) : a.type === 'card' ? (a.known ? 'ยอดใช้รวม (รูดค้าง + ผ่อน)' : 'รูดรอบนี้ (ยังไม่ตั้งยอด)') : `${a.estimated ? 'ยอดจากรายการที่จด (ยังไม่ได้ตั้งยอดจริง)' : a.known ? 'ยอดคงเหลือ' : 'ยังไม่ได้ตั้งยอด'} · รอบนี้ใช้ ${money(a.spent || 0)}`)}</span></div></div>
               ${a.type === 'card' && a.known ? cardDetail(a) : ''}
+              ${a.breakdown && a.count ? balanceBreakdown(a) : ''}
               ${a.type === 'loan' && a.principal ? bar(a.pctPaid, 'var(--ink)', 'is-lg') : ''}`
             : ''
         }

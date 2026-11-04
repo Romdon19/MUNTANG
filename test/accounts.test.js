@@ -232,3 +232,16 @@ test('Thai month names set the date for backdated entries', () => {
   assert.equal(p('15 กันยายน +เงินเดือน 25000').type, 'income');
   assert.equal(p('ข้าว 50').date, '2026-11-02');
 });
+
+test('balance breakdown adds up to the balance', () => {
+  const u = ops.newUser('U1');
+  const k = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS Salary', balance: 3000 }, now);
+  const c = ops.addAccount(u, { type: 'cash', name: 'เงินสด', balance: 0 }, now);
+  ops.addTx(u, { amount: 595, note: 'ข้าว', wallet: k.id });
+  ops.addTx(u, { type: 'income', amount: 100, note: 'คืนเงิน', categoryId: 'refund', wallet: k.id });
+  ops.addTransfer(u, { from: k.id, to: c.id, amount: 500 }, new Date(now.getTime() + 1000));
+  const a = bal(u, k.id);
+  const b = a.breakdown;
+  assert.equal(b.opening + b.txIn - b.txOut + b.xIn - b.xOut, a.balance);
+  assert.equal(a.balance, 2005);
+});

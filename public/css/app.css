@@ -727,3 +727,9 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 .mt-emo-pick { display: flex; flex-wrap: wrap; gap: 6px; }
 .mt-emo-pick button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); font-size: 19px; }
 .mt-emo-pick button:hover { border-color: var(--ink); }
+
+/* ที่มาของยอดบัญชี */
+.mt-breakdown { border: 1px solid var(--border); border-radius: var(--r-sm); padding: 10px 12px; background: var(--bg); }
+.mt-breakdown summary { cursor: pointer; font-weight: 500; font-size: 14px; }
+.mt-breakdown .mt-kv { margin: 10px 0 6px; }
+.mt-breakdown .mt-sub { margin-top: 6px; }
