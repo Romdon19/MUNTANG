@@ -5,6 +5,7 @@ import { todayStr, thaiDate, TH_DAYS, TH_MONTHS, weekday, cycleOf, shiftCycle, d
 import { summarize } from '../core/ops.js';
 import { moodFor } from '../core/mood.js';
 import { badgeSvg, countsIn } from '../core/accounts.js';
+import { guessCategory } from '../core/categories.js';
 import { newOnboard, onboardHTML, onboardAction, onboardAddCat, onboardPayload } from './onboard.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -1802,6 +1803,7 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'sheetcat':
         keepForm();
         sh.cat = b.dataset.v;
+        sh.catPicked = true; // เลือกเองแล้ว ไม่ต้องเดาหมวดจากชื่อรายการอีก
         render();
         break;
       case 'askdel':
@@ -1889,6 +1891,17 @@ export function mountDashboard(root, backend, opts = {}) {
     if (e.target.id === 'mt-search') {
       st.q = e.target.value;
       render();
+    }
+    // พิมพ์ชื่อรายการ → เดาหมวดให้เหมือนในแชท (จนกว่าจะกดเลือกหมวดเอง) ไม่วาดใหม่ทั้งชีต ช่องพิมพ์จะได้ไม่หลุดโฟกัส
+    if (e.target.id === 'mt-note' && st.sheet?.kind === 'tx' && !st.sheet.catPicked) {
+      const f = e.target.form;
+      const type = f.querySelector('[name=type]').value;
+      const cats = st.data.categories;
+      const g = guessCategory(e.target.value, {}, { settings: { customCats: cats.filter((c) => c.custom), hiddenCats: cats.filter((c) => c.hidden).map((c) => c.id) } });
+      if (!g || g.type !== type || !f.querySelector(`[data-act=sheetcat][data-v="${g.id}"]`)) return;
+      st.sheet.cat = g.id;
+      f.querySelector('[name=categoryId]').value = g.id;
+      for (const btn of f.querySelectorAll('[data-act=sheetcat]')) btn.classList.toggle('is-on', btn.dataset.v === g.id);
     }
   });
 
