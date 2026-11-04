@@ -603,10 +603,20 @@ export function updateAccount(user, id, input = {}, now = new Date()) {
 }
 
 /** ลบบัญชี: ถ้ามีรายการผูกอยู่จะซ่อนไว้แทน (ประวัติยังดูได้) */
-export function deleteAccount(user, id) {
+/**
+ * ลบบัญชี: ถ้ามีรายการผูกอยู่จะซ่อนไว้ (ประวัติยังอยู่ ยอดบัญชีอื่นไม่เปลี่ยน)
+ * purge = ลบพร้อมทุกรายการ/การโอนของบัญชีนี้ → เหมือนไม่เคยมี ยอดบัญชีอื่นที่โอนกันจะคืนค่า
+ */
+export function deleteAccount(user, id, { purge = false } = {}) {
   const a = findAccount(user, id);
   if (!a) return null;
-  if (SPENDABLE.includes(a.type) && !activeAccounts(user).some((x) => x.id !== id && SPENDABLE.includes(x.type))) throw new Error('ต้องมีบัญชีที่ใช้จ่ายอย่างน้อย 1 บัญชี');
+  if (SPENDABLE.includes(a.type) && !a.archived && !activeAccounts(user).some((x) => x.id !== id && SPENDABLE.includes(x.type))) throw new Error('ต้องมีบัญชีที่ใช้จ่ายอย่างน้อย 1 บัญชี');
+  if (purge) {
+    user.txs = user.txs.filter((t) => t.wallet !== id);
+    user.transfers = user.transfers.filter((x) => x.from !== id && x.to !== id);
+    user.recurring = user.recurring.filter((r) => r.wallet !== id);
+    for (const l of user.accounts) if (l.viaCard === id) l.viaCard = null;
+  }
   const used = user.txs.some((t) => t.wallet === id) || user.transfers.some((x) => x.from === id || x.to === id) || user.recurring.some((r) => r.wallet === id);
   if (used) a.archived = true;
   else user.accounts.splice(user.accounts.indexOf(a), 1);

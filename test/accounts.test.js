@@ -253,3 +253,16 @@ test('balance breakdown adds up to the balance', () => {
   assert.equal(b.opening + b.txIn - b.txOut + b.xIn - b.xOut, a.balance);
   assert.equal(a.balance, 2005);
 });
+
+test('deleting an account with its entries gives the other account its balance back', () => {
+  const u = ops.newUser('U1');
+  const k = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS Salary', balance: 1000 }, now);
+  const loan = ops.addAccount(u, { type: 'loan', name: 'ยืมแม่', balance: 0 }, now);
+  ops.addTransfer(u, { from: loan.id, to: k.id, amount: 687.37 }, now);
+  assert.equal(bal(u, k.id).balance, 1687.37);
+  ops.deleteAccount(u, loan.id); // แค่ซ่อน
+  assert.equal(bal(u, k.id).balance, 1687.37);
+  ops.deleteAccount(u, loan.id, { purge: true });
+  assert.equal(bal(u, k.id).balance, 1000);
+  assert.equal(u.accounts.some((a) => a.id === loan.id), false);
+});

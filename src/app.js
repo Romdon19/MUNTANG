@@ -116,7 +116,7 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
     ['POST', /^\/api\/accounts$/, api((u, b) => ({ account: ops.addAccount(u, b) }))],
     ['POST', /^\/api\/accounts\/([\w-]+)\/countall$/, api((u, _b, id) => ({ counted: ops.countAllFor(u, id) }))],
     ['PATCH', /^\/api\/accounts\/([\w-]+)$/, api((u, b, id) => ({ account: ops.updateAccount(u, id, b) }))],
-    ['DELETE', /^\/api\/accounts\/([\w-]+)$/, api((u, _b, id) => ({ account: ops.deleteAccount(u, id) }))],
+    ['DELETE', /^\/api\/accounts\/([\w-]+)$/, api((u, _b, id, url) => ({ account: ops.deleteAccount(u, id, { purge: url?.searchParams.get('purge') === '1' }) }))],
     ['POST', /^\/api\/transfers$/, api((u, b) => ({ transfer: ops.addTransfer(u, b) }))],
     ['PATCH', /^\/api\/transfers\/([\w-]+)$/, api((u, b, id) => ({ transfer: ops.updateTransfer(u, id, b) }))],
     ['DELETE', /^\/api\/transfers\/([\w-]+)$/, api((u, _b, id) => ({ transfer: ops.deleteTransfer(u, id) }))],
@@ -140,7 +140,7 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
       if (!userId) return json({ error: 'unauthorized' }, 401);
       const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await req.json().catch(() => ({}));
       try {
-        return json(await withUser(userId, url.origin, (u) => fn(u, body || {}, params[0])));
+        return json(await withUser(userId, url.origin, (u) => fn(u, body || {}, params[0], url)));
       } catch (e) {
         return json({ error: e.message }, 400);
       }

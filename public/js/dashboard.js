@@ -1073,7 +1073,20 @@ export function mountDashboard(root, backend, opts = {}) {
         ${b.xOut ? row('− โอนออก / จ่ายบัตร', `−${money(b.xOut)}`) : ''}
         ${row('<b>= ยอดคงเหลือ</b>', `<b>${money(a.balance)}</b>`)}
       </dl>
-      <p class="mt-sub">ทุกรายการที่จดในบัญชีนี้ หัก/บวกในยอดให้หมด ไม่ว่าจะจดย้อนหลังแค่ไหน</p>
+      ${(() => {
+        // การโอนทั้งหมดของบัญชีนี้ (เห็นว่าเงินเข้า/ออกจากบัญชีไหน ลบได้ทันที)
+        const xs = st.data.transfers.filter((x) => (x.from === a.id || x.to === a.id) && countsIn(a, x)).sort((p, q) => (p.date < q.date ? 1 : -1));
+        if (!xs.length) return '';
+        return `<details class="mt-xlist"><summary>ดูการโอนทั้งหมด ${xs.length} รายการ</summary><ul>${xs
+          .map((x) => {
+            const inn = x.to === a.id;
+            const other = acctById(inn ? x.from : x.to);
+            return `<li><span><span><b>${thaiDate(x.date, { year: false })}</b> · ${esc(x.note)}</span><small>${inn ? 'จาก' : 'ไป'} ${esc(other?.name || 'บัญชีที่ลบแล้ว')}${other?.archived ? ' (ลบแล้ว)' : ''}</small></span>
+              <span class="num ${inn ? 'is-inc' : ''}">${inn ? '+' : '−'}${money(x.amount)}</span><button class="mt-x" type="button" data-act="delxfer" data-id="${x.id}" aria-label="ลบการโอนนี้">✕</button></li>`;
+          })
+          .join('')}</ul></details>`;
+      })()}
+      <p class="mt-sub">ทุกรายการที่จดในบัญชีนี้ หัก/บวกในยอดให้หมด ไม่ว่าจะจดย้อนหลังแค่ไหน · ลบรายการหรือการโอน ยอดคืนค่าทันที</p>
     </details>`;
   }
 
@@ -1130,7 +1143,13 @@ export function mountDashboard(root, backend, opts = {}) {
             : '<p class="mt-empty">ย้ายเงินระหว่างบัญชี เติม e-Wallet จ่ายบัตร จ่ายหนี้ ให้ยืม — ไม่นับเป็นรายรับรายจ่าย</p>'
         }
       </section>
-      ${hidden.length ? `<p class="mt-sub">บัญชีที่ซ่อนไว้: ${hidden.map((a) => esc(a.name)).join(', ')} (ยังเก็บประวัติรายการไว้)</p>` : ''}`;
+      ${
+        hidden.length
+          ? `<section class="mt-card"><div class="mt-card-h"><h3>บัญชีที่ลบ (ซ่อนไว้)</h3></div>
+              <p class="mt-sub">ยังเก็บประวัติไว้ การโอนกับบัญชีเหล่านี้ยังนับในยอดบัญชีอื่น แตะเพื่อลบถาวรพร้อมรายการ</p>
+              <ul class="mt-txs">${hidden.map((a) => `<li><button class="mt-acct-row" data-act="acct" data-id="${a.id}">${acctImg(a.icon, 'is-sm')}<span class="mt-tx-main"><span class="mt-tx-note">${esc(a.name)}</span><span class="mt-sub">${a.count} รายการ</span></span><span class="mt-sub">ลบถาวร ›</span></button></li>`).join('')}</ul></section>`
+          : ''
+      }`;
   }
 
   // ---------------- ปฏิทิน ----------------
@@ -1406,7 +1425,11 @@ export function mountDashboard(root, backend, opts = {}) {
               <button class="mt-btn is-ghost" type="button" data-act="xfer" data-id="${a.id}">${{ card: '💳 จ่ายบัตรนี้', loan: '🧾 จ่ายหนี้ / ผ่อนงวด', receivable: '💚 บันทึกการได้เงินคืน' }[a.type] || '⇄ โอนเงินจากบัญชีนี้'}</button>
               ${
                 sh.confirmDel
-                  ? `<button class="mt-btn is-danger" type="button" data-act="delacct" data-id="${a.id}">ยืนยันลบ${a.count ? ' (ซ่อนไว้ ประวัติยังอยู่)' : ''}</button>`
+                  ? a.count
+                    ? `<button class="mt-btn is-danger" type="button" data-act="delacct" data-id="${a.id}" data-purge="1">ลบพร้อมรายการทั้งหมด ${a.count} รายการ</button>
+                       <span class="mt-sub">เหมือนไม่เคยมีบัญชีนี้ การโอนเข้า/ออกกับบัญชีอื่นจะถูกลบด้วย ยอดบัญชีอื่นคืนค่า</span>
+                       <button class="mt-btn is-ghost" type="button" data-act="delacct" data-id="${a.id}">แค่ซ่อนบัญชี (เก็บประวัติไว้ ยอดบัญชีอื่นไม่เปลี่ยน)</button>`
+                    : `<button class="mt-btn is-danger" type="button" data-act="delacct" data-id="${a.id}">ยืนยันลบ</button>`
                   : `<button class="mt-btn is-ghost is-danger-text" type="button" data-act="askdelacct">ลบบัญชีนี้</button>`
               }`
             : ''
@@ -1778,7 +1801,7 @@ export function mountDashboard(root, backend, opts = {}) {
         render();
         break;
       case 'delacct':
-        act(() => backend.deleteAccountItem(b.dataset.id), 'ลบบัญชีแล้ว');
+        act(() => backend.deleteAccountItem(b.dataset.id, !!b.dataset.purge), b.dataset.purge ? 'ลบบัญชีและรายการทั้งหมดแล้ว ยอดบัญชีอื่นคืนค่าแล้ว' : 'ซ่อนบัญชีแล้ว');
         break;
       case 'xfer': {
         const a = b.dataset.id ? acctById(b.dataset.id) : null;
