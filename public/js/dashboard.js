@@ -78,6 +78,24 @@ export function mountDashboard(root, backend, opts = {}) {
       .join('');
   const isCurrentCycle = () => st.cycle.from === st.data.budget.from;
 
+  /** เลือกบัญชีแบบการ์ดโลโก้จริง (แทน dropdown ที่โชว์ได้แค่อีโมจิ) */
+  const acctPicker = (form, field, cur, list) =>
+    `<div class="mt-pick" role="radiogroup">${list
+      .map(
+        (a) => `<button type="button" role="radio" aria-checked="${a.id === cur}" class="mt-pick-b ${a.id === cur ? 'is-on' : ''}" data-act="pickacct" data-form="${form}" data-field="${field}" data-v="${a.id}">
+          ${acctImg(a.icon, 'is-sm')}<span><b>${esc(a.name)}</b><small class="num">${a.type === 'card' || a.type === 'loan' ? `ค้าง ${money(a.type === 'card' ? a.totalUsed ?? a.used ?? 0 : a.used || 0)}` : a.known ? money(a.balance) : 'ยังไม่ตั้งยอด'}</small></span></button>`
+      )
+      .join('')}</div><input type="hidden" name="${field}" value="${esc(cur || '')}">`;
+  const spendable = (cur) => st.data.accounts.filter((a) => (!a.archived && ['cash', 'bank', 'ewallet', 'card'].includes(a.type)) || a.id === cur);
+
+  /** วันที่: ช่องเต็มแถว + ปุ่มลัด วันนี้/เมื่อวาน */
+  const datePicker = (form, id, val, extra = '') => {
+    const t = todayStr();
+    const q = [[t, 'วันนี้'], [addDays(t, -1), 'เมื่อวาน'], [addDays(t, -2), 'เมื่อวานซืน']];
+    return `<div class="mt-datepick">${sticker('cal', 30)}<input id="${id}" name="date" type="date" value="${val}" max="${t}" ${extra}>
+      <span class="mt-datepick-q">${q.map(([d, l]) => `<button type="button" class="mt-chip ${val === d ? 'is-on' : ''}" data-act="pickdate" data-form="${form}" data-v="${d}">${l}</button>`).join('')}</span></div>`;
+  };
+
   async function refresh() {
     try {
       st.data = await backend.state();
@@ -1323,10 +1341,10 @@ export function mountDashboard(root, backend, opts = {}) {
           <div class="mt-catgrid">${cats.map((c) => `<button type="button" class="${c.id === curCat ? 'is-on' : ''}" data-act="sheetcat" data-v="${c.id}"><span>${catIcon(c, 30)}</span>${esc(c.name)}</button>`).join('')}</div>
           <input type="hidden" name="categoryId" value="${curCat}">
           <input type="hidden" name="type" value="${type}">
-          <div class="mt-row2">
-            <div><label for="mt-date">วันที่</label><input id="mt-date" name="date" type="date" value="${sh.date ?? t.date}" max="${todayStr()}"></div>
-            <div><label for="mt-txwallet">${type === 'income' ? 'เข้าบัญชี' : 'จ่ายจากบัญชี'}</label><select id="mt-txwallet" name="wallet">${walletOptions(sh.wallet ?? t.wallet)}</select></div>
-          </div>
+          <label for="mt-date">วันที่</label>
+          ${datePicker('tx', 'mt-date', sh.date ?? t.date)}
+          <span class="mt-label">${type === 'income' ? 'เข้าบัญชี' : 'จ่ายจากบัญชี'}</span>
+          ${acctPicker('tx', 'wallet', sh.wallet ?? t.wallet, spendable(sh.wallet ?? t.wallet))}
           ${(() => {
             // จดย้อนหลังก่อนวันตั้งยอดบัญชี → นับเข้ายอดให้ (ค่าเริ่มต้น) เอาติ๊กออกได้ถ้ายอดที่ตั้งรวมไปแล้ว
             const w = acctById(sh.wallet ?? t.wallet);
@@ -1340,7 +1358,8 @@ export function mountDashboard(root, backend, opts = {}) {
             const trips = (st.data.trips || []).filter((x) => x.active || x.id === (sh.trip ?? t.trip) || x.start >= addDays(todayStr(), -120)).slice(0, 12);
             if (!trips.length) return '';
             const cur = sh.trip ?? (sh.tx ? t.trip || '' : type === 'expense' ? activeTripOf()?.id || '' : '');
-            return `<label for="mt-txtrip">ทริป</label><select id="mt-txtrip" name="trip"><option value="">🏠 ไม่ใช่ค่าทริป (ประจำวัน)</option>${trips.map((x) => `<option value="${x.id}" ${x.id === cur ? 'selected' : ''}>${esc(x.emoji)} ${esc(x.name)}${x.active ? ' (กำลังเที่ยว)' : ''}</option>`).join('')}</select>`;
+            const chip = (v, ic, l, sub = '') => `<button type="button" role="radio" aria-checked="${v === cur}" class="mt-pick-b ${v === cur ? 'is-on' : ''}" data-act="picktrip" data-v="${v}"><span class="mt-pick-ic">${ic}</span><span><b>${l}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
+            return `<span class="mt-label">ทริป</span><div class="mt-pick" role="radiogroup">${chip('', sticker('home', 28), 'ประจำวัน', 'ไม่ใช่ค่าทริป')}${trips.map((x) => chip(x.id, `<span class="mt-trip-e">${esc(x.emoji)}</span>`, esc(x.name), x.active ? 'กำลังเที่ยว' : tripDates(x))).join('')}</div><input type="hidden" name="trip" value="${esc(cur)}">`;
           })()}
           ${sh.tx?.by ? `<p class="mt-sub">จดโดย ${esc(sh.tx.by)}</p>` : ''}
           ${sh.tx?.attachment && backend.fileUrl ? `<a class="mt-attach" href="${esc(backend.fileUrl(sh.tx.attachment))}" target="_blank" rel="noopener"><img src="${esc(backend.fileUrl(sh.tx.attachment))}" alt="รูปหลักฐานของรายการนี้" loading="lazy"><span>📎 หลักฐาน · แตะเพื่อดูเต็ม</span></a>` : ''}
@@ -1444,25 +1463,24 @@ export function mountDashboard(root, backend, opts = {}) {
         }`;
     } else if (sh.kind === 'xfer') {
       const list = activeAccts();
-      const to = sh.to ?? (list.find((a) => a.type === 'card')?.id || list[1]?.id || '');
+      let to = sh.to ?? (list.find((a) => a.type === 'card')?.id || list[1]?.id || '');
       const from = sh.from ?? (list.find((a) => a.type === 'bank' && a.id !== to)?.id || list.find((a) => a.id !== to)?.id || '');
+      if (to === from) to = list.find((a) => a.id !== from)?.id || '';
       const toAcc = acctById(to);
-      const opt = (cur) => list.map((a) => `<option value="${a.id}" ${a.id === cur ? 'selected' : ''}>${a.emoji} ${esc(a.name)}</option>`).join('');
       const suggest = toAcc?.type === 'card' && toAcc.known && toAcc.payNow > 0 ? toAcc.payNow : toAcc?.type === 'loan' ? toAcc.monthlyPayment || '' : '';
       inner = `
         <form class="mt-form" data-form="xfer">
           <p class="mt-sub">ย้ายเงินระหว่างบัญชีของเรา เช่น โอนเข้าบัญชีเก็บ เติม e-Wallet กดเงินสด หรือจ่ายบัตรเครดิต · ไม่นับเป็นรายรับรายจ่าย</p>
-          <div class="mt-row2">
-            <div><label for="mt-xfrom">จากบัญชี</label><select id="mt-xfrom" name="from" data-change="xfer">${opt(from)}</select></div>
-            <div><label for="mt-xto">ไปบัญชี</label><select id="mt-xto" name="to" data-change="xfer">${opt(to)}</select></div>
-          </div>
+          <span class="mt-label">จากบัญชี</span>
+          ${acctPicker('xfer', 'from', from, list)}
+          <span class="mt-label">ไปบัญชี</span>
+          ${acctPicker('xfer', 'to', to, list.filter((a) => a.id !== from))}
           <label for="mt-xamt" class="mt-vh">จำนวนเงิน</label>
           <div class="mt-amount"><span>฿</span><input id="mt-xamt" name="amount" type="number" step="any" inputmode="decimal" min="0" required value="${sh.amount ?? suggest}" placeholder="0"></div>
           ${toAcc && isLiab(toAcc) ? `<p class="mt-sub">${esc(toAcc.name)} ${toAcc.known ? (toAcc.type === 'card' ? `ต้องจ่ายบิล ${money(toAcc.payNow)}${toAcc.instDue ? ` (รวมค่างวดผ่อน ${money(toAcc.instDue)} ระบบตัดให้เอง)` : ''}` : `ยอดค้างจ่าย ${money(toAcc.used)}`) : 'ยังไม่ได้ตั้งยอด'}</p>` : ''}
-          <div class="mt-row2">
-            <div><label for="mt-xdate">วันที่</label><input id="mt-xdate" name="date" type="date" value="${sh.date ?? todayStr()}" max="${todayStr()}" data-change="xfer"></div>
-            <div><label for="mt-xnote">บันทึก</label><input id="mt-xnote" name="note" value="${esc(sh.note ?? '')}" placeholder="ไม่ใส่ก็ได้" maxlength="80"></div>
-          </div>
+          <label for="mt-xdate">วันที่</label>
+          ${datePicker('xfer', 'mt-xdate', sh.date ?? todayStr(), 'data-change="xfer"')}
+          <label for="mt-xnote">บันทึก</label><input id="mt-xnote" name="note" value="${esc(sh.note ?? '')}" placeholder="ไม่ใส่ก็ได้" maxlength="80">
           ${(() => {
             const d = sh.date ?? todayStr();
             const before = [acctById(from), toAcc].filter((a) => a?.since && d < a.since);
@@ -1868,6 +1886,28 @@ export function mountDashboard(root, backend, opts = {}) {
         render();
         break;
       }
+      case 'pickacct':
+      case 'pickdate': {
+        const field = a === 'pickdate' ? 'date' : b.dataset.field;
+        if (b.dataset.form === 'xfer') {
+          const f = root.querySelector('form[data-form="xfer"]');
+          const fd = Object.fromEntries(new FormData(f));
+          Object.assign(sh, { from: fd.from, to: fd.to, amount: fd.amount, date: fd.date, note: fd.note });
+          if (field === 'to') sh.amount = undefined; // ยอดแนะนำตามบัญชีปลายทางใหม่
+          sh[field] = b.dataset.v;
+          if (field === 'from' && sh.to === sh.from) sh.to = undefined;
+        } else {
+          keepForm();
+          sh[field] = b.dataset.v;
+        }
+        render();
+        break;
+      }
+      case 'picktrip':
+        keepForm();
+        sh.trip = b.dataset.v;
+        render();
+        break;
       case 'sheetcat':
         keepForm();
         sh.cat = b.dataset.v;

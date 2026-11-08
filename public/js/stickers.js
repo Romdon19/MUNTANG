@@ -16,6 +16,8 @@ const SVG = {
   target: `<circle cx="24" cy="24" r="17" fill="#fff" ${K}/><circle cx="24" cy="24" r="11" fill="${Y}" ${K}/><circle cx="24" cy="24" r="4.5" fill="#141414" ${K}/>`,
   bank: `<path d="M6 18L24 7l18 11z" fill="${Y}" ${K}/><path d="M10 20v14M18 20v14M30 20v14M38 20v14" ${K}/><path d="M6 38h36" stroke="#141414" stroke-width="3.2" stroke-linecap="round"/>`,
   repeat: `<circle cx="24" cy="24" r="17" fill="${Y2}" ${K}/><path d="M16 21a8.5 8.5 0 0 1 15-4l2 2M32 27a8.5 8.5 0 0 1-15 4l-2-2" fill="none" ${K}/><path d="M33 13v6h-6M15 35v-6h6" fill="none" ${K}/>`,
+  home: `<path d="M6 22L24 7l18 15" fill="#F05A4F" ${K}/><path d="M10 20v19h28V20" fill="${Y}" ${K}/><rect x="20" y="27" width="8" height="12" rx="1.5" fill="#fff" ${K}/>`,
+  cal: `<rect x="6" y="9" width="36" height="32" rx="5" fill="#fff" ${K}/><path d="M6 18h36" stroke="#141414" stroke-width="2"/><path d="M6 14a5 5 0 0 1 5-5h26a5 5 0 0 1 5 5v4H6z" fill="#F05A4F" ${K}/><path d="M15 5v8M33 5v8" ${K}/><rect x="13" y="24" width="6" height="5" rx="1" fill="${Y}" ${K}/><path d="M25 26.5h9M13 34h20" ${K}/>`,
   heart: `<path d="M24 39S8 30 8 19a8 8 0 0 1 16-2 8 8 0 0 1 16 2c0 11-16 20-16 20z" fill="#F05A4F" ${K}/>`,
   gear: `<path d="M24 6l3 4 5-1 1 5 5 2-2 5 3 4-4 3 1 5-5 1-2 5-5-2-4 3-3-4-5 1-1-5-5-2 2-5-3-4 4-3-1-5 5-1 2-5 5 2z" fill="#D9D6CF" ${K}/><circle cx="24" cy="24" r="6" fill="#fff" ${K}/>`,
 };

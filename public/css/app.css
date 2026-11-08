@@ -864,3 +864,24 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 @container mt (min-width: 1500px) {
   .mt-app[data-tab='home'] .mt-main, .mt-app[data-tab='wallets'] .mt-main, .mt-app[data-tab='budget'] .mt-main { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* เลือกบัญชี/ทริปแบบการ์ด (โลโก้จริง) แทน dropdown */
+.mt-pick { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.mt-pick::-webkit-scrollbar { display: none; }
+.mt-pick-b { flex: 0 0 auto; scroll-snap-align: start; display: flex; align-items: center; gap: 8px; min-width: 128px; max-width: 200px; padding: 8px 12px 8px 8px; border-radius: 16px; border: 2px solid #f3e2a0; background: #fffbea; text-align: left; color: var(--ink); }
+.mt-pick-b .mt-ico { width: 34px; height: 34px; flex: 0 0 34px; }
+.mt-pick-b > span:last-child { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.mt-pick-b b { font-weight: 500; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-pick-b small { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.mt-pick-b.is-on { border-color: var(--ink); background: var(--accent-soft); box-shadow: 0 2px 0 var(--ink); }
+.mt-pick-ic { width: 34px; height: 34px; flex: 0 0 34px; display: grid; place-items: center; border-radius: 50%; background: #fff; }
+.mt-trip-e { font-size: 20px; line-height: 1; }
+
+/* วันที่: เต็มแถว + ปุ่มลัด */
+.mt-datepick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.mt-datepick .mt-stk { flex: 0 0 auto; }
+.mt-form .mt-datepick input[type='date'] { flex: 1 1 150px; width: auto; min-width: 0; -webkit-appearance: none; appearance: none; text-align: left; min-height: 46px; }
+.mt-datepick-q { display: flex; gap: 6px; flex-wrap: wrap; }
+.mt-datepick-q .mt-chip { padding: 6px 12px; }
+.mt-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); overflow: visible; }
+.mt-pick-b { min-width: 0; max-width: none; }
