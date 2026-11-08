@@ -6,6 +6,7 @@ import { summarize } from '../core/ops.js';
 import { moodFor } from '../core/mood.js';
 import { badgeSvg, countsIn } from '../core/accounts.js';
 import { guessCategory } from '../core/categories.js';
+import { sticker } from './stickers.js';
 import { newOnboard, onboardHTML, onboardAction, onboardAddCat, onboardPayload } from './onboard.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -161,6 +162,9 @@ export function mountDashboard(root, backend, opts = {}) {
   }
   const budgetTone = (p) => (p >= 1 ? 'var(--red)' : p >= 0.8 ? 'var(--amber)' : 'var(--gold)');
 
+  /** หัวการ์ดแบบสติกเกอร์: ไอคอน + ชื่อ + ลิงก์ขวา */
+  const stkHead = (stk, title, right = '') => `<div class="mt-card-h has-stk"><span class="mt-stk-w">${sticker(stk, 36)}</span><h3>${title}</h3>${right}</div>`;
+
   function txItem(t) {
     const k = cat(t.categoryId);
     const inc = t.type === 'income';
@@ -230,13 +234,16 @@ export function mountDashboard(root, backend, opts = {}) {
     const m = moodFor(b);
     const u = st.data.user;
     const avatar = u.pictureUrl;
+    const heroPic = moodImg('idle');
     return `
       <div class="mt-top">
-        ${opts.logoUrl ? `<img class="mt-top-logo" src="${esc(opts.logoUrl)}" alt="">` : ''}<b>หมุนตังค์</b>
+        ${opts.logoUrl ? `<span class="mt-top-logo"><img src="${esc(opts.logoUrl)}" alt=""></span>` : ''}
+        <span class="mt-top-t"><b>หมุนตังค์</b><small>${esc(u.name)}</small></span>
         <button class="mt-avatar" data-act="tab" data-tab="settings" aria-label="เมนูและตั้งค่า">${avatar ? `<img src="${esc(avatar)}" alt="">` : icon('user')}</button>
       </div>
-      <div class="mt-row-h"><span class="mt-sub">${esc(u.name)}</span>${cycleSwitch()}</div>
+      <div class="mt-top-cycle">${cycleSwitch()}</div>
       <section class="mt-card mt-hero">
+        ${heroPic ? `<img class="mt-hero-pic" src="${esc(heroPic)}" alt="">` : ''}
         <div class="mt-hero-l"><span>เหลือเก็บ${cur ? 'รอบนี้' : ''}</span><span>${s.count} รายการ</span></div>
         <div class="mt-hero-n num ${s.net < 0 ? 'is-neg' : ''}">${money(s.net)}</div>
         <div class="mt-hero-row">
@@ -264,8 +271,8 @@ export function mountDashboard(root, backend, opts = {}) {
       }
       ${activeTripStrip()}
       ${walletStrip()}
-      <section class="mt-card">
-        <div class="mt-card-h"><h3>ล่าสุด</h3><button class="mt-link" data-act="tab" data-tab="list">ทั้งหมด ›</button></div>
+      <section class="mt-card mt-card-stk">
+        ${stkHead('doc', 'ล่าสุด', '<button class="mt-link" data-act="tab" data-tab="list">ทั้งหมด ›</button>')}
         ${recent.length ? `<ul class="mt-txs">${recent.map(txItem).join('')}</ul>` : '<p class="mt-empty">ยังไม่มีรายการ · กดปุ่ม ＋ ด้านล่าง หรือพิมพ์ "ข้าว 50" ในแชท</p>'}
       </section>`;
   }
@@ -821,8 +828,8 @@ export function mountDashboard(root, backend, opts = {}) {
 
   function goalsCard() {
     const d = st.data;
-    return `<section class="mt-card">
-      <div class="mt-card-h"><h3>กระปุกออม 🐷</h3><button class="mt-link" data-act="newgoal">+ เพิ่มเป้าหมาย</button></div>
+    return `<section class="mt-card mt-card-stk">
+      ${stkHead('coin', 'กระปุกออม', '<button class="mt-link" data-act="newgoal">+ เพิ่มเป้าหมาย</button>')}
       ${
         d.goals.length
           ? `<ul class="mt-goals">${d.goals
@@ -846,8 +853,8 @@ export function mountDashboard(root, backend, opts = {}) {
 
   function recurringCard() {
     const d = st.data;
-    return `<section class="mt-card">
-      <div class="mt-card-h"><h3>รายการประจำ</h3><button class="mt-link" data-act="newrec">+ เพิ่ม</button></div>
+    return `<section class="mt-card mt-card-stk">
+      ${stkHead('repeat', 'รายการประจำ', '<button class="mt-link" data-act="newrec">+ เพิ่ม</button>')}
       <p class="mt-sub">บันทึกให้อัตโนมัติทุกเดือน เช่น ค่าห้อง ค่าเน็ต เงินเดือน</p>
       ${
         d.recurring.length
@@ -999,12 +1006,12 @@ export function mountDashboard(root, backend, opts = {}) {
     const t = st.data.accountTotals;
     const list = activeAccts();
     const rows = GROUPS.map((g) => ({ ...g, list: list.filter((a) => inGroup(g, a)) })).filter((g) => g.list.length);
-    return `<section class="mt-card">
-      <div class="mt-card-h"><h3>กระเป๋าเงิน</h3><button class="mt-link" data-act="tab" data-tab="wallets">ทั้งหมด ›</button></div>
-      <div class="mt-hero-row is-3">
-        <div><span>เงินในบัญชี</span><b class="num">${money(t.cash)}</b></div>
-        <div><span>หนี้รวม</span><b class="num ${t.debt ? 'is-debt' : ''}">${money(t.debt)}</b></div>
-        <div><span>สุทธิ</span><b class="num">${money(t.net)}</b></div>
+    return `<section class="mt-card mt-card-stk">
+      ${stkHead('wallet', 'กระเป๋าเงิน', '<button class="mt-link" data-act="tab" data-tab="wallets">ทั้งหมด ›</button>')}
+      <div class="mt-tiles">
+        <div>${sticker('cash', 40)}<span>เงินในบัญชี</span><b class="num">${money(t.cash)}</b></div>
+        <div>${sticker('debt', 40)}<span>หนี้รวม</span><b class="num ${t.debt ? 'is-debt' : ''}">${money(t.debt)}</b></div>
+        <div>${sticker('growth', 40)}<span>สุทธิ</span><b class="num">${money(t.net)}</b></div>
       </div>
       <ul class="mt-groups">${rows
         .map(
@@ -1038,8 +1045,8 @@ export function mountDashboard(root, backend, opts = {}) {
       ['ผ่อนสินค้าผ่านบัตร', t.instDebt, 'var(--accent)'],
       ['หนี้อื่น (ผ่อนรถ ยืม ฯลฯ)', t.loanDebt, 'var(--red)'],
     ].filter((x) => x[1] > 0);
-    return `<section class="mt-card">
-      <div class="mt-card-h"><h3>หนี้สินของฉัน</h3><b class="num is-bad">${money(t.debt)}</b></div>
+    return `<section class="mt-card mt-card-stk">
+      ${stkHead('debt', 'หนี้สินของฉัน', `<b class="num is-bad">${money(t.debt)}</b>`)}
       <span class="mt-stack">${parts.map(([, v, c]) => `<i style="width:${((v / (t.debt || 1)) * 100).toFixed(1)}%;background:${c}"></i>`).join('')}</span>
       <dl class="mt-kv">${parts.map(([l, v, c]) => `<div><dt><i class="mt-dot" style="background:${c}"></i> ${l}</dt><dd class="num">${money(v)}</dd></div>`).join('')}
         <div class="is-total"><dt>ต้องจ่ายเดือนนี้ (บิลบัตร + ค่างวด)</dt><dd class="num">${money(t.payThisMonth)}</dd></div></dl>
@@ -1117,8 +1124,8 @@ export function mountDashboard(root, backend, opts = {}) {
       </section>`
         )
         .join('')}
-      <section class="mt-card">
-        <div class="mt-card-h"><h3>โอน · จ่ายบัตร · จ่ายหนี้</h3><button class="mt-link" data-act="xfer">+ เพิ่ม</button></div>
+      <section class="mt-card mt-card-stk">
+        ${stkHead('repeat', 'โอน · จ่ายบัตร · จ่ายหนี้', '<button class="mt-link" data-act="xfer">+ เพิ่ม</button>')}
         ${
           xfers.length
             ? `<ul class="mt-txs">${xfers

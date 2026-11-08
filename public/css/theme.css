@@ -1,18 +1,20 @@
 /* หมุนตังค์ Minimal — กระดาษขาวอุ่น · ตัวหนังสือดำ · เหลืองแบรนด์ใช้เฉพาะจุดสำคัญ (ปุ่มจด ความคืบหน้า ค่าปัจจุบัน)
    ไม่มีเงา ไม่มีพื้นสีหลายสี การ์ดขาวขอบบาง ตัวเลขเป็นพระเอก */
 :root {
-  --bg: #f7f6f2;
+  /* โทนสติกเกอร์เหลือง: พื้นเหลืองสด · การ์ดขาวขอบเหลือง · พื้นในการ์ดสีครีม */
+  --page: #ffdc35;
+  --bg: #fff8dc;
   --card: #ffffff;
-  --border: #ebe8e1;
-  --line: #f0eee9;
+  --border: #f3d34e;
+  --line: #f6ecc8;
   --ink: #141414;
   --ink-2: #3b3934;
-  --muted: #8a867c;
-  --faint: #c2bdb2;
-  --track: #efede7;
+  --muted: #7d7462;
+  --faint: #b3a98f;
+  --track: #f7edcb;
 
   --accent: #ffc400;     /* เหลืองหมุนตังค์ */
-  --accent-soft: #fff5cf;
+  --accent-soft: #fff2bf;
 
   /* ชื่อเดิมที่โค้ดยังใช้อยู่ — ชี้ไปที่โทนมินิมอล */
   --head: #ffffff;
@@ -49,7 +51,7 @@
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--page);
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 15px;

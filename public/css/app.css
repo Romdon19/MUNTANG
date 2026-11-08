@@ -746,3 +746,87 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 .mt-xlist li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .mt-xlist li > span:first-child { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .mt-xlist small { color: var(--muted); font-size: 11.5px; }
+
+/* =========================================================
+   โทนสติกเกอร์เหลือง (ตามดีไซน์ของผู้ใช้)
+   พื้นเหลืองสด · การ์ดขาวมุมมน ขอบเหลือง · หัวการ์ดแถบเหลืองอ่อน + ไอคอนสติกเกอร์ · มาสคอตบนการ์ด
+   ========================================================= */
+.mt-app { background: linear-gradient(180deg, #ffe566 0%, #ffdc35 45%, #ffd52a 100%); }
+.mt-card, .mt-worth { border: 2px solid var(--border); border-radius: 22px; box-shadow: 0 3px 0 rgba(170, 125, 0, 0.12); }
+.mt-card h3 { font-weight: 600; }
+.mt-row-h h2 { font-weight: 600; }
+
+/* หัวหน้าหลัก: มาสคอตในวงกลม + ชื่อแอป */
+.mt-top { gap: 12px; }
+.mt-top .mt-top-logo { width: 58px; height: 58px; flex: 0 0 58px; border-radius: 50%; background: #fff3c4; border: 3px solid #fff; box-shadow: 0 2px 0 rgba(170, 125, 0, 0.18); display: grid; place-items: center; overflow: hidden; }
+.mt-top .mt-top-logo img { width: 52px; height: 52px; object-fit: contain; }
+.mt-top-t { flex: 1; display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.mt-top-t b { font-family: var(--font-display); font-weight: 600; font-size: 22px; }
+.mt-top-t small { font-size: 13px; color: var(--ink-2); }
+.mt-top .mt-avatar { width: 44px; height: 44px; border: 2px solid #fff; background: #fff8dc; box-shadow: 0 2px 0 rgba(170, 125, 0, 0.18); }
+.mt-top-cycle { display: flex; justify-content: flex-end; margin-top: -4px; }
+.mt-top-cycle .mt-range { background: #fff; border-radius: 999px; padding: 2px 4px; box-shadow: 0 2px 0 rgba(170, 125, 0, 0.18); }
+.mt-top-cycle .mt-range span { font-weight: 500; color: var(--ink); }
+.mt-top-cycle .mt-range button { color: var(--ink); }
+
+/* การ์ดเหลือเก็บ: ขอบเหลืองหนา + มาสคอต */
+.mt-hero { position: relative; overflow: hidden; border: 3px solid #f5c400; }
+.mt-hero > :not(.mt-hero-pic) { position: relative; }
+.mt-hero-pic { position: absolute; right: 2px; top: 34px; width: 128px; height: 128px; object-fit: contain; pointer-events: none; }
+.mt-hero-n { max-width: calc(100% - 110px); }
+.mt-hero .mt-budgetline > div { color: var(--ink-2); }
+
+/* อารมณ์นายหัวหมุน: การ์ดเหลืองอ่อน มาสคอตใหญ่ */
+.mt-mood { background: var(--accent-soft); border: 2px solid #f6df86; border-radius: 22px; padding: 10px 14px 10px 8px; }
+.mt-mood img { width: 76px; height: 76px; flex: 0 0 76px; }
+.mt-mood b { font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+
+/* หัวการ์ดแบบสติกเกอร์ */
+.mt-card-stk { overflow: hidden; }
+.mt-card-h.has-stk { margin: -16px -16px 6px; padding: 10px 16px; background: var(--accent-soft); border-bottom: 2px solid #f6df86; justify-content: flex-start; gap: 10px; }
+.mt-card-h.has-stk h3 { flex: 1; font-family: var(--font-display); font-size: 18px; font-weight: 600; }
+.mt-card-h.has-stk .mt-link { color: var(--ink); font-weight: 500; }
+.mt-stk-w { display: inline-flex; flex: 0 0 auto; }
+.mt-stk { display: block; flex: 0 0 auto; }
+
+/* ช่องสรุป 3 ช่องพร้อมสติกเกอร์ */
+.mt-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.mt-tiles > div { background: var(--bg); border: 1.5px solid #f6e3a0; border-radius: 16px; padding: 10px 6px 9px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; min-width: 0; }
+.mt-tiles span { font-size: 12.5px; color: var(--ink-2); }
+.mt-tiles b { font-family: var(--font-num); font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.mt-tiles b.is-debt { color: var(--red); }
+.mt-card-stk .mt-groups { background: #fffdf4; border: 1.5px solid #f6e8b4; border-radius: 16px; padding: 0 12px; margin-top: 4px; }
+
+/* ไอคอนรายการ: วงกลมครีม */
+.mt-tx-ic { flex: 0 0 42px; width: 42px; height: 42px; background: #fff4cc; border: 1.5px solid #f3dd8a; font-size: 20px; }
+
+/* แท็บ / ปุ่มแบ่งส่วน บนพื้นเหลือง */
+.mt-tabs { border-bottom-color: rgba(20, 20, 20, 0.12); }
+.mt-tabs button { color: var(--ink-2); }
+.mt-seg2, .mt-seg3, .mt-seg4 { background: rgba(255, 255, 255, 0.55); }
+.mt-sheet .mt-seg2, .mt-sheet .mt-seg3, .mt-sheet .mt-seg4, .mt-card .mt-seg2, .mt-card .mt-seg3 { background: var(--track); }
+.mt-filters input[type='search'], #mt-search { background: #fff; border-color: #fff; }
+.mt-chip { border-color: #f3d34e; }
+.mt-sub { color: var(--muted); }
+.mt-app > .mt-main > .mt-sub, .mt-app > .mt-main > .mt-note { color: var(--ink-2); }
+
+/* แถบนำทางล่าง: ขาวมุมมน ปุ่มจดเหลืองขอบดำแบบสติกเกอร์ */
+.mt-nav { background: #fff; border-top: 0; box-shadow: 0 -3px 14px rgba(150, 105, 0, 0.16); }
+.mt-nav button.is-on { color: var(--ink); }
+@container mt (max-width: 999px) {
+  .mt-nav { border-radius: 24px 24px 0 0; }
+  .mt-nav .mt-nav-add span { width: 56px; height: 56px; margin-top: -24px; border: 2.5px solid var(--ink); box-shadow: 0 3px 0 var(--ink); }
+  .mt-nav .mt-nav-add .mt-ic { width: 26px; height: 26px; stroke-width: 2.6; }
+}
+@container mt (min-width: 640px) and (max-width: 999px) {
+  .mt-nav { border-radius: 24px; }
+}
+@container mt (min-width: 1000px) {
+  .mt-nav { box-shadow: 2px 0 14px rgba(150, 105, 0, 0.12); }
+  .mt-nav .mt-nav-add { border: 2.5px solid var(--ink); box-shadow: 0 3px 0 var(--ink); }
+  .mt-top-cycle { justify-content: flex-start; }
+  .mt-hero-pic { width: 140px; height: 140px; top: 44px; right: 20px; }
+}
+@container mt (min-width: 1000px) {
+  .mt-main > .mt-top-cycle { grid-column: 1 / -1; }
+}
