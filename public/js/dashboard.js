@@ -1610,6 +1610,7 @@ export function mountDashboard(root, backend, opts = {}) {
     </nav>`;
   }
 
+  let renderedSheet = null; // ชีตที่วาดไว้รอบก่อน (ใช้คงตำแหน่งเลื่อน)
   function render() {
     if (st.error && !st.data) {
       root.innerHTML = '<div class="mt-loading"><p></p></div>';
@@ -1620,6 +1621,9 @@ export function mountDashboard(root, backend, opts = {}) {
     const searchFocused = document.activeElement?.id === 'mt-search';
     const scroller = root.querySelector('.mt-main');
     const scrollTop = scroller?.scrollTop || 0;
+    // ชีตเดิม (แค่กดเลือกวัน/บัญชี/หมวด) → คงตำแหน่งเลื่อนไว้ ไม่เด้งกลับขึ้นบน
+    const sheetEl = root.querySelector('.mt-sheet');
+    const sheetScroll = sheetEl && st.sheet && st.sheet === renderedSheet ? sheetEl.scrollTop : null;
     if (st.ob) {
       root.innerHTML = `<main class="mt-main ob-main">${onboardHTML(st.ob, st.data, opts)}</main>${st.toast ? `<div class="mt-toast" role="status">${esc(st.toast)}</div>` : ''}`;
       root.dataset.tab = 'onboard';
@@ -1629,6 +1633,16 @@ export function mountDashboard(root, backend, opts = {}) {
     root.innerHTML = `<main class="mt-main">${views[st.tab]()}</main>${nav()}${sheetView()}${st.toast ? `<div class="mt-toast" role="status">${esc(st.toast)}</div>` : ''}`;
     const main = root.querySelector('.mt-main');
     if (main && root.dataset.tab === st.tab) main.scrollTop = scrollTop;
+    const newSheet = root.querySelector('.mt-sheet');
+    if (newSheet && sheetScroll != null) {
+      newSheet.style.animation = 'none'; // ไม่เล่นแอนิเมชันเปิดชีตซ้ำ
+      const scrim = root.querySelector('.mt-scrim');
+      if (scrim) scrim.style.animation = 'none';
+      newSheet.scrollTop = sheetScroll;
+      // เปิด dropdown → เลื่อนให้เห็นรายการทั้งหมด (เท่าที่จำเป็น)
+      if (st.dd) root.querySelector('.mt-dd.is-open .mt-dd-list')?.scrollIntoView({ block: 'nearest' });
+    }
+    renderedSheet = st.sheet;
     root.dataset.tab = st.tab;
     if (searchFocused) {
       const s = root.querySelector('#mt-search');
