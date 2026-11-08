@@ -57,6 +57,7 @@ export function mountDashboard(root, backend, opts = {}) {
     an: opts.trip ? 'trip' : 'overview', // แท็บย่อยหน้าวิเคราะห์: ภาพรวม | หมวด · บัญชี | สุขภาพการเงิน
     ob: null, // หน้า "ติดตั้งครั้งแรก" (ถ้าเปิดอยู่)
     trip: opts.trip || '', // ทริปที่เปิดดูในแท็บวิเคราะห์ › ทริป
+    dd: '', // dropdown ที่เปิดอยู่ (เช่น tx-wallet)
     tripF: '', // กรองหน้ารายการตามทริป
     obAuto: opts.view === 'onboard' ? 'open' : 'check',
   };
@@ -78,14 +79,24 @@ export function mountDashboard(root, backend, opts = {}) {
       .join('');
   const isCurrentCycle = () => st.cycle.from === st.data.budget.from;
 
-  /** เลือกบัญชีแบบการ์ดโลโก้จริง (แทน dropdown ที่โชว์ได้แค่อีโมจิ) */
+  /**
+   * dropdown ที่ทำเอง (โชว์โลโก้ได้ ซึ่ง <select> ของระบบทำไม่ได้)
+   * items: [{ v, ic, label, sub }] · act/data = ปุ่มตัวเลือกส่งไปตัวจัดการคลิก
+   */
+  const dropdown = (key, cur, items, act, data = '') => {
+    const open = st.dd === key;
+    const sel = items.find((x) => x.v === cur) || items[0];
+    const row = (x) => `<span class="mt-dd-ic">${x.ic}</span><span class="mt-dd-t"><b>${x.label}</b>${x.sub ? `<small>${x.sub}</small>` : ''}</span>`;
+    return `<div class="mt-dd ${open ? 'is-open' : ''}">
+      <button type="button" class="mt-dd-b" data-act="ddtoggle" data-dd="${key}" aria-haspopup="listbox" aria-expanded="${open}">${sel ? row(sel) : ''}<span class="mt-dd-chev" aria-hidden="true">▾</span></button>
+      ${open ? `<div class="mt-dd-list" role="listbox">${items.map((x) => `<button type="button" role="option" aria-selected="${x.v === cur}" class="mt-dd-o ${x.v === cur ? 'is-on' : ''}" data-act="${act}" ${data} data-v="${x.v}">${row(x)}${x.v === cur ? '<i aria-hidden="true">✓</i>' : ''}</button>`).join('')}</div>` : ''}
+    </div>`;
+  };
+  const acctSubText = (a) => (a.type === 'card' || a.type === 'loan' ? `ค้าง ${money(a.type === 'card' ? a.totalUsed ?? a.used ?? 0 : a.used || 0)}` : a.known ? money(a.balance) : 'ยังไม่ตั้งยอด');
+  /** เลือกบัญชี: dropdown โลโก้ธนาคารจริง */
   const acctPicker = (form, field, cur, list) =>
-    `<div class="mt-pick" role="radiogroup">${list
-      .map(
-        (a) => `<button type="button" role="radio" aria-checked="${a.id === cur}" class="mt-pick-b ${a.id === cur ? 'is-on' : ''}" data-act="pickacct" data-form="${form}" data-field="${field}" data-v="${a.id}">
-          ${acctImg(a.icon, 'is-sm')}<span><b>${esc(a.name)}</b><small class="num">${a.type === 'card' || a.type === 'loan' ? `ค้าง ${money(a.type === 'card' ? a.totalUsed ?? a.used ?? 0 : a.used || 0)}` : a.known ? money(a.balance) : 'ยังไม่ตั้งยอด'}</small></span></button>`
-      )
-      .join('')}</div><input type="hidden" name="${field}" value="${esc(cur || '')}">`;
+    dropdown(`${form}-${field}`, cur, list.map((a) => ({ v: a.id, ic: acctImg(a.icon, 'is-sm'), label: esc(a.name), sub: `<span class="num">${acctSubText(a)}</span>` })), 'pickacct', `data-form="${form}" data-field="${field}"`) +
+    `<input type="hidden" name="${field}" value="${esc(cur || '')}">`;
   const spendable = (cur) => st.data.accounts.filter((a) => (!a.archived && ['cash', 'bank', 'ewallet', 'card'].includes(a.type)) || a.id === cur);
 
   /** วันที่: ช่องเต็มแถว + ปุ่มลัด วันนี้/เมื่อวาน */
@@ -151,6 +162,7 @@ export function mountDashboard(root, backend, opts = {}) {
     try {
       await fn();
       st.sheet = null;
+      st.dd = '';
       await refresh();
       if (msg) toast(msg);
       return true;
@@ -258,6 +270,7 @@ export function mountDashboard(root, backend, opts = {}) {
       <div class="mt-top">
         ${opts.logoUrl ? `<span class="mt-top-logo"><img src="${esc(opts.logoUrl)}" alt=""></span>` : ''}
         <span class="mt-top-t"><b>หมุนตังค์</b><small>${esc(u.name)}</small></span>
+        ${backend.canExpand?.() ? `<button class="mt-expand" data-act="expand" aria-label="เปิดเต็มจอในเบราว์เซอร์">⤢ เต็มจอ</button>` : ''}
         <button class="mt-avatar" data-act="tab" data-tab="settings" aria-label="เมนูและตั้งค่า">${avatar ? `<img src="${esc(avatar)}" alt="">` : icon('user')}</button>
       </div>
       <div class="mt-top-cycle">${cycleSwitch()}</div>
@@ -1358,8 +1371,8 @@ export function mountDashboard(root, backend, opts = {}) {
             const trips = (st.data.trips || []).filter((x) => x.active || x.id === (sh.trip ?? t.trip) || x.start >= addDays(todayStr(), -120)).slice(0, 12);
             if (!trips.length) return '';
             const cur = sh.trip ?? (sh.tx ? t.trip || '' : type === 'expense' ? activeTripOf()?.id || '' : '');
-            const chip = (v, ic, l, sub = '') => `<button type="button" role="radio" aria-checked="${v === cur}" class="mt-pick-b ${v === cur ? 'is-on' : ''}" data-act="picktrip" data-v="${v}"><span class="mt-pick-ic">${ic}</span><span><b>${l}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
-            return `<span class="mt-label">ทริป</span><div class="mt-pick" role="radiogroup">${chip('', sticker('home', 28), 'ประจำวัน', 'ไม่ใช่ค่าทริป')}${trips.map((x) => chip(x.id, `<span class="mt-trip-e">${esc(x.emoji)}</span>`, esc(x.name), x.active ? 'กำลังเที่ยว' : tripDates(x))).join('')}</div><input type="hidden" name="trip" value="${esc(cur)}">`;
+            const items = [{ v: '', ic: sticker('home', 28), label: 'ประจำวัน', sub: 'ไม่ใช่ค่าทริป' }, ...trips.map((x) => ({ v: x.id, ic: `<span class="mt-trip-e">${esc(x.emoji)}</span>`, label: esc(x.name), sub: x.active ? 'กำลังเที่ยว' : tripDates(x) }))];
+            return `<span class="mt-label">ทริป</span>${dropdown('tx-trip', cur, items, 'picktrip')}<input type="hidden" name="trip" value="${esc(cur)}">`;
           })()}
           ${sh.tx?.by ? `<p class="mt-sub">จดโดย ${esc(sh.tx.by)}</p>` : ''}
           ${sh.tx?.attachment && backend.fileUrl ? `<a class="mt-attach" href="${esc(backend.fileUrl(sh.tx.attachment))}" target="_blank" rel="noopener"><img src="${esc(backend.fileUrl(sh.tx.attachment))}" alt="รูปหลักฐานของรายการนี้" loading="lazy"><span>📎 หลักฐาน · แตะเพื่อดูเต็ม</span></a>` : ''}
@@ -1886,8 +1899,23 @@ export function mountDashboard(root, backend, opts = {}) {
         render();
         break;
       }
+      case 'expand':
+        backend.openExternal?.();
+        break;
+      case 'ddtoggle': {
+        // เก็บค่าที่พิมพ์ไว้ก่อนวาดใหม่
+        const xf = root.querySelector('form[data-form="xfer"]');
+        if (xf && sh?.kind === 'xfer') {
+          const fd = Object.fromEntries(new FormData(xf));
+          Object.assign(sh, { from: fd.from, to: fd.to, amount: fd.amount, date: fd.date, note: fd.note });
+        } else keepForm();
+        st.dd = st.dd === b.dataset.dd ? '' : b.dataset.dd;
+        render();
+        break;
+      }
       case 'pickacct':
       case 'pickdate': {
+        st.dd = '';
         const field = a === 'pickdate' ? 'date' : b.dataset.field;
         if (b.dataset.form === 'xfer') {
           const f = root.querySelector('form[data-form="xfer"]');
@@ -1904,6 +1932,7 @@ export function mountDashboard(root, backend, opts = {}) {
         break;
       }
       case 'picktrip':
+        st.dd = '';
         keepForm();
         sh.trip = b.dataset.v;
         render();
@@ -1924,6 +1953,7 @@ export function mountDashboard(root, backend, opts = {}) {
         break;
       case 'close':
         st.sheet = null;
+        st.dd = '';
         render();
         break;
       case 'newgoal':

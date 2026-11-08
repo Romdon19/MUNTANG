@@ -82,6 +82,9 @@ export function remoteBackend() {
     addTransfer: (b) => post('/api/transfers', b),
     deleteTransfer: (id) => req('DELETE', `/api/transfers/${id}`),
     updateTransfer: (id, b) => req('PATCH', `/api/transfers/${id}`, b),
+    // iPad: LINE เปิด LIFF เป็นหน้าต่างเล็ก → เปิดแอปเต็มจอในเบราว์เซอร์แทนได้
+    canExpand: () => !!window.liff?.isInClient?.() && Math.min(screen.width, screen.height) >= 600,
+    openExternal: () => window.liff.openWindow({ url: location.href.split('#')[0], external: true }),
     addTrip: (b) => post('/api/trips', b),
     updateTrip: (id, b) => req('PATCH', `/api/trips/${id}`, b),
     deleteTrip: (id) => req('DELETE', `/api/trips/${id}`),

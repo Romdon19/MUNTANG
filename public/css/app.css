@@ -885,3 +885,22 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 .mt-datepick-q .mt-chip { padding: 6px 12px; }
 .mt-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); overflow: visible; }
 .mt-pick-b { min-width: 0; max-width: none; }
+
+/* dropdown ที่มีโลโก้ (บัญชี / ทริป) */
+.mt-dd { display: flex; flex-direction: column; gap: 6px; }
+.mt-dd-b { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 54px; padding: 8px 14px 8px 10px; border-radius: var(--r-sm); border: 2px solid #f3d34e; background: #fff; text-align: left; color: var(--ink); }
+.mt-dd.is-open .mt-dd-b { border-color: var(--ink); }
+.mt-dd-chev { margin-left: auto; font-size: 14px; color: var(--ink-2); transition: transform 0.15s; }
+.mt-dd.is-open .mt-dd-chev { transform: rotate(180deg); }
+.mt-dd-ic { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border-radius: 50%; background: #fff8dc; overflow: hidden; }
+.mt-dd-ic .mt-ico { width: 36px; height: 36px; }
+.mt-dd-t { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.mt-dd-t b { font-weight: 500; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-dd-t small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mt-dd-list { display: flex; flex-direction: column; border: 2px solid var(--ink); border-radius: var(--r-sm); background: #fff; overflow: hidden; max-height: 320px; overflow-y: auto; box-shadow: 0 3px 0 var(--ink); }
+.mt-dd-o { display: flex; align-items: center; gap: 10px; padding: 8px 12px 8px 10px; border: 0; border-bottom: 1px solid var(--line); background: #fff; text-align: left; color: var(--ink); }
+.mt-dd-o:last-child { border-bottom: 0; }
+.mt-dd-o:hover { background: #fffbea; }
+.mt-dd-o.is-on { background: var(--accent-soft); }
+.mt-dd-o i { margin-left: auto; font-style: normal; font-weight: 700; }
+.mt-expand { border: 2px solid #fff; background: #fff8dc; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--ink); box-shadow: 0 2px 0 rgba(170, 125, 0, 0.18); }
