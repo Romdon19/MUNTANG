@@ -830,3 +830,37 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 @container mt (min-width: 1000px) {
   .mt-main > .mt-top-cycle { grid-column: 1 / -1; }
 }
+
+/* ไอคอนหมวดแบบสติกเกอร์ */
+.mt-cat-i { display: block; flex: 0 0 auto; }
+.mt-emo-i { font-size: 20px; line-height: 1; }
+.mt-catic { flex: 0 0 40px; width: 40px; height: 40px; background: #fff4cc !important; border: 1.5px solid #f3dd8a; }
+.mt-catgrid button span { display: grid; place-items: center; height: 32px; }
+.mt-tx-ic .mt-emo-i { font-size: 20px; }
+
+/* =========================================================
+   เต็มจอทุกขนาด: มือถือ · iPad · คอม (ไม่จำกัดความกว้างเนื้อหา)
+   ========================================================= */
+@container mt (min-width: 640px) {
+  .mt-main { max-width: none; padding: 24px 28px 112px; }
+}
+@container mt (min-width: 760px) {
+  .mt-app[data-tab='home'] .mt-main, .mt-app[data-tab='analysis'] .mt-main, .mt-app[data-tab='report'] .mt-main,
+  .mt-app[data-tab='wallets'] .mt-main, .mt-app[data-tab='budget'] .mt-main, .mt-app[data-tab='settings'] .mt-main {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; align-items: start; gap: 16px;
+  }
+  .mt-main > .mt-row-h, .mt-main > .mt-top, .mt-main > .mt-top-cycle, .mt-main > .mt-tabs, .mt-main > .mt-pills, .mt-main > .mt-mood, .mt-main > .mt-note,
+  .mt-main > .mt-seg2, .mt-main > .mt-insights, .mt-main > .mt-catlist, .mt-main > .mt-sub, .mt-main > .mt-skipnote, .mt-main > .mt-tripnow { grid-column: 1 / -1; }
+  .mt-app[data-tab='home'] .mt-hero, .mt-app[data-tab='wallets'] .mt-worth { grid-column: 1 / -1; }
+  .mt-hero-n { font-size: 50px; }
+  .mt-hero-pic { width: 150px; height: 150px; top: 30px; right: 18px; }
+}
+@container mt (min-width: 1000px) {
+  .mt-main { max-width: none; padding: 32px 40px 40px; }
+  .mt-app[data-tab='home'] .mt-main, .mt-app[data-tab='analysis'] .mt-main, .mt-app[data-tab='report'] .mt-main,
+  .mt-app[data-tab='wallets'] .mt-main, .mt-app[data-tab='budget'] .mt-main, .mt-app[data-tab='settings'] .mt-main { max-width: none; gap: 20px; }
+  .mt-app[data-tab='list'] .mt-main { max-width: none; }
+}
+@container mt (min-width: 1500px) {
+  .mt-app[data-tab='home'] .mt-main, .mt-app[data-tab='wallets'] .mt-main, .mt-app[data-tab='budget'] .mt-main { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

@@ -1,6 +1,7 @@
 // หน้า "ติดตั้งครั้งแรก": ยินดีต้อนรับ → รู้จักจากไหน → หมวดรายจ่าย → หมวดรายรับ → รอบเดือน/งบ/เตือน → พร้อมใช้งาน
 // mode 'cats' = เปิดจากเมนูเพื่อแก้หมวดอย่างเดียว (ข้ามขั้นอื่น)
 import { money } from '../core/format.js';
+import { catIcon } from './cat-icons.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -106,7 +107,7 @@ const FEATURES = [
 function catChip(c, on, type) {
   const fixed = c.id === FALLBACK[type];
   return `<button class="ob-cat ${on ? 'is-on' : ''} ${fixed ? 'is-fixed' : ''}" data-act="obcat" data-id="${esc(c.id)}" aria-pressed="${on}" ${fixed ? 'aria-disabled="true" title="หมวดสำรอง เปิดไว้เสมอ"' : ''}>
-    <span class="ob-emo" aria-hidden="true">${esc(c.emoji)}</span><span class="ob-name">${esc(c.name)}${fixed ? '<small>เปิดเสมอ</small>' : ''}</span>
+    <span class="ob-emo" aria-hidden="true">${catIcon(c, 28)}</span><span class="ob-name">${esc(c.name)}${fixed ? '<small>เปิดเสมอ</small>' : ''}</span>
     ${c.recommended ? '<em class="ob-star" aria-label="แนะนำ">★</em>' : ''}${c.custom ? `<em class="ob-del" data-act="obdelcat" data-id="${esc(c.id)}" role="button" aria-label="ลบหมวด ${esc(c.name)}">✕</em>` : ''}</button>`;
 }
 

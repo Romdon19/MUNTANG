@@ -7,6 +7,7 @@ import { moodFor } from '../core/mood.js';
 import { badgeSvg, countsIn } from '../core/accounts.js';
 import { guessCategory } from '../core/categories.js';
 import { sticker } from './stickers.js';
+import { catIcon } from './cat-icons.js';
 import { newOnboard, onboardHTML, onboardAction, onboardAddCat, onboardPayload } from './onboard.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -169,7 +170,7 @@ export function mountDashboard(root, backend, opts = {}) {
     const k = cat(t.categoryId);
     const inc = t.type === 'income';
     return `<li><button class="mt-tx" data-act="edit" data-id="${t.id}">
-      <span class="mt-tx-ic" aria-hidden="true">${k.emoji}</span>
+      <span class="mt-tx-ic" aria-hidden="true">${catIcon(k, 30)}</span>
       <span class="mt-tx-main"><span class="mt-tx-note">${esc(t.note)}${t.attachment ? ' <span class="mt-sub">· สลิป</span>' : ''}</span><span class="mt-sub">${esc(k.name)} · ${t.by ? `โดย ${esc(t.by)}` : esc(wallet(t.wallet).name)}</span></span>
       <span class="num mt-amt ${inc ? 'is-inc' : ''}">${inc ? '+' : ''}${money(t.amount)}</span>
     </button></li>`;
@@ -479,7 +480,7 @@ export function mountDashboard(root, backend, opts = {}) {
           ${
             list.length
               ? `<ul class="mt-rp-list">${list
-                  .map((c) => `<li><button data-act="filtercat" data-id="${c.id}"><span class="mt-catic">${cat(c.id).emoji}</span><span class="mt-tx-main"><b>${esc(cat(c.id).name)}</b><span class="mt-sub">${c.n} รายการ · ${Math.round((c.total / (total || 1)) * 100)}%</span>${bar(c.total / (list[0].total || 1), inc ? 'var(--c-inc)' : 'var(--c-exp)')}</span><b class="num ${inc ? 'is-inc' : ''}">${money(c.total)}</b></button></li>`)
+                  .map((c) => `<li><button data-act="filtercat" data-id="${c.id}"><span class="mt-catic">${catIcon(cat(c.id), 26)}</span><span class="mt-tx-main"><b>${esc(cat(c.id).name)}</b><span class="mt-sub">${c.n} รายการ · ${Math.round((c.total / (total || 1)) * 100)}%</span>${bar(c.total / (list[0].total || 1), inc ? 'var(--c-inc)' : 'var(--c-exp)')}</span><b class="num ${inc ? 'is-inc' : ''}">${money(c.total)}</b></button></li>`)
                   .join('')}</ul>`
               : '<p class="mt-empty">ไม่มีรายการในช่วงนี้</p>'
           }
@@ -648,7 +649,7 @@ export function mountDashboard(root, backend, opts = {}) {
         <p class="mt-sub">${tripDates(sel)} · เฉลี่ยวันละ ${money(sel.perDay)} · ${list.length} รายการ</p>
         ${sel.budget ? `${bar(sel.expense / sel.budget, sel.budgetLeft < 0 ? 'var(--red)' : 'var(--accent)')}<p class="mt-sub">${sel.budgetLeft >= 0 ? `เหลืองบทริป ${money(sel.budgetLeft)} จาก ${money(sel.budget)}` : `เกินงบทริป ${money(-sel.budgetLeft)}`}</p>` : ''}
         <ul class="mt-catlist">${cats
-          .map((c) => `<li><div class="mt-catrow"><span class="mt-catic">${cat(c.id).emoji}</span><span class="mt-catname">${esc(cat(c.id).name)}${bar(c.total / (cats[0].total || 1), 'var(--c-exp)')}</span><b class="num">${money(c.total)}</b></div></li>`)
+          .map((c) => `<li><div class="mt-catrow"><span class="mt-catic">${catIcon(cat(c.id), 26)}</span><span class="mt-catname">${esc(cat(c.id).name)}${bar(c.total / (cats[0].total || 1), 'var(--c-exp)')}</span><b class="num">${money(c.total)}</b></div></li>`)
           .join('') || '<li class="mt-empty">ยังไม่มีรายจ่ายในทริปนี้</li>'}</ul>
         <div class="mt-chips">
           <button class="mt-chip" data-act="tripfilter" data-id="${sel.id}">ดูรายการทั้งหมด</button>
@@ -779,7 +780,7 @@ export function mountDashboard(root, backend, opts = {}) {
         <ul class="mt-catlist">${inc
           .map((c) => {
             const v = s.incomeCats.find((x) => x.id === c.id)?.total || 0;
-            return `<li><div class="mt-catrow"><span class="mt-catic">${c.emoji}</span><span class="mt-catname">${esc(c.name)}</span><b class="num">${money(v)}</b></div></li>`;
+            return `<li><div class="mt-catrow"><span class="mt-catic">${catIcon(c, 26)}</span><span class="mt-catname">${esc(c.name)}</span><b class="num">${money(v)}</b></div></li>`;
           })
           .join('')}</ul>`;
     }
@@ -815,7 +816,7 @@ export function mountDashboard(root, backend, opts = {}) {
           const spent = s.cats.find((x) => x.id === c.id)?.total || 0;
           const lim = limits[c.id] || 0;
           return `<li><button class="mt-catrow" data-act="editcat" data-id="${c.id}">
-            <span class="mt-catic">${c.emoji}</span>
+            <span class="mt-catic">${catIcon(c, 26)}</span>
             <span class="mt-catname">${esc(c.name)}<small class="mt-sub num">ใช้ไป ${money(spent)}</small></span>
             <span class="mt-catlim"><span class="mt-sub">งบ</span> <b class="num">${lim ? lim.toLocaleString('en-US') : '-'}</b></span>
             <span class="mt-chev">›</span>
@@ -861,7 +862,7 @@ export function mountDashboard(root, backend, opts = {}) {
           ? `<ul class="mt-txs">${d.recurring
               .map((r) => {
                 const k = cat(r.categoryId);
-                return `<li><div class="mt-tx"><span class="mt-tx-ic">${k.emoji}</span><span class="mt-tx-main"><span class="mt-tx-note">${esc(r.note)}</span><span class="mt-sub">ทุกวันที่ ${r.day} · ${esc(k.name)}</span></span>
+                return `<li><div class="mt-tx"><span class="mt-tx-ic">${catIcon(k, 30)}</span><span class="mt-tx-main"><span class="mt-tx-note">${esc(r.note)}</span><span class="mt-sub">ทุกวันที่ ${r.day} · ${esc(k.name)}</span></span>
                 <span class="num mt-amt ${r.type === 'income' ? 'is-inc' : ''}">${money(r.amount)}</span><button class="mt-x" data-act="delrec" data-id="${r.id}" aria-label="ลบ ${esc(r.note)}">✕</button></div></li>`;
               })
               .join('')}</ul>`
@@ -1319,7 +1320,7 @@ export function mountDashboard(root, backend, opts = {}) {
           <label for="mt-note">รายการ</label>
           <input id="mt-note" name="note" value="${esc(sh.note ?? t.note)}" placeholder="เช่น ข้าวมันไก่" maxlength="120">
           <span class="mt-label">หมวด</span>
-          <div class="mt-catgrid">${cats.map((c) => `<button type="button" class="${c.id === curCat ? 'is-on' : ''}" data-act="sheetcat" data-v="${c.id}"><span>${c.emoji}</span>${esc(c.name)}</button>`).join('')}</div>
+          <div class="mt-catgrid">${cats.map((c) => `<button type="button" class="${c.id === curCat ? 'is-on' : ''}" data-act="sheetcat" data-v="${c.id}"><span>${catIcon(c, 30)}</span>${esc(c.name)}</button>`).join('')}</div>
           <input type="hidden" name="categoryId" value="${curCat}">
           <input type="hidden" name="type" value="${type}">
           <div class="mt-row2">
