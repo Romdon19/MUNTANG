@@ -904,3 +904,13 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 .mt-dd-o.is-on { background: var(--accent-soft); }
 .mt-dd-o i { margin-left: auto; font-style: normal; font-weight: 700; }
 .mt-expand { border: 2px solid #fff; background: #fff8dc; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--ink); box-shadow: 0 2px 0 rgba(170, 125, 0, 0.18); }
+
+/* การ์ดเหลือเก็บ: มาสคอตอยู่ข้างตัวเลข (ไม่ลอยทับเส้นคั่น/ตัวเลขรายจ่าย) */
+.mt-hero-top { display: flex; align-items: flex-end; gap: 8px; }
+.mt-hero-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.mt-hero .mt-hero-pic { position: static; flex: 0 0 auto; width: 96px; height: 96px; margin: -10px -8px -4px 0; }
+.mt-hero .mt-hero-n { max-width: none; font-size: clamp(24px, 7.5vw, 44px); white-space: nowrap; }
+@container mt (min-width: 760px) {
+  .mt-hero .mt-hero-pic { width: 130px; height: 130px; margin: -16px 0 -6px; }
+  .mt-hero .mt-hero-n { font-size: 50px; }
+}

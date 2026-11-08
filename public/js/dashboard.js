@@ -275,9 +275,13 @@ export function mountDashboard(root, backend, opts = {}) {
       </div>
       <div class="mt-top-cycle">${cycleSwitch()}</div>
       <section class="mt-card mt-hero">
-        ${heroPic ? `<img class="mt-hero-pic" src="${esc(heroPic)}" alt="">` : ''}
-        <div class="mt-hero-l"><span>เหลือเก็บ${cur ? 'รอบนี้' : ''}</span><span>${s.count} รายการ</span></div>
-        <div class="mt-hero-n num ${s.net < 0 ? 'is-neg' : ''}">${money(s.net)}</div>
+        <div class="mt-hero-top">
+          <div class="mt-hero-main">
+            <div class="mt-hero-l"><span>เหลือเก็บ${cur ? 'รอบนี้' : ''}</span><span>${s.count} รายการ</span></div>
+            <div class="mt-hero-n num ${s.net < 0 ? 'is-neg' : ''}">${money(s.net)}</div>
+          </div>
+          ${heroPic ? `<img class="mt-hero-pic" src="${esc(heroPic)}" alt="">` : ''}
+        </div>
         <div class="mt-hero-row">
           <div><span><i class="mt-key is-inc"></i>รายรับ</span><b class="num">${money(s.income)}</b></div>
           <div><span><i class="mt-key is-exp"></i>รายจ่าย</span><b class="num">${money(s.expense)}</b></div>
