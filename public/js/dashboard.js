@@ -1648,6 +1648,7 @@ export function mountDashboard(root, backend, opts = {}) {
     }
     renderedSheet = st.sheet;
     root.dataset.tab = st.tab;
+    root.dataset.an = st.tab === 'analysis' || st.tab === 'report' ? st.an : '';
     if (searchFocused) {
       const s = root.querySelector('#mt-search');
       s.focus();

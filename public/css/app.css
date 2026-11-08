@@ -914,3 +914,20 @@ select.ob-sel { appearance: none; padding-right: 14px; }
   .mt-hero .mt-hero-pic { width: 130px; height: 130px; margin: -16px 0 -6px; }
   .mt-hero .mt-hero-n { font-size: 50px; }
 }
+
+/* หน้าวิเคราะห์: แท็บหลักเป็นแถบปุ่มขาวชัดเจน (ไม่ปนกับปุ่มเลือกช่วงเวลา) และไม่ถูกการ์ดทับ */
+.mt-main > .mt-tabs { min-height: 48px; flex-shrink: 0; }
+.mt-main > .mt-pills { min-height: 34px; flex-shrink: 0; }
+.mt-tabs { gap: 4px; margin: 0; padding: 4px; border: 0; background: rgba(255, 255, 255, 0.6); border-radius: 16px; }
+.mt-tabs button { flex: 1 0 auto; padding: 9px 12px; border-radius: 12px; font-size: 14px; color: var(--ink-2); }
+.mt-tabs button.is-on { background: #fff; color: var(--ink); box-shadow: 0 2px 0 rgba(170, 125, 0, 0.2); }
+.mt-tabs button.is-on::after { display: none; }
+/* ปุ่มช่วงเวลา: เล็กลง เป็นตัวรองชัดเจน */
+.mt-pills { gap: 6px; }
+.mt-pill { padding: 5px 12px; font-size: 13px; background: rgba(255, 255, 255, 0.35); }
+.mt-pill.is-on { background: var(--ink); color: #fff; }
+/* หมวด · บัญชี และ ทริป: การ์ดเต็มความกว้าง (คอลัมน์เดียว) */
+@container mt (min-width: 760px) {
+  .mt-app[data-an='category'] .mt-main, .mt-app[data-an='trip'] .mt-main { display: flex; flex-direction: column; align-items: stretch; }
+}
+.mt-trips .mt-tripcard-b { width: 100%; }
