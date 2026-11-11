@@ -266,3 +266,25 @@ test('deleting an account with its entries gives the other account its balance b
   assert.equal(bal(u, k.id).balance, 1000);
   assert.equal(u.accounts.some((a) => a.id === loan.id), false);
 });
+
+test('free-form transfers between own accounts in chat', async () => {
+  for (const text of ['โอน 200 กสิกร ไป ทรูมันนี่', 'โอนเข้า TrueMoney 200', 'กสิกร โอน ทรูมันนี่ 200', 'เติมเงิน truemoney 200 กสิกร', 'เติมทรูมันนี่ 200', 'โอนจากกสิกรไปทรูมันนี่ 200']) {
+    const store = memStore();
+    const bot = createBot({ store, now: () => now, links: {} });
+    await say(bot, 'เพิ่มบัญชี กสิกร 500');
+    await say(bot, 'เพิ่มวอลเล็ท TrueMoney 0');
+    await say(bot, text);
+    const list = ops.accountList(store.db.U1, now);
+    assert.equal(list.find((a) => a.name === 'กสิกร').balance, 300, text);
+    assert.equal(list.find((a) => a.type === 'ewallet').balance, 200, text);
+    assert.equal(store.db.U1.txs.length, 0, text);
+  }
+  // ไม่ใช่การโอนระหว่างบัญชีเรา → ยังเป็นรายจ่าย
+  for (const text of ['โอนค่าห้อง 4500', 'เติมน้ำมัน 500']) {
+    const store = memStore();
+    const bot = createBot({ store, now: () => now, links: {} });
+    await say(bot, 'เพิ่มบัญชี กสิกร 500');
+    await say(bot, text);
+    assert.equal(store.db.U1.txs.length, 1, text);
+  }
+});

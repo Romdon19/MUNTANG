@@ -256,6 +256,56 @@ export function createBot(deps) {
         }
       }
     }
+    // โอน/เติมแบบพิมพ์อิสระ: "โอนเข้า TrueMoney 200", "กสิกร โอน ทรูมันนี่ 200", "เติมเงิน truemoney 200 กสิกร"
+    // ต้องมีคำว่าโอน/เติม + ชื่อบัญชีของเราอย่างน้อย 1 บัญชี (ไม่งั้นเป็นรายจ่าย เช่น "โอนค่าห้อง 4500")
+    if (/(โอน|เติม|ย้ายเงิน)/.test(line)) {
+      const am = line.match(new RegExp(`(?<![\\d.])${AMT}\\s*(?:บาท)?`, 'i'));
+      if (am) {
+        const amount = num(am[1], am[2]);
+        const rest = line.replace(am[0], ' ');
+        const verbFill = /เติม/.test(rest);
+        // แบ่งเป็นช่วงตามคำบอกทิศทาง แล้วหาชื่อบัญชีในแต่ละช่วง
+        const parts = rest.split(/(โอนเงิน|โอน|เติมเงิน|เติม|ย้ายเงิน|จาก|ไปยัง|ไป|เข้า|ให้|→|->)/).map((x) => x.trim()).filter(Boolean);
+        const hits = [];
+        let role = null;
+        for (const part of parts) {
+          if (part === 'จาก') role = 'from';
+          else if (['ไป', 'ไปยัง', 'เข้า', 'ให้', '→', '->'].includes(part)) role = 'to';
+          else if (!/^(โอนเงิน|โอน|เติมเงิน|เติม|ย้ายเงิน)$/.test(part)) {
+            let seg = part;
+            for (let i = 0; i < 2; i++) {
+              const hit = find(seg);
+              if (!hit || hits.some((h) => h.id === hit.id)) break;
+              hits.push({ id: hit.id, role });
+              role = null;
+              seg = hit.word ? seg.replace(hit.word, ' ') : '';
+            }
+          }
+        }
+        if (hits.length) {
+          let from = hits.find((h) => h.role === 'from')?.id;
+          let to = hits.find((h) => h.role === 'to')?.id;
+          const free = hits.filter((h) => !h.role).map((h) => h.id);
+          // ไม่มีคำบอกทิศทาง: "เติม X (จาก) Y" = เข้า X · "A โอน B" = จาก A ไป B
+          if (verbFill) {
+            if (!to) to = free.shift();
+            if (!from) from = free.shift();
+          } else if (free.length >= 2 && !from && !to) [from, to] = free;
+          else if (!to && from) to = free.shift();
+          else if (!from && to) from = free.shift();
+          else if (!from && !to && /โอนเข้า|เข้า/.test(line)) to = free.shift();
+          // ไม่ได้บอกต้นทาง → บัญชีธนาคารหลัก
+          if (to && !from) {
+            const def = user.accounts.find((a) => a.id === user.settings.defaultWallet && ['bank', 'ewallet'].includes(a.type) && a.id !== to);
+            from = def?.id || user.accounts.find((a) => a.type === 'bank' && !a.archived && a.id !== to)?.id;
+          }
+          if (from && to && from !== to && amount > 0) {
+            ops.addTransfer(user, { from, to, amount }, now());
+            return accountsReply(user, ctx, `🔁 โอน ${money(amount)} จาก ${accName(from)} ไป ${accName(to)} แล้ว\n(ย้ายเงินระหว่างบัญชี ไม่นับเป็นรายรับรายจ่าย)`);
+          }
+        }
+      }
+    }
     // ตั้งค่าบัตร: "ตั้งบัตร express ตัดรอบ 18 จ่าย 1 งบ 5000 วงเงิน 40000"
     m = line.match(/^ตั้งบัตร\s*(.+?)\s+((?:(?:ตัดรอบ(?:วันที่)?|จ่าย(?:วันที่)?|ชำระ(?:วันที่)?|งบ(?:รูด)?|วงเงิน)\s*[\d,.]+\s*)+)$/);
     if (m) {
