@@ -862,7 +862,7 @@ select.ob-sel { appearance: none; padding-right: 14px; }
   .mt-app[data-tab='list'] .mt-main { max-width: none; }
 }
 @container mt (min-width: 1500px) {
-  .mt-app[data-tab='home'] .mt-main, .mt-app[data-tab='wallets'] .mt-main, .mt-app[data-tab='budget'] .mt-main { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mt-app[data-tab='wallets'] .mt-main, .mt-app[data-tab='budget'] .mt-main { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* เลือกบัญชี/ทริปแบบการ์ด (โลโก้จริง) แทน dropdown */
@@ -931,3 +931,7 @@ select.ob-sel { appearance: none; padding-right: 14px; }
   .mt-app[data-an='category'] .mt-main, .mt-app[data-an='trip'] .mt-main { display: flex; flex-direction: column; align-items: stretch; }
 }
 .mt-trips .mt-tripcard-b { width: 100%; }
+
+/* กันการ์ดทับกันในเลย์เอาต์หลายคอลัมน์: การ์ดที่ตัดขอบ (overflow hidden) เคยถูกบีบความสูง
+   เมื่อเนื้อหายาวเกินจอ → ให้ทุกแถวสูงเท่าเนื้อหาจริงเสมอ */
+.mt-main { grid-auto-rows: max-content; }
