@@ -686,6 +686,17 @@ export function mountDashboard(root, backend, opts = {}) {
         <ul class="mt-catlist">${cats
           .map((c) => `<li><div class="mt-catrow"><span class="mt-catic">${catIcon(cat(c.id), 26)}</span><span class="mt-catname">${esc(cat(c.id).name)}${bar(c.total / (cats[0].total || 1), 'var(--c-exp)')}</span><b class="num">${money(c.total)}</b></div></li>`)
           .join('') || '<li class="mt-empty">ยังไม่มีรายจ่ายในทริปนี้</li>'}</ul>
+        ${(() => {
+          // จ่ายจากบัญชีไหน (บัตรเครดิต เงินสด ธนาคาร) แตะเพื่อดูรายการของบัญชีนั้นในทริป
+          const byW = Object.entries(summarize(list).byWallet).sort((p, q) => q[1] - p[1]);
+          if (!byW.length) return '';
+          return `<h3 class="mt-sec">จ่ายจากบัญชี</h3><ul class="mt-catlist">${byW
+            .map(([id, v]) => {
+              const a = acctById(id);
+              return `<li><button class="mt-catrow" data-act="tripfilter" data-id="${sel.id}" data-wallet="${id}">${acctImg(a?.icon || 'bank', 'is-sm')}<span class="mt-catname">${esc(a?.name || id)}${bar(v / (byW[0][1] || 1), 'var(--ink)')}</span><b class="num">${money(v)}</b></button></li>`;
+            })
+            .join('')}</ul>`;
+        })()}
         <div class="mt-chips">
           <button class="mt-chip" data-act="tripfilter" data-id="${sel.id}">ดูรายการทั้งหมด</button>
           <button class="mt-chip" data-act="add" data-trip="${sel.id}">+ จดค่าทริป</button>
@@ -1750,6 +1761,12 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'tripfilter':
         st.tripF = b.dataset.id || '';
         if (st.tripF) {
+          // ดูรายการของทริป: ล้างตัวกรองอื่นที่ค้างอยู่ (บัญชี หมวด ประเภท คำค้น) จะได้เห็นครบ
+          // ยกเว้นกดจากแถว "จ่ายจากบัญชี" ที่ส่งบัญชีมาด้วย
+          st.wallet = b.dataset.wallet || '';
+          st.cat = '';
+          st.type = 'all';
+          st.q = '';
           st.tab = 'list';
           st.listMode = 'list';
         }
