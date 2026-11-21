@@ -1225,7 +1225,6 @@ export function mountDashboard(root, backend, opts = {}) {
     return `
       <div class="mt-row-h"><h2>กระเป๋าเงิน</h2><button class="mt-btn-s" data-act="xfer">⇄ โอน / จ่าย</button></div>
       ${worthCard()}
-      ${savingsCard()}
       ${debtCard()}
       ${unset ? `<p class="mt-sub mt-note">มี ${unset} บัญชีที่ยังไม่ได้ตั้งยอด แตะบัญชีแล้วใส่ยอดตอนนี้ ระบบจะคิดยอดให้ทุกครั้งที่จด</p>` : ''}
       ${skipAcc.map((a) => `<button class="mt-skipnote" data-act="acct" data-id="${a.id}">⚠️ ${esc(a.name)} ยังมี ${a.breakdown.skipN} รายการที่ไม่ได้หัก/บวกในยอด · แตะเพื่อตรวจและนับ ›</button>`).join('')}
@@ -1240,6 +1239,7 @@ export function mountDashboard(root, backend, opts = {}) {
       </section>`
         )
         .join('')}
+      ${savingsCard()}
       <section class="mt-card mt-card-stk">
         ${stkHead('repeat', 'โอน · จ่ายบัตร · จ่ายหนี้', '<button class="mt-link" data-act="xfer">+ เพิ่ม</button>')}
         ${
