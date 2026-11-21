@@ -566,7 +566,34 @@ export function createBot(deps) {
     }
 
     // เป้าหมายการออม
-    if (['เป้า', 'เป้าหมาย', 'ออม', 'กระปุก', 'goal'].includes(t)) return [ui.goalsMessage(user.goals, ctx)];
+    if (['เป้า', 'เป้าหมาย', 'กระปุก', 'goal'].includes(t)) return [ui.goalsMessage(user.goals, ctx)];
+    // ---------- เงินออม (บัญชีธนาคารที่ใช้เก็บเงิน) ----------
+    if (['เงินออม', 'ออม', 'บัญชีออม', 'เงินเก็บ', 'savings'].includes(t)) {
+      const list = ops.savingsList(user, now());
+      return list.length ? [ui.savingsMessage(list, ctx)] : [ui.textMsg('ยังไม่มีบัญชีเงินออม 🐷\nตั้งบัญชีไหนเป็นเงินออมก็ได้ เช่น\n"ตั้งออม SCB เป้า 30000 ค่าเทอม"\n"ตั้งออม กสิกรเงินเก็บ" (ไม่ตั้งเป้าก็ได้)\nหรือในแอป: กระเป๋า › แตะบัญชี › ติ๊ก "บัญชีเงินออม"')];
+    }
+    let sm = raw.trim().match(/^ตั้ง(?:บัญชี)?(?:เงิน)?ออม\s+(.+?)(?:\s+เป้า(?:หมาย)?\s*([\d,]+(?:\.\d+)?)\s*(k|K|พัน|หมื่น)?)?(?:\s+(?:เพื่อ|ไว้|สำหรับ)?\s*(.+))?$/);
+    if (sm) {
+      // ชื่อบัญชีอาจมีหลายคำ: ลองทั้งก้อนก่อน ไม่เจอค่อยใช้คำแรก ที่เหลือเป็น "ออมเพื่อ"
+      let acc = guessAccount(sm[1], user.accounts, { strict: true, types: ['bank', 'ewallet', 'cash'] });
+      let purpose = sm[4];
+      if (!acc) {
+        const [first, ...restW] = sm[1].split(' ');
+        acc = guessAccount(first, user.accounts, { strict: true, types: ['bank', 'ewallet', 'cash'] });
+        if (acc && restW.length && !purpose) purpose = restW.join(' ');
+      }
+      if (!acc) return [ui.textMsg(`ไม่เจอบัญชี "${sm[1]}" พิมพ์ "บัญชี" เพื่อดูชื่อบัญชีทั้งหมด`)];
+      const goal = sm[2] ? Number(sm[2].replace(/,/g, '')) * (sm[3] === 'หมื่น' ? 10000 : sm[3] ? 1000 : 1) : undefined;
+      ops.updateAccount(user, acc.id, { isSavings: true, ...(goal ? { goal } : {}), ...(purpose ? { purpose } : {}) }, now());
+      return [ui.savingsMessage([ops.savingsInfo(user, acc.id, now())], ctx)];
+    }
+    sm = raw.trim().match(/^ยกเลิก(?:บัญชี)?(?:เงิน)?ออม\s+(.+)$/);
+    if (sm) {
+      const acc = guessAccount(sm[1], user.accounts, { strict: true });
+      if (!acc) return [ui.textMsg(`ไม่เจอบัญชี "${sm[1]}"`)];
+      ops.updateAccount(user, acc.id, { isSavings: false }, now());
+      return [ui.textMsg(`เลิกนับ ${ops.accountName(user, acc.id)} เป็นบัญชีเงินออมแล้ว (ยอดและรายการยังอยู่ครบ)`)];
+    }
     m = raw.trim().match(/^เป้า(?:หมาย)?\s+(.+?)\s+([\d,]+(?:\.\d+)?)\s*(k|พัน)?$/i);
     if (m) {
       let target = Number(m[2].replace(/,/g, ''));

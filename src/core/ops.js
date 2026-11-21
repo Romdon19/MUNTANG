@@ -391,6 +391,7 @@ export function publicState(user, { aiEnabled = false, now = new Date() } = {}) 
     txs: user.txs,
     goals: user.goals,
     trips: tripList(user, now),
+    savings: savingsList(user, now),
     recurring: user.recurring,
     budget,
     streak: streak(user, now),
@@ -509,6 +510,11 @@ function cleanAccount(input, prev = {}) {
     if (input.installments !== undefined) out.installments = Math.max(0, Math.min(360, Math.round(Number(input.installments) || 0))) || null;
     if (input.viaCard !== undefined) out.viaCard = input.viaCard || null;
   }
+  // บัญชีเงินออม (ธนาคาร/วอลเล็ท/เงินสด): เป้าหมาย (ไม่ใส่ก็ได้) + ออมไว้เพื่ออะไร
+  if (input.isSavings !== undefined) out.isSavings = !!input.isSavings && ['bank', 'ewallet', 'cash'].includes(type);
+  if (input.goal !== undefined) out.goal = Math.max(0, money2(input.goal)) || null;
+  if (input.purpose !== undefined) out.purpose = String(input.purpose || '').trim().slice(0, 40) || null;
+  if (!out.isSavings) for (const k of ['isSavings', 'goal', 'purpose']) delete out[k];
   if (type !== 'card') for (const k of ['limit', 'statementDay', 'cycleBudget']) delete out[k];
   if (!LIABILITY.includes(type)) delete out.dueDay;
   if (type !== 'loan') for (const k of ['principal', 'monthlyPayment', 'rate', 'installments', 'viaCard']) delete out[k];
@@ -591,7 +597,10 @@ export function updateAccount(user, id, input = {}, now = new Date()) {
   const a = findAccount(user, id);
   if (!a) return null;
   const plan = (input.type || a.type) === 'loan' ? installmentPlan({ ...a, ...input }) : null;
-  Object.assign(a, cleanAccount({ ...input, ...(plan ? { principal: plan.principal } : {}) }, a), { updatedAt: now.toISOString() });
+  const clean = cleanAccount({ ...input, ...(plan ? { principal: plan.principal } : {}) }, a);
+  // ฟิลด์ที่ไม่ใช้แล้ว (เช่น ยกเลิกบัญชีเงินออม เปลี่ยนประเภทบัญชี) ต้องลบออกจริง ไม่ใช่แค่ไม่ทับ
+  for (const k of ['isSavings', 'goal', 'purpose', 'limit', 'statementDay', 'cycleBudget', 'dueDay', 'principal', 'monthlyPayment', 'rate', 'installments', 'viaCard']) if (k in a && !(k in clean)) delete a[k];
+  Object.assign(a, clean, { updatedAt: now.toISOString() });
   checkViaCard(user, a);
   const bal = plan ? plan.balance : input.balance ?? input.used;
   if (bal !== undefined && bal !== '' && bal !== null) {
@@ -642,7 +651,7 @@ export function beforeSnapshot(user, tx) {
 }
 
 /** โอนเงินระหว่างบัญชี / จ่ายบัตรเครดิต / เติม e-Wallet (ไม่นับเป็นรายรับรายจ่าย) */
-export function addTransfer(user, { from, to, amount, date, note, countIn, countOut } = {}, now = new Date()) {
+export function addTransfer(user, { from, to, amount, date, note, countIn, countOut, noRepay } = {}, now = new Date()) {
   const amt = money2(amount);
   if (!(amt > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
   if (!findAccount(user, from) || !findAccount(user, to)) throw new Error('ไม่พบบัญชี');
@@ -659,6 +668,7 @@ export function addTransfer(user, { from, to, amount, date, note, countIn, count
   };
   if (countIn) x.countIn = true;
   if (countOut) x.countOut = true;
+  if (noRepay) x.noRepay = true; // เบิกจากเงินออมแบบไม่ต้องคืน
   user.transfers.push(x);
   return x;
 }
@@ -667,7 +677,7 @@ export function addTransfer(user, { from, to, amount, date, note, countIn, count
 export function updateTransfer(user, id, patch = {}) {
   const x = user.transfers.find((t) => t.id === id);
   if (!x) return null;
-  for (const k of ['countIn', 'countOut']) {
+  for (const k of ['countIn', 'countOut', 'noRepay']) {
     if (!(k in patch)) continue;
     if (patch[k]) x[k] = true;
     else delete x[k];
@@ -770,4 +780,79 @@ export function tripList(user, now = new Date()) {
       return { ...rest, count: txs.length };
     })
     .sort((a, b) => (a.active !== b.active ? (a.active ? -1 : 1) : a.start < b.start ? 1 : -1));
+}
+
+// ---------------- เงินออม ----------------
+// บัญชีที่ติดป้าย isSavings: ดูยอด เป้าหมาย เงินเข้า/ออกรายเดือน และ "เบิกไปใช้อะไร"
+// โอนออกไปบัญชีอื่นของเรา = ยืมไปหมุน (ต้องคืน) เว้นแต่ติ๊กไม่ต้องคืน · โอนกลับเข้ามา = คืนก่อน ส่วนเกินเป็นเงินฝาก
+
+export function savingsInfo(user, id, now = new Date()) {
+  const a = findAccount(user, id);
+  if (!a?.isSavings) return null;
+  const bal = accountBalances(user, null, now).find((x) => x.id === id);
+  const items = [];
+  for (const t of user.txs) {
+    if (t.wallet !== id || !countsIn(a, t)) continue;
+    items.push({ kind: t.type === 'income' ? 'deposit' : 'spend', id: t.id, date: t.date, at: t.createdAt || '', amount: t.amount, note: t.note, categoryId: t.categoryId });
+  }
+  for (const x of user.transfers) {
+    if (x.from !== id && x.to !== id) continue;
+    if (!countsIn(a, x)) continue;
+    const other = findAccount(user, x.from === id ? x.to : x.from);
+    if (x.to === id) items.push({ kind: 'in', id: x.id, date: x.date, at: x.createdAt || '', amount: x.amount, note: x.note, other: other?.id });
+    else {
+      const own = other && ['bank', 'ewallet', 'cash', 'card'].includes(other.type);
+      items.push({ kind: own && !x.noRepay ? 'borrow' : 'withdraw', id: x.id, date: x.date, at: x.createdAt || '', amount: x.amount, note: x.note, other: other?.id, transfer: true });
+    }
+  }
+  items.sort((p, q) => (p.date === q.date ? (p.at < q.at ? -1 : 1) : p.date < q.date ? -1 : 1));
+  // ไล่ตามเวลา: เงินโอนเข้า คืนยอดที่ยืมไปก่อน ที่เหลือนับเป็นเงินฝาก
+  let owed = 0;
+  const months = {};
+  const mon = (d) => (months[d.slice(0, 7)] ||= { month: d.slice(0, 7), deposit: 0, repay: 0, spend: 0, borrow: 0, withdraw: 0 });
+  for (const it of items) {
+    const m = mon(it.date);
+    if (it.kind === 'in') {
+      const repay = Math.min(owed, it.amount);
+      owed -= repay;
+      it.repay = round2(repay);
+      m.repay += repay;
+      m.deposit += it.amount - repay;
+    } else if (it.kind === 'deposit') m.deposit += it.amount;
+    else if (it.kind === 'borrow') {
+      owed += it.amount;
+      m.borrow += it.amount;
+    } else m[it.kind] += it.amount;
+  }
+  const thisMonth = todayStr(now).slice(0, 7);
+  const list = Object.values(months)
+    .sort((p, q) => (p.month < q.month ? 1 : -1))
+    .slice(0, 12)
+    .map((m) => ({ ...m, deposit: round2(m.deposit), repay: round2(m.repay), spend: round2(m.spend), borrow: round2(m.borrow), withdraw: round2(m.withdraw), net: round2(m.deposit + m.repay - m.spend - m.borrow - m.withdraw) }));
+  const balance = bal?.balance ?? 0;
+  return {
+    id,
+    name: decorate(a).name,
+    icon: decorate(a).icon,
+    purpose: a.purpose || null,
+    goal: a.goal || null,
+    balance,
+    known: !!bal?.known,
+    pct: a.goal ? Math.max(0, Math.min(1, balance / a.goal)) : null,
+    left: a.goal ? round2(Math.max(0, a.goal - balance)) : null,
+    owed: round2(owed),
+    months: list,
+    month: list.find((m) => m.month === thisMonth) || { month: thisMonth, deposit: 0, repay: 0, spend: 0, borrow: 0, withdraw: 0, net: 0 },
+    // เบิกไปใช้อะไร (ล่าสุดก่อน): จ่ายตรงจากบัญชีออม + โอนออก/ยืมไปหมุน
+    outflows: items.filter((i) => ['spend', 'borrow', 'withdraw'].includes(i.kind)).reverse().slice(0, 30),
+    inflows: items.filter((i) => ['in', 'deposit'].includes(i.kind)).reverse().slice(0, 30),
+  };
+}
+
+const round2 = (n) => Math.round(n * 100) / 100;
+
+export function savingsList(user, now = new Date()) {
+  return activeAccounts(user)
+    .filter((a) => a.isSavings)
+    .map((a) => savingsInfo(user, a.id, now));
 }

@@ -43,7 +43,7 @@ export function seedDemo(user, now = new Date()) {
   user.accounts = [
     { id: 'cash', type: 'cash', name: 'เงินสด' },
     { id: 'bank', type: 'bank', name: 'กสิกร', provider: 'kbank' },
-    { id: 'scb', type: 'bank', name: 'SCB เงินเก็บ', provider: 'scb' },
+    { id: 'scb', type: 'bank', name: 'SCB เงินเก็บ', provider: 'scb', isSavings: true, goal: 60000, purpose: 'เก็บทุกเดือน' },
     { id: 'tmw', type: 'ewallet', name: 'TrueMoney', provider: 'truemoney' },
     { id: 'card', type: 'card', name: 'KTC', provider: 'ktc', limit: 20000, statementDay: 10, dueDay: 25 },
     { id: 'kcard', type: 'card', name: 'Express', provider: 'kbank', limit: 40000, statementDay: 18, dueDay: 1, cycleBudget: 5000 },
@@ -81,6 +81,9 @@ export function seedDemo(user, now = new Date()) {
     if (day === 2) move(d, 'bank', 'scb', 3000);
     if (day === 5) move(d, 'bank', 'car', 6500);
     if (i === 20) move(d, 'bank', 'ton', 1500);
+    // เงินไม่พอ ยืมเงินออมไปหมุน แล้วคืนบางส่วน
+    if (i === 12) move(d, 'scb', 'bank', 2500);
+    if (i === 4) move(d, 'bank', 'scb', 1500);
     if (i === 6) move(d, 'ton', 'cash', 500);
     // กดเงินสด/เติม TrueMoney เมื่อเหลือน้อย · จ่ายบัตรทุกวันที่ 25
     const bal = Object.fromEntries(ops.accountList(user, now).map((x) => [x.id, x]));

@@ -869,6 +869,7 @@ export function mountDashboard(root, backend, opts = {}) {
           </button>${lim ? bar(spent / lim, budgetTone(spent / lim)) : ''}</li>`;
         })
         .join('')}</ul>
+      ${savingsCard()}
       ${goalsCard()}
       ${recurringCard()}`;
   }
@@ -1144,6 +1145,73 @@ export function mountDashboard(root, backend, opts = {}) {
     </details>`;
   }
 
+  // ---------------- เงินออม ----------------
+  const SAVE_KIND = { spend: 'ใช้จ่าย', borrow: 'ยืมไปหมุน', withdraw: 'เบิกออก' };
+  const savingsOf = (id) => (st.data.savings || []).find((s) => s.id === id);
+  const monthLabel = (ym) => `${TH_MONTHS[Number(ym.slice(5, 7)) - 1]} ${String(Number(ym.slice(0, 4)) + 543).slice(2)}`;
+
+  /** การ์ดสรุปเงินออมทุกบัญชี (หน้ากระเป๋า / งบ) */
+  function savingsCard() {
+    const list = st.data.savings || [];
+    if (!list.length) return '';
+    const total = list.reduce((a, s) => a + s.balance, 0);
+    const owed = list.reduce((a, s) => a + s.owed, 0);
+    return `<section class="mt-card mt-card-stk">
+      ${stkHead('coin', 'เงินออม', `<b class="num">${money(total)}</b>`)}
+      ${owed > 0 ? `<p class="mt-saveowed">ยืมเงินออมไปหมุน ต้องคืนรวม <b class="num">${money(owed)}</b></p>` : ''}
+      <ul class="mt-catlist">${list
+        .map(
+          (s) => `<li><button class="mt-catrow" data-act="acct" data-id="${s.id}">${acctImg(s.icon, 'is-sm')}
+          <span class="mt-catname">${esc(s.name)}<small class="mt-sub">${s.purpose ? `ออมเพื่อ ${esc(s.purpose)} · ` : ''}เดือนนี้ +${money(s.month.deposit + s.month.repay)} / −${money(s.month.spend + s.month.borrow + s.month.withdraw)}${s.owed > 0 ? ` · ค้างคืน ${money(s.owed)}` : ''}</small>
+          ${s.goal ? bar(s.pct, 'var(--accent)') : ''}</span>
+          <b class="num">${money(s.balance)}${s.goal ? `<small class="mt-sub">/ ${money(s.goal)}</small>` : ''}</b></button></li>`
+        )
+        .join('')}</ul>
+    </section>`;
+  }
+
+  /** รายละเอียดบัญชีเงินออม (ในหน้าบัญชี): เป้า · ค้างคืน · รายเดือน · เบิกไปใช้อะไร */
+  function savingsDetail(id) {
+    const s = savingsOf(id);
+    if (!s) return '';
+    return `<section class="mt-savedetail">
+      <div class="mt-card-h"><h3>${sticker('coin', 26)} เงินออม${s.purpose ? ` · ${esc(s.purpose)}` : ''}</h3>${s.goal ? `<span class="mt-sub num">${Math.round(s.pct * 100)}% ของ ${money(s.goal)}</span>` : '<span class="mt-sub">ไม่ได้ตั้งเป้า</span>'}</div>
+      ${s.goal ? `${bar(s.pct, 'var(--accent)', 'is-lg')}<p class="mt-sub">${s.left > 0 ? `ขาดอีก ${money(s.left)}` : 'ถึงเป้าแล้ว 🎉'}</p>` : ''}
+      ${
+        s.owed > 0
+          ? `<div class="mt-saveowed"><span>ยืมไปหมุน ต้องคืน <b class="num">${money(s.owed)}</b></span><button class="mt-btn-s" type="button" data-act="savepay" data-id="${s.id}" data-v="${s.owed}">คืนเงินออม</button></div>`
+          : ''
+      }
+      <h4 class="mt-sec">รายเดือน</h4>
+      <table class="mt-savemonths"><thead><tr><th>เดือน</th><th>ฝาก/คืน</th><th>เบิกออก</th><th>สุทธิ</th></tr></thead><tbody>${
+        s.months.length
+          ? s.months
+              .slice(0, 6)
+              .map((m) => `<tr><td>${monthLabel(m.month)}</td><td class="num is-inc">+${money(m.deposit + m.repay)}</td><td class="num">−${money(m.spend + m.borrow + m.withdraw)}</td><td class="num ${m.net < 0 ? 'is-bad' : ''}">${m.net >= 0 ? '+' : ''}${money(m.net)}</td></tr>`)
+              .join('')
+          : '<tr><td colspan="4" class="mt-sub">ยังไม่มีรายการ</td></tr>'
+      }</tbody></table>
+      <h4 class="mt-sec">เบิกไปใช้อะไร</h4>
+      ${
+        s.outflows.length
+          ? `<ul class="mt-saveout">${s.outflows
+              .slice(0, 12)
+              .map((o) => {
+                const other = o.other ? acctById(o.other) : null;
+                return `<li><span class="mt-saveout-t"><b>${esc(o.note)}</b><small>${thaiDate(o.date, { year: false })} · ${SAVE_KIND[o.kind]}${other ? ` → ${esc(other.name)}` : o.categoryId ? ` · ${esc(cat(o.categoryId).name)}` : ''}</small></span>
+                  <b class="num">−${money(o.amount)}</b>
+                  ${o.transfer && (o.kind === 'borrow' || o.kind === 'withdraw') ? `<button class="mt-link" type="button" data-act="saverepay" data-id="${o.id}" data-v="${o.kind === 'borrow' ? '1' : ''}">${o.kind === 'borrow' ? 'ไม่ต้องคืน' : 'นับเป็นยืม'}</button>` : ''}</li>`;
+              })
+              .join('')}</ul>`
+          : '<p class="mt-empty">ยังไม่ได้เบิกเงินออมเลย เก่งมาก 🐷</p>'
+      }
+      <div class="mt-chips">
+        <button class="mt-chip" type="button" data-act="savedeposit" data-id="${s.id}">+ ฝากเงินออม</button>
+        <button class="mt-chip" type="button" data-act="xfer" data-id="${s.id}">− เบิก / ยืมไปหมุน</button>
+      </div>
+    </section>`;
+  }
+
   function walletsView() {
     const t = st.data.accountTotals;
     const list = activeAccts();
@@ -1157,6 +1225,7 @@ export function mountDashboard(root, backend, opts = {}) {
     return `
       <div class="mt-row-h"><h2>กระเป๋าเงิน</h2><button class="mt-btn-s" data-act="xfer">⇄ โอน / จ่าย</button></div>
       ${worthCard()}
+      ${savingsCard()}
       ${debtCard()}
       ${unset ? `<p class="mt-sub mt-note">มี ${unset} บัญชีที่ยังไม่ได้ตั้งยอด แตะบัญชีแล้วใส่ยอดตอนนี้ ระบบจะคิดยอดให้ทุกครั้งที่จด</p>` : ''}
       ${skipAcc.map((a) => `<button class="mt-skipnote" data-act="acct" data-id="${a.id}">⚠️ ${esc(a.name)} ยังมี ${a.breakdown.skipN} รายการที่ไม่ได้หัก/บวกในยอด · แตะเพื่อตรวจและนับ ›</button>`).join('')}
@@ -1411,6 +1480,7 @@ export function mountDashboard(root, backend, opts = {}) {
             ? `<div class="mt-acct-head">${acctImg(a.icon, 'is-lg')}
                 <div><b class="num ${a.type === 'loan' ? 'is-neg' : ''}">${acctFigure(a)}</b><span class="mt-sub">${esc(a.type === 'loan' || a.type === 'receivable' ? acctSub(a) : a.type === 'card' ? (a.known ? 'ยอดใช้รวม (รูดค้าง + ผ่อน)' : 'รูดรอบนี้ (ยังไม่ตั้งยอด)') : `${a.estimated ? 'ยอดจากรายการที่จด (ยังไม่ได้ตั้งยอดจริง)' : a.known ? 'ยอดคงเหลือ' : 'ยังไม่ได้ตั้งยอด'} · รอบนี้ใช้ ${money(a.spent || 0)}`)}</span></div></div>
               ${a.type === 'card' && a.known ? cardDetail(a) : ''}
+              ${a.isSavings ? savingsDetail(a.id) : ''}
               ${a.breakdown && a.count ? balanceBreakdown(a) : ''}
               ${a.type === 'loan' && a.principal ? bar(a.pctPaid, 'var(--ink)', 'is-lg') : ''}`
             : ''
@@ -1432,6 +1502,20 @@ export function mountDashboard(root, backend, opts = {}) {
           <input id="mt-acctname" name="name" value="${esc(sh.name ?? a?.name ?? '')}" placeholder="${isCard ? 'เช่น KTC, บัตรกสิกร' : type === 'ewallet' ? 'เช่น TrueMoney' : type === 'cash' ? 'เช่น เงินสด' : isLoan ? 'เช่น ผ่อนรถ, กยศ, ยืมแม่' : type === 'receivable' ? 'เช่น ต้น (ยืมไป)' : 'เช่น กสิกร, SCB เงินเก็บ'}" maxlength="30">
           <label for="mt-bal">${isCard ? 'ยอดรูดที่ยังไม่ได้จ่าย (ไม่รวมยอดผ่อนสินค้า)' : isLoan ? 'ยอดหนี้คงค้างตอนนี้' : type === 'receivable' ? 'ยอดที่เขายังติดเราอยู่' : 'ยอดเงินตอนนี้'}</label>
           <div class="mt-amount is-sm"><span>฿</span><input id="mt-bal" name="balance" type="number" inputmode="decimal" step="0.01" value="${sh.balance ?? figure}" placeholder="0"></div>
+          ${
+            ['bank', 'ewallet', 'cash'].includes(type)
+              ? `<div class="mt-savebox">
+              <label class="mt-check"><input type="checkbox" name="isSavings" ${sh.isSavings ?? a?.isSavings ? 'checked' : ''}> ${sticker('coin', 24)} บัญชีเงินออม</label>
+              <span class="mt-sub">ดูยอดออม เป้าหมาย เงินเข้า/ออกรายเดือน และเบิกไปใช้อะไรบ้าง · โอนออกไปบัญชีอื่นของเรานับเป็น "ยืมไปหมุน" ต้องคืน</span>
+              <div class="mt-savefields">
+                <div class="mt-row2">
+                  <div><label for="mt-goal">เป้าหมาย (ไม่ใส่ก็ได้)</label><input id="mt-goal" name="goal" type="number" step="any" inputmode="decimal" min="0" value="${sh.goal ?? a?.goal ?? ''}" placeholder="เช่น 30000"></div>
+                  <div><label for="mt-purpose">ออมเพื่อ</label><input id="mt-purpose" name="purpose" value="${esc(sh.purpose ?? a?.purpose ?? '')}" placeholder="เช่น ค่าเทอม" maxlength="40"></div>
+                </div>
+              </div>
+            </div>`
+              : ''
+          }
           ${
             isCard
               ? `<div class="mt-row2">
@@ -1503,6 +1587,12 @@ export function mountDashboard(root, backend, opts = {}) {
           ${acctPicker('xfer', 'from', from, list)}
           <span class="mt-label">ไปบัญชี</span>
           ${acctPicker('xfer', 'to', to, list.filter((a) => a.id !== from))}
+          ${
+            acctById(from)?.isSavings && toAcc && ['bank', 'ewallet', 'cash', 'card'].includes(toAcc.type)
+              ? `<label class="mt-check mt-backdate"><input type="checkbox" name="borrow" ${sh.borrow ?? true ? 'checked' : ''}> ยืมเงินออมไปหมุน (ต้องคืนภายหลัง)</label>
+                 <span class="mt-sub">เอาติ๊กออกถ้าเบิกไปใช้จริง ไม่ต้องคืน · ตอนคืน ให้โอนกลับเข้า ${esc(acctById(from).name)} ระบบหักยอดค้างให้เอง</span>`
+              : ''
+          }
           <label for="mt-xamt" class="mt-vh">จำนวนเงิน</label>
           <div class="mt-amount"><span>฿</span><input id="mt-xamt" name="amount" type="number" step="any" inputmode="decimal" min="0" required value="${sh.amount ?? suggest}" placeholder="0"></div>
           ${toAcc && isLiab(toAcc) ? `<p class="mt-sub">${esc(toAcc.name)} ${toAcc.known ? (toAcc.type === 'card' ? `ต้องจ่ายบิล ${money(toAcc.payNow)}${toAcc.instDue ? ` (รวมค่างวดผ่อน ${money(toAcc.instDue)} ระบบตัดให้เอง)` : ''}` : `ยอดค้างจ่าย ${money(toAcc.used)}`) : 'ยังไม่ได้ตั้งยอด'}</p>` : ''}
@@ -1844,7 +1934,8 @@ export function mountDashboard(root, backend, opts = {}) {
         const f = root.querySelector('form[data-form="acct"]');
         if (f) {
           const fd = new FormData(f);
-          for (const k of ['name', 'balance', 'limit', 'cycleBudget', 'statementDay', 'dueDay', 'monthlyPayment', 'rate', 'principal', 'installments', 'billInstallment', 'viaCard']) if (fd.has(k)) sh[k] = fd.get(k);
+          for (const k of ['name', 'balance', 'limit', 'cycleBudget', 'statementDay', 'dueDay', 'monthlyPayment', 'rate', 'principal', 'installments', 'billInstallment', 'viaCard', 'goal', 'purpose']) if (fd.has(k)) sh[k] = fd.get(k);
+          if (f.querySelector('[name=isSavings]')) sh.isSavings = fd.get('isSavings') === 'on';
           // ชื่อยังว่าง → ใช้ชื่อธนาคารที่เลือก
           const p = st.data.providers.find((x) => x.id === b.dataset.v);
           if (p && !String(sh.name || '').trim()) sh.name = p.short;
@@ -1884,6 +1975,18 @@ export function mountDashboard(root, backend, opts = {}) {
         render();
         break;
       }
+      case 'savepay':
+      case 'savedeposit': {
+        // คืนเงินออม / ฝากเพิ่ม = โอนเข้าบัญชีเงินออม (จากบัญชีหลัก)
+        const to = b.dataset.id;
+        const from = activeAccts().find((x) => x.id === st.data.settings.defaultWallet && ['bank', 'ewallet'].includes(x.type) && x.id !== to)?.id || activeAccts().find((x) => x.type === 'bank' && x.id !== to && !x.isSavings)?.id;
+        st.sheet = { kind: 'xfer', to, from, amount: b.dataset.v || undefined, note: a === 'savepay' ? 'คืนเงินออม' : 'ฝากเงินออม' };
+        render();
+        break;
+      }
+      case 'saverepay':
+        act(() => backend.updateTransfer(b.dataset.id, { noRepay: !!b.dataset.v }), b.dataset.v ? 'บันทึกว่าเบิกไปใช้ ไม่ต้องคืนแล้ว' : 'นับเป็นยืมไปหมุน ต้องคืนแล้ว');
+        break;
       case 'countall':
         act(() => backend.countAll(b.dataset.id), 'นับรายการที่ค้างเข้ายอดแล้ว');
         break;
@@ -2169,6 +2272,7 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'acct': {
         const body = { type: fd.type, name: fd.name, provider: fd.provider ?? '' };
         if (fd.balance !== '') body.balance = Number(fd.balance);
+        if (f.querySelector('[name=isSavings]')) Object.assign(body, { isSavings: fd.isSavings === 'on', goal: Number(fd.goal) || 0, purpose: fd.purpose || '' });
         if (fd.type === 'card') Object.assign(body, { limit: Number(fd.limit) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null, statementDay: fd.statementDay ? Number(fd.statementDay) : null, cycleBudget: Number(fd.cycleBudget) || 0 });
         if (fd.type === 'loan') {
           Object.assign(body, { monthlyPayment: Number(fd.monthlyPayment) || 0, rate: Number(fd.rate) || 0, principal: Number(fd.principal) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null, viaCard: fd.viaCard || null, installments: Number(fd.installments) || 0 });
@@ -2180,7 +2284,7 @@ export function mountDashboard(root, backend, opts = {}) {
         break;
       }
       case 'xfer':
-        act(() => backend.addTransfer({ ...fd, amount: Number(fd.amount), ...(f.querySelector('[name=countIn]') ? { countIn: fd.countIn === 'on', countOut: fd.countIn !== 'on' } : {}) }), fd.to && acctById(fd.to)?.type === 'card' ? '💳 บันทึกการจ่ายบัตรแล้ว' : '⇄ บันทึกการโอนแล้ว');
+        act(() => backend.addTransfer({ ...fd, amount: Number(fd.amount), ...(f.querySelector('[name=borrow]') ? { noRepay: fd.borrow !== 'on' } : {}), ...(f.querySelector('[name=countIn]') ? { countIn: fd.countIn === 'on', countOut: fd.countIn !== 'on' } : {}) }), fd.to && acctById(fd.to)?.type === 'card' ? '💳 บันทึกการจ่ายบัตรแล้ว' : '⇄ บันทึกการโอนแล้ว');
         break;
       case 'trip': {
         const body = { name: fd.name, emoji: fd.emoji, start: fd.start, end: fd.end || null, budget: Number(fd.budget) || 0 };

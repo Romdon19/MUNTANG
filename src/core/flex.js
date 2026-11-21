@@ -634,6 +634,38 @@ export function welcomeMessage(name, ctx) {
   return flex('ยินดีต้อนรับสู่หมุนตังค์', bubble({ title: 'หมุนตังค์', subtitle: 'ผู้ช่วยจดเงินใน LINE', body, footer, ctx }));
 }
 
+// ---------- เงินออม ----------
+const SAVE_KIND = { spend: 'ใช้จ่าย', borrow: 'ยืมไปหมุน', withdraw: 'เบิกออก' };
+
+/** การ์ดเงินออม (บัญชีละใบ): ยอด เป้า เดือนนี้เข้า/ออก ยอดยืมที่ต้องคืน และเบิกไปใช้อะไรล่าสุด */
+export function savingsMessage(list, ctx) {
+  const card = (s) => {
+    const m = s.month;
+    const body = [
+      text(s.purpose ? `ออมเพื่อ ${s.purpose}` : 'เงินออม', { size: 'xs', color: C.muted, align: 'center' }),
+      text(money(s.balance), { size: '3xl', weight: 'bold', align: 'center' }),
+      ...(s.goal ? [bar(s.pct, C.gold, 8), text(s.left > 0 ? `${Math.round(s.pct * 100)}% ของเป้า ${money(s.goal)} · ขาดอีก ${money(s.left)}` : `ถึงเป้า ${money(s.goal)} แล้ว 🎉`, { size: 'xs', color: C.muted, align: 'center', margin: 'sm' })] : []),
+      sep({ margin: 'lg' }),
+      row('เดือนนี้ฝากเข้า', money(m.deposit + m.repay), { rightStyle: { color: C.green } }),
+      row('เดือนนี้เบิกออก', money(m.spend + m.borrow + m.withdraw)),
+      ...(s.owed > 0 ? [box('horizontal', [text('ยืมไปหมุน ต้องคืน', { size: 'sm', color: C.red, flex: 3 }), text(money(s.owed), { size: 'sm', weight: 'bold', color: C.red, align: 'end', flex: 2 })], { margin: 'md', backgroundColor: C.redTint, cornerRadius: '8px', paddingAll: 'sm' })] : []),
+    ];
+    if (s.outflows.length) {
+      body.push(text('เบิกไปใช้อะไร', { size: 'xs', weight: 'bold', margin: 'lg' }));
+      for (const o of s.outflows.slice(0, 4)) {
+        body.push(box('horizontal', [text(`${thaiDate(o.date, { year: false })} ${o.note}`, { size: 'xs', flex: 5, wrap: false }), text(SAVE_KIND[o.kind], { size: 'xxs', color: o.kind === 'borrow' ? C.red : C.muted, flex: 2, align: 'end' }), text(money(o.amount), { size: 'xs', weight: 'bold', flex: 2, align: 'end' })], { margin: 'sm' }));
+      }
+    }
+    const footer = [
+      ...(s.owed > 0 ? [btn(`คืนเงินออม ${money(s.owed)}`, msg(`โอน ${s.owed} ไป ${s.name}`), { style: 'primary', color: C.ink })] : []),
+      ...(ctx?.links?.view ? [btn('ดูทั้งหมด', uri(ctx.links.view(`wallets&acct=${s.id}`)))] : []),
+    ];
+    return bubble({ title: `🐷 ${s.name}`, subtitle: s.goal ? `เป้า ${money(s.goal)}` : 'ไม่ได้ตั้งเป้า', body, footer: footer.length ? footer : undefined, ctx });
+  };
+  const total = list.reduce((a, s) => a + s.balance, 0);
+  return flex(`เงินออมรวม ${money(total)}`, list.length === 1 ? card(list[0]) : { type: 'carousel', contents: list.slice(0, 10).map(card) });
+}
+
 // ---------- ทริป ----------
 const tripRange = (t) => `${thaiDate(t.start, { year: false })}${t.end && t.end !== t.start ? ` – ${thaiDate(t.end, { year: false })}` : t.end ? '' : ' – ตอนนี้'} · ${t.days} วัน`;
 

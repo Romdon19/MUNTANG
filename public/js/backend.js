@@ -104,7 +104,7 @@ export function remoteBackend() {
 }
 
 // ---------------- local (in-browser) ----------------
-const LS_KEY = 'muntang-local-v2';
+const LS_KEY = 'muntang-local-v3';
 const LOCAL_USER = 'local-user';
 
 export function localBackend({ logoUrl, moods, iconMap, onOpenDashboard } = {}) {

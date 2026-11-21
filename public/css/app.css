@@ -935,3 +935,28 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 /* กันการ์ดทับกันในเลย์เอาต์หลายคอลัมน์: การ์ดที่ตัดขอบ (overflow hidden) เคยถูกบีบความสูง
    เมื่อเนื้อหายาวเกินจอ → ให้ทุกแถวสูงเท่าเนื้อหาจริงเสมอ */
 .mt-main { grid-auto-rows: max-content; }
+
+/* เงินออม */
+.mt-savebox { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: var(--r-sm); background: var(--accent-soft); border: 1.5px solid #f3dd8a; }
+.mt-savebox .mt-check { font-weight: 500; }
+.mt-savebox .mt-check .mt-stk { display: inline-block; vertical-align: -6px; }
+.mt-savefields { display: none; }
+.mt-savebox:has(input[name='isSavings']:checked) .mt-savefields { display: block; }
+.mt-savedetail { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--r-md); background: #fffbea; border: 1.5px solid #f3dd8a; }
+.mt-savedetail h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-family: var(--font-display); font-size: 16px; font-weight: 600; }
+.mt-savedetail h4.mt-sec { margin: 6px 0 0; font-size: 14px; }
+.mt-saveowed { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--red-tint); color: var(--red); font-size: 13.5px; }
+.mt-saveowed b { color: var(--red); }
+.mt-savemonths { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mt-savemonths th { text-align: right; font-weight: 500; color: var(--muted); padding: 4px 0; font-size: 12px; }
+.mt-savemonths th:first-child, .mt-savemonths td:first-child { text-align: left; }
+.mt-savemonths td { text-align: right; padding: 6px 0; border-top: 1px solid var(--line); }
+.mt-saveout { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.mt-saveout li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.mt-saveout li:last-child { border-bottom: 0; }
+.mt-saveout-t { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.mt-saveout-t b { font-weight: 500; font-size: 14px; }
+.mt-saveout-t small { font-size: 12px; color: var(--muted); }
+.mt-saveout .mt-link { font-size: 12px; padding: 0; }
+.mt-catname small { display: block; }
+.mt-catrow > b small { display: block; text-align: right; font-weight: 400; font-size: 11.5px; }
