@@ -288,3 +288,33 @@ test('free-form transfers between own accounts in chat', async () => {
     assert.equal(store.db.U1.txs.length, 1, text);
   }
 });
+
+test('pasting a multi-line list: date, amount, account and note per line; account-to-account lines are transfers', async () => {
+  const store = memStore();
+  const bot = createBot({ store, now: () => new Date('2026-11-25T05:00:00Z'), links: {} });
+  await say(bot, 'เพิ่มบัญชี K+ PLUS 1000');
+  await say(bot, 'เพิ่มบัญชี K+ PLUS Salary 2000');
+  await say(bot, 'เพิ่มบัตร PLATINUM วงเงิน 30000');
+  // ชื่อที่ตั้งเองพิมพ์ผิดได้ (TrurMoney) แต่เลือกโลโก้ TrueMoney ไว้ → พิมพ์ "ทรู่มันนี้" ก็เจอ
+  ops.addAccount(store.db.U1, { type: 'ewallet', name: 'TrurMoney', provider: 'truemoney', balance: 0 }, new Date('2026-11-25T05:00:00Z'));
+  await say(bot, `22/11    115 บาท Plus ข้าวมินิ
+22/11    200 บาท Plus ค่ากิน
+
+23/11    25 บาท Plus น้ำเต่าบิน
+23/11    100 บาท Plus ทรู่มันนี้
+23/11    100 บาท Plus น้ำมัน
+23/11 บัตร 135 บาท Koi`);
+  const u = store.db.U1;
+  const name = (id) => ops.accountName(u, id);
+  assert.deepEqual(
+    u.txs.map((t) => [t.date, t.amount, t.note, t.categoryId, name(t.wallet)]),
+    [
+      ['2026-11-22', 115, 'ข้าวมินิ', 'food', 'K+ PLUS'],
+      ['2026-11-22', 200, 'ค่ากิน', 'food', 'K+ PLUS'],
+      ['2026-11-23', 25, 'น้ำเต่าบิน', 'cafe', 'K+ PLUS'],
+      ['2026-11-23', 100, 'น้ำมัน', 'fuel', 'K+ PLUS'],
+      ['2026-11-23', 135, 'Koi', 'cafe', 'PLATINUM'],
+    ]
+  );
+  assert.deepEqual(u.transfers.map((x) => [x.amount, name(x.from), name(x.to)]), [[100, 'K+ PLUS', 'TrurMoney']]);
+});

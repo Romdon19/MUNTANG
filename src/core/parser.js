@@ -151,7 +151,7 @@ export function parseEntries(text, opts = {}) {
     let named = false;
     let line = withoutTime;
     if (accounts) {
-      const hit = guessAccount(withoutTime, accounts, { defaultWallet, types: SPENDABLE });
+      const hit = guessAccount(withoutTime, accounts, { defaultWallet, types: SPENDABLE, prefer: opts.prefer });
       if (hit) wallet = hit.id;
       named = !!hit;
       // ตัดชื่อบัญชีออกจากชื่อรายการ: "ข้าว 50 กสิกร" → "ข้าว"
@@ -160,13 +160,34 @@ export function parseEntries(text, opts = {}) {
       named = !!guessWallet(withoutTime);
       wallet = guessWallet(withoutTime) || defaultWallet;
     }
-    const parts = splitLine(line);
+    // บรรทัดที่มีชื่อบัญชีของเรา 2 บัญชีและไม่มีชื่อรายการอื่น = โอนระหว่างบัญชี
+    // เช่น "23/11 100 บาท Plus ทรู่มันนี้" → โอนจาก K+ PLUS (ชื่อแรก) ไป TrueMoney (ชื่อหลัง)
+    let move = null;
+    if (accounts) {
+      const allTypes = ['bank', 'ewallet', 'cash', 'card', 'loan', 'receivable'];
+      const lower = withoutTime.toLowerCase();
+      const a1 = guessAccount(lower, accounts, { strict: true, types: allTypes });
+      const a2 = a1?.word ? guessAccount(lower.replace(a1.word, ' '), accounts, { strict: true, types: allTypes }) : null;
+      if (a1 && a2 && a1.id !== a2.id && a2.word) {
+        const left = cleanNote(lower.replace(a1.word, ' ').replace(a2.word, ' ').replace(AMOUNT_RE, ' ').replace(/โอนเงิน|โอน|เติมเงิน|เติม|ย้ายเงิน|จาก|เข้า|ไปยัง|ไป|ให้|→|->/g, ' '));
+        AMOUNT_RE.lastIndex = 0;
+        if (!left) {
+          const [f, t] = lower.indexOf(a1.word) < lower.indexOf(a2.word) ? [a1, a2] : [a2, a1];
+          move = { from: f.id, to: t.id, fromWord: f.word, toWord: t.word };
+        }
+      }
+    }
+    const parts = splitLine(move ? withoutTime.replace(/[^\d.,\s]+/g, ' ') : line);
     if (!parts.length) {
       unparsed.push(raw);
       continue;
     }
     for (const p of parts) {
       if (!(p.amount > 0) || p.amount > 100_000_000) continue;
+      if (move) {
+        items.push({ transfer: true, from: move.from, to: move.to, amount: p.amount, date: lineDate, note: `${move.fromWord} → ${move.toWord}` });
+        continue;
+      }
       const guess = guessCategory(p.note || line, customKeywords, opts.user);
       let type = guess ? guess.type : 'expense';
       if (isIncome) type = 'income';

@@ -669,10 +669,13 @@ export function createBot(deps) {
       defaultWallet: user.settings.defaultWallet,
       incomeWallet: ops.incomeWallet(user),
       accounts: user.accounts,
+      // พูดกลางๆ เช่น "บัตร" → บัตรที่ใช้ล่าสุด
+      prefer: [...user.txs].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).map((t) => t.wallet),
       user,
     });
     // ประโยคยาว/กำกวมให้ AI ช่วยอ่าน (ถ้าตั้งค่า API key ไว้)
-    const complex = text.length > 25 && /(แล้ว|กับ|และ|ไป|มา|อีก)/.test(text);
+    // วางหลายบรรทัด (แบบรายการ วันที่ ยอด บัญชี ชื่อ) อ่านเองแม่นกว่า ไม่ต้องส่ง AI
+    const complex = text.length > 25 && !text.trim().includes('\n') && /(แล้ว|กับ|และ|ไป|มา|อีก)/.test(text);
     if (deps.ai && (complex || (!parsed.items.length && looksLikeEntry(text)) || parsed.unparsed.length)) {
       try {
         const aiItems = await deps.ai.parseText(text, todayStr(now()));
@@ -687,8 +690,18 @@ export function createBot(deps) {
       }
     }
     if (parsed.items.length) {
-      const txs = parsed.items.map((it) => ops.addTx(user, { ...it, ...by, ...tripTag }, 'chat'));
-      return afterRecord(user, txs, ctx);
+      // บรรทัดที่เป็นการโอนระหว่างบัญชีของเรา (เช่น "Plus ทรูมันนี่ 100") → บันทึกเป็นการโอน
+      const moves = parsed.items.filter((it) => it.transfer);
+      for (const x of moves) ops.addTransfer(user, { from: x.from, to: x.to, amount: x.amount, date: x.date }, now());
+      const moveText = moves.length
+        ? ui.textMsg(`🔁 บันทึกการโอน ${moves.length} รายการ (ไม่นับเป็นรายจ่าย)\n${moves.map((x) => `• ${thaiDate(x.date, { year: false })} ${ops.accountName(user, x.from)} → ${ops.accountName(user, x.to)} ${money(x.amount)}`).join('\n')}`)
+        : null;
+      const plain = parsed.items.filter((it) => !it.transfer);
+      if (!plain.length) return [moveText];
+      const txs = plain.map((it) => ops.addTx(user, { ...it, ...by, ...tripTag }, 'chat'));
+      const out = afterRecord(user, txs, ctx);
+      if (moveText) out.splice(1, 0, moveText);
+      return out;
     }
 
     if (sess.isGroup) return [];

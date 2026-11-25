@@ -151,30 +151,55 @@ function wordsOf(a) {
  * strict = ต้องเจอชื่อ/ธนาคารจริงๆ (ไม่เดาจากคำว่า บัตร/โอน/เงินสด)
  * types = จำกัดประเภทบัญชี (ตอนจดรายการใช้ SPENDABLE กันชื่อหนี้อย่าง "แม่" ไปชนกับ "ซื้อของให้แม่")
  */
-export function guessAccount(text, accounts, { strict = false, defaultWallet, types } = {}) {
-  const t = String(text || '').toLowerCase();
+export function guessAccount(text, accounts, { strict = false, defaultWallet, types, prefer } = {}) {
+  // ไม่สนวรรณยุกต์ (พิมพ์ "ทรู่มันนี้" ก็เจอ "ทรูมันนี่") · map ตำแหน่งกลับไปข้อความจริง ไว้ตัดคำออกได้ถูก
+  const raw = String(text || '').toLowerCase();
+  const keep = [];
+  let t = '';
+  for (let i = 0; i < raw.length; i++) {
+    if (/[\u0E48-\u0E4B]/.test(raw[i])) continue;
+    keep.push(i);
+    t += raw[i];
+  }
+  const original = (w) => {
+    const at = t.indexOf(w);
+    if (at < 0) return w;
+    // รวมวรรณยุกต์ที่ตามหลังตัวสุดท้ายด้วย ("ทรู่มันนี้" ตัดออกได้หมด)
+    let end = keep[at + w.length - 1] + 1;
+    while (end < raw.length && /[\u0E48-\u0E4B]/.test(raw[end])) end++;
+    return raw.slice(keep[at], end);
+  };
   const list = (accounts || []).filter((a) => !a.archived && (!types || types.includes(a.type)));
   const wantsCard = CARD_WORDS.test(t);
   let best = null;
   for (const a of list) {
-    for (const w of wordsOf(a)) {
+    for (const w0 of wordsOf(a)) {
+      const w = normTone(w0);
       if (!w || !t.includes(w)) continue;
-      const score = w.length + (wantsCard === (a.type === 'card') ? 0.5 : 0);
-      if (!best || score > best.score) best = { id: a.id, word: w, score };
+      // คำยาวกว่าชนะ · เสมอกัน: ชื่อบัญชีสั้นกว่า (ตรงกว่า) ชนะ เช่น "plus" → K+ PLUS ไม่ใช่ K+ PLUS Salary
+      const score = w.length + (wantsCard === (a.type === 'card') ? 0.5 : 0) - String(a.name || '').length / 1000;
+      if (!best || score > best.score) best = { id: a.id, word: original(w), score };
     }
   }
   if (best) return { id: best.id, word: best.word };
   if (strict) return null;
-  const firstOf = (...types) => list.find((a) => types.includes(a.type));
+  // พูดกลางๆ เช่น "บัตร" "โอน": เลือกบัญชีประเภทนั้นที่ใช้ล่าสุด (prefer) ก่อน
+  const rank = (a) => (prefer ? (prefer.indexOf(a.id) + 1 || 1e6) : 0);
+  const firstOf = (...types) => list.filter((a) => types.includes(a.type)).sort((p, q) => rank(p) - rank(q))[0];
   let hit = null;
-  if (wantsCard) hit = firstOf('card');
-  else if (CASH_WORDS.test(t)) hit = firstOf('cash');
+  let word = null;
+  if (wantsCard) {
+    hit = firstOf('card');
+    word = (raw.match(/บัตรเครดิต|รูดบัตร|บัตร/) || [])[0] || null;
+  } else if (CASH_WORDS.test(t)) hit = firstOf('cash');
   else if (XFER_WORDS.test(t)) {
     const def = list.find((a) => a.id === defaultWallet);
     hit = def && (def.type === 'bank' || def.type === 'ewallet') ? def : firstOf('bank', 'ewallet');
   }
-  return hit ? { id: hit.id, word: null } : null;
+  return hit ? { id: hit.id, word, generic: true } : null;
 }
+
+const normTone = (s) => String(s || '').toLowerCase().replace(/[\u0E48-\u0E4B]/g, '');
 
 /** เดาธนาคารจากชื่อที่ผู้ใช้ตั้ง เช่น "กสิกร เงินเดือน" → kbank */
 export function guessProvider(text, type) {
