@@ -960,3 +960,12 @@ select.ob-sel { appearance: none; padding-right: 14px; }
 .mt-saveout .mt-link { font-size: 12px; padding: 0; }
 .mt-catname small { display: block; }
 .mt-catrow > b small { display: block; text-align: right; font-weight: 400; font-size: 11.5px; }
+
+/* แผนออม */
+.mt-saveplan { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 14px; background: #fff; border: 1.5px solid #f3dd8a; }
+.mt-saveplan-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.mt-saveplan-h b { font-family: var(--font-num); font-size: 22px; font-weight: 600; }
+.mt-saveplan-m { font-size: 13px; color: var(--ink-2); }
+.mt-saveplan .mt-btn-s { align-self: flex-start; }
+.mt-saveplan.is-done { border-color: #a8dcb9; background: #f1faf4; }
+.mt-saveplan.is-late { border-color: #f3b4ae; background: var(--red-tint); }

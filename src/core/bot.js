@@ -576,7 +576,19 @@ export function createBot(deps) {
       const list = ops.savingsList(user, now());
       return list.length ? [ui.savingsMessage(list, ctx)] : [ui.textMsg('ยังไม่มีบัญชีเงินออม 🐷\nตั้งบัญชีไหนเป็นเงินออมก็ได้ เช่น\n"ตั้งออม SCB เป้า 30000 ค่าเทอม"\n"ตั้งออม กสิกรเงินเก็บ" (ไม่ตั้งเป้าก็ได้)\nหรือในแอป: กระเป๋า › แตะบัญชี › ติ๊ก "บัญชีเงินออม"')];
     }
-    let sm = raw.trim().match(/^ตั้ง(?:บัญชี)?(?:เงิน)?ออม\s+(.+?)(?:\s+เป้า(?:หมาย)?\s*([\d,]+(?:\.\d+)?)\s*(k|K|พัน|หมื่น)?)?(?:\s+(?:เพื่อ|ไว้|สำหรับ)?\s*(.+))?$/);
+    // "ภายใน 31/5/2570" / "ก่อน 31 พ.ค. 70" = วันที่ต้องมีเงินครบเป้า
+    let goalDate;
+    let saveLine = raw.trim();
+    if (/^ตั้ง(?:บัญชี)?(?:เงิน)?ออม/.test(saveLine)) {
+      const dm = saveLine.match(/\s(?:ภายใน|ก่อน|ถึง)(?:วันที่)?\s*(\d{1,2}(?:\/\d{1,2}(?:\/\d{2,4})?|\s*[ก-๙.]+\.?(?:\s*\d{2,4})?))/);
+      if (dm) {
+        goalDate = extractDate(dm[1], now()).date || undefined;
+        // ไม่ระบุปีแล้ววันที่ผ่านไปแล้ว = ปีหน้า (extractDate ถือเป็นปีที่แล้ว)
+        if (goalDate && goalDate < todayStr(now()) && !/\d{1,2}\/\d{1,2}\/\d|\s\d{2,4}$/.test(dm[1])) goalDate = `${Number(goalDate.slice(0, 4)) + 1}${goalDate.slice(4)}`;
+        saveLine = saveLine.replace(dm[0], ' ').replace(/\s+/g, ' ').trim();
+      }
+    }
+    let sm = saveLine.match(/^ตั้ง(?:บัญชี)?(?:เงิน)?ออม\s+(.+?)(?:\s+เป้า(?:หมาย)?\s*([\d,]+(?:\.\d+)?)\s*(k|K|พัน|หมื่น)?)?(?:\s+(?:เพื่อ|ไว้|สำหรับ)?\s*(.+))?$/);
     if (sm) {
       // ชื่อบัญชีอาจมีหลายคำ: ลองทั้งก้อนก่อน ไม่เจอค่อยใช้คำแรก ที่เหลือเป็น "ออมเพื่อ"
       let acc = guessAccount(sm[1], user.accounts, { strict: true, types: ['bank', 'ewallet', 'cash'] });
@@ -588,7 +600,7 @@ export function createBot(deps) {
       }
       if (!acc) return [ui.textMsg(`ไม่เจอบัญชี "${sm[1]}" พิมพ์ "บัญชี" เพื่อดูชื่อบัญชีทั้งหมด`)];
       const goal = sm[2] ? Number(sm[2].replace(/,/g, '')) * (sm[3] === 'หมื่น' ? 10000 : sm[3] ? 1000 : 1) : undefined;
-      ops.updateAccount(user, acc.id, { isSavings: true, ...(goal ? { goal } : {}), ...(purpose ? { purpose } : {}) }, now());
+      ops.updateAccount(user, acc.id, { isSavings: true, ...(goal ? { goal } : {}), ...(purpose ? { purpose } : {}), ...(goalDate ? { goalDate } : {}) }, now());
       return [ui.savingsMessage([ops.savingsInfo(user, acc.id, now())], ctx)];
     }
     sm = raw.trim().match(/^ยกเลิก(?:บัญชี)?(?:เงิน)?ออม\s+(.+)$/);

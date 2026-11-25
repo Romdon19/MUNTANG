@@ -63,3 +63,33 @@ test('chat: set a savings account, borrow from it and pay back', async () => {
   assert.equal(s.owed, 0);
   assert.equal(s.balance, 10000);
 });
+
+test('savings plan: how much to save per month to reach the goal by a date', () => {
+  const u = ops.newUser('U1');
+  const main = ops.addAccount(u, { type: 'bank', name: 'K+ PLUS', balance: 50000 }, at('2026-11-01', 1));
+  const term = ops.addAccount(u, { type: 'bank', name: 'SCB RBAC', balance: 5629.14, isSavings: true, goal: 50556.25, goalDate: '2027-05-31', purpose: 'ค่าเทอม' }, at('2026-11-01', 1));
+  let s = ops.savingsInfo(u, term.id, now); // 21 พ.ย. 69 → พ.ค. 70 = 7 เดือน (พ.ย.–พ.ค.)
+  assert.equal(s.plan.monthsLeft, 7);
+  assert.equal(s.plan.perMonth, Math.ceil((50556.25 - 5629.14) / 7));
+  assert.equal(s.plan.needThisMonth, s.plan.perMonth);
+  ops.addTransfer(u, { from: main.id, to: term.id, amount: 3000, date: '2026-11-21' }, at('2026-11-21'));
+  s = ops.savingsInfo(u, term.id, now);
+  assert.equal(s.plan.perMonth, Math.ceil((50556.25 - 5629.14) / 7)); // ฝากเดือนนี้ไม่ทำให้เป้าต่อเดือนเปลี่ยน
+  assert.equal(s.plan.needThisMonth, Math.ceil((50556.25 - 5629.14) / 7 - 3000));
+});
+
+test('chat: set a savings goal with a date', async () => {
+  const { createBot } = await import('../src/core/bot.js');
+  for (const [text, date] of [['ตั้งออม SCB เป้า 50556.25 ภายใน 31/5/2570 ค่าเทอม', '2027-05-31'], ['ตั้งออม SCB เป้า 50000 ก่อน 31 พ.ค. ค่าเทอม', '2027-05-31']]) {
+    const db = {};
+    const store = { get: async (id) => (db[id] ? structuredClone(db[id]) : null), save: async (u) => void (db[u.id] = structuredClone(u)) };
+    const bot = createBot({ store, now: () => now, links: {} });
+    const say = (t) => bot.handleEvent({ type: 'message', source: { type: 'user', userId: 'U1' }, message: { type: 'text', text: t } });
+    await say('เพิ่มบัญชี SCB RBAC 5629.14');
+    await say(text);
+    const s = ops.savingsList(db.U1, now)[0];
+    assert.equal(s.plan?.goalDate, date, text);
+    assert.equal(s.purpose, 'ค่าเทอม', text);
+    assert.ok(s.plan.perMonth > 0);
+  }
+});

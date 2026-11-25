@@ -1163,11 +1163,28 @@ export function mountDashboard(root, backend, opts = {}) {
         .map(
           (s) => `<li><button class="mt-catrow" data-act="acct" data-id="${s.id}">${acctImg(s.icon, 'is-sm')}
           <span class="mt-catname">${esc(s.name)}<small class="mt-sub">${s.purpose ? `ออมเพื่อ ${esc(s.purpose)} · ` : ''}เดือนนี้ +${money(s.month.deposit + s.month.repay)} / −${money(s.month.spend + s.month.borrow + s.month.withdraw)}${s.owed > 0 ? ` · ค้างคืน ${money(s.owed)}` : ''}</small>
-          ${s.goal ? bar(s.pct, 'var(--accent)') : ''}</span>
+          ${s.goal ? bar(s.pct, 'var(--accent)') : ''}${s.plan && s.left > 0 ? `<small class="mt-sub">${s.plan.needThisMonth > 0 ? `เดือนนี้ต้องเก็บอีก ${money(s.plan.needThisMonth)}` : 'เดือนนี้เก็บครบแล้ว ✓'} · เดือนละ ${money(s.plan.perMonth)} ถึง ${thaiDate(s.plan.goalDate, { year: false })}</small>` : ''}</span>
           <b class="num">${money(s.balance)}${s.goal ? `<small class="mt-sub">/ ${money(s.goal)}</small>` : ''}</b></button></li>`
         )
         .join('')}</ul>
     </section>`;
+  }
+
+  /** แผนออม: ต้องเก็บเดือนละเท่าไร · เดือนนี้เก็บไปแล้ว/ขาดอีก (ต้องมีเป้า + วันที่ต้องใช้เงิน) */
+  function savingsPlan(s) {
+    if (!s.goal) return '';
+    if (!s.plan) return '<p class="mt-sub">ใส่ "ต้องมีภายในวันที่" ในฟอร์มด้านล่าง ระบบจะคิดให้ว่าต้องเก็บเดือนละเท่าไร</p>';
+    const p = s.plan;
+    if (s.left <= 0) return `<div class="mt-saveplan is-done"><b>ถึงเป้าแล้ว 🎉</b><span class="mt-sub">ก่อนวันที่ ${thaiDate(p.goalDate)}</span></div>`;
+    if (p.overdue) return `<div class="mt-saveplan is-late"><b>เลยวันที่ ${thaiDate(p.goalDate)} แล้ว ยังขาด ${money(s.left)}</b><span class="mt-sub">เลื่อนวันที่ หรือปรับเป้าในฟอร์มด้านล่าง</span></div>`;
+    const done = Math.max(0, p.savedThisMonth);
+    return `<div class="mt-saveplan ${p.needThisMonth > 0 ? '' : 'is-done'}">
+      <div class="mt-saveplan-h"><span>ต้องเก็บเดือนละ</span><b class="num">${money(p.perMonth)}</b></div>
+      <span class="mt-sub">อีก ${p.monthsLeft} เดือน (${p.daysLeft} วัน) ถึง ${thaiDate(p.goalDate)}</span>
+      ${bar(p.perMonth ? done / p.perMonth : 1, p.needThisMonth > 0 ? 'var(--accent)' : 'var(--green)')}
+      <span class="mt-saveplan-m">เดือนนี้เก็บแล้ว <b class="num">${money(done)}</b> · ${p.needThisMonth > 0 ? `ขาดอีก <b class="num">${money(p.needThisMonth)}</b>` : '<b>ครบแล้ว ✓</b>'}</span>
+      ${p.needThisMonth > 0 ? `<button class="mt-btn-s" type="button" data-act="savedeposit" data-id="${s.id}" data-v="${p.needThisMonth}">ฝากเดือนนี้ ${money(p.needThisMonth)}</button>` : ''}
+    </div>`;
   }
 
   /** รายละเอียดบัญชีเงินออม (ในหน้าบัญชี): เป้า · ค้างคืน · รายเดือน · เบิกไปใช้อะไร */
@@ -1177,6 +1194,7 @@ export function mountDashboard(root, backend, opts = {}) {
     return `<section class="mt-savedetail">
       <div class="mt-card-h"><h3>${sticker('coin', 26)} เงินออม${s.purpose ? ` · ${esc(s.purpose)}` : ''}</h3>${s.goal ? `<span class="mt-sub num">${Math.round(s.pct * 100)}% ของ ${money(s.goal)}</span>` : '<span class="mt-sub">ไม่ได้ตั้งเป้า</span>'}</div>
       ${s.goal ? `${bar(s.pct, 'var(--accent)', 'is-lg')}<p class="mt-sub">${s.left > 0 ? `ขาดอีก ${money(s.left)}` : 'ถึงเป้าแล้ว 🎉'}</p>` : ''}
+      ${savingsPlan(s)}
       ${
         s.owed > 0
           ? `<div class="mt-saveowed"><span>ยืมไปหมุน ต้องคืน <b class="num">${money(s.owed)}</b></span><button class="mt-btn-s" type="button" data-act="savepay" data-id="${s.id}" data-v="${s.owed}">คืนเงินออม</button></div>`
@@ -1512,6 +1530,9 @@ export function mountDashboard(root, backend, opts = {}) {
                   <div><label for="mt-goal">เป้าหมาย (ไม่ใส่ก็ได้)</label><input id="mt-goal" name="goal" type="number" step="any" inputmode="decimal" min="0" value="${sh.goal ?? a?.goal ?? ''}" placeholder="เช่น 30000"></div>
                   <div><label for="mt-purpose">ออมเพื่อ</label><input id="mt-purpose" name="purpose" value="${esc(sh.purpose ?? a?.purpose ?? '')}" placeholder="เช่น ค่าเทอม" maxlength="40"></div>
                 </div>
+                <label for="mt-goaldate">ต้องมีภายในวันที่ (ไม่ใส่ก็ได้)</label>
+                <input id="mt-goaldate" name="goalDate" type="date" value="${sh.goalDate ?? a?.goalDate ?? ''}" min="${todayStr()}">
+                <span class="mt-sub">ใส่วันที่ต้องใช้เงิน (เช่น วันจ่ายค่าเทอม) ระบบจะบอกว่าต้องเก็บเดือนละเท่าไร</span>
               </div>
             </div>`
               : ''
@@ -1934,7 +1955,7 @@ export function mountDashboard(root, backend, opts = {}) {
         const f = root.querySelector('form[data-form="acct"]');
         if (f) {
           const fd = new FormData(f);
-          for (const k of ['name', 'balance', 'limit', 'cycleBudget', 'statementDay', 'dueDay', 'monthlyPayment', 'rate', 'principal', 'installments', 'billInstallment', 'viaCard', 'goal', 'purpose']) if (fd.has(k)) sh[k] = fd.get(k);
+          for (const k of ['name', 'balance', 'limit', 'cycleBudget', 'statementDay', 'dueDay', 'monthlyPayment', 'rate', 'principal', 'installments', 'billInstallment', 'viaCard', 'goal', 'purpose', 'goalDate']) if (fd.has(k)) sh[k] = fd.get(k);
           if (f.querySelector('[name=isSavings]')) sh.isSavings = fd.get('isSavings') === 'on';
           // ชื่อยังว่าง → ใช้ชื่อธนาคารที่เลือก
           const p = st.data.providers.find((x) => x.id === b.dataset.v);
@@ -2272,7 +2293,7 @@ export function mountDashboard(root, backend, opts = {}) {
       case 'acct': {
         const body = { type: fd.type, name: fd.name, provider: fd.provider ?? '' };
         if (fd.balance !== '') body.balance = Number(fd.balance);
-        if (f.querySelector('[name=isSavings]')) Object.assign(body, { isSavings: fd.isSavings === 'on', goal: Number(fd.goal) || 0, purpose: fd.purpose || '' });
+        if (f.querySelector('[name=isSavings]')) Object.assign(body, { isSavings: fd.isSavings === 'on', goal: Number(fd.goal) || 0, purpose: fd.purpose || '', goalDate: fd.goalDate || '' });
         if (fd.type === 'card') Object.assign(body, { limit: Number(fd.limit) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null, statementDay: fd.statementDay ? Number(fd.statementDay) : null, cycleBudget: Number(fd.cycleBudget) || 0 });
         if (fd.type === 'loan') {
           Object.assign(body, { monthlyPayment: Number(fd.monthlyPayment) || 0, rate: Number(fd.rate) || 0, principal: Number(fd.principal) || 0, dueDay: fd.dueDay ? Number(fd.dueDay) : null, viaCard: fd.viaCard || null, installments: Number(fd.installments) || 0 });

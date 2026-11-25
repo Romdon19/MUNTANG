@@ -645,6 +645,9 @@ export function savingsMessage(list, ctx) {
       text(s.purpose ? `ออมเพื่อ ${s.purpose}` : 'เงินออม', { size: 'xs', color: C.muted, align: 'center' }),
       text(money(s.balance), { size: '3xl', weight: 'bold', align: 'center' }),
       ...(s.goal ? [bar(s.pct, C.gold, 8), text(s.left > 0 ? `${Math.round(s.pct * 100)}% ของเป้า ${money(s.goal)} · ขาดอีก ${money(s.left)}` : `ถึงเป้า ${money(s.goal)} แล้ว 🎉`, { size: 'xs', color: C.muted, align: 'center', margin: 'sm' })] : []),
+      ...(s.plan && s.left > 0 && !s.plan.overdue
+        ? [box('vertical', [row('ต้องเก็บเดือนละ', money(s.plan.perMonth), { margin: 'none' }), text(`ถึง ${thaiDate(s.plan.goalDate)} · ${s.plan.needThisMonth > 0 ? `เดือนนี้ขาดอีก ${money(s.plan.needThisMonth)}` : 'เดือนนี้เก็บครบแล้ว ✓'}`, { size: 'xxs', color: s.plan.needThisMonth > 0 ? C.amber : C.green })], { margin: 'md', backgroundColor: C.tint, cornerRadius: '8px', paddingAll: 'sm' })]
+        : []),
       sep({ margin: 'lg' }),
       row('เดือนนี้ฝากเข้า', money(m.deposit + m.repay), { rightStyle: { color: C.green } }),
       row('เดือนนี้เบิกออก', money(m.spend + m.borrow + m.withdraw)),

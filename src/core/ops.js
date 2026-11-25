@@ -514,7 +514,9 @@ function cleanAccount(input, prev = {}) {
   if (input.isSavings !== undefined) out.isSavings = !!input.isSavings && ['bank', 'ewallet', 'cash'].includes(type);
   if (input.goal !== undefined) out.goal = Math.max(0, money2(input.goal)) || null;
   if (input.purpose !== undefined) out.purpose = String(input.purpose || '').trim().slice(0, 40) || null;
-  if (!out.isSavings) for (const k of ['isSavings', 'goal', 'purpose']) delete out[k];
+  // ต้องมีเงินก้อนนี้ภายในวันที่ (เช่น วันจ่ายค่าเทอม) → คิดว่าต้องเก็บเดือนละเท่าไร
+  if (input.goalDate !== undefined) out.goalDate = /^\d{4}-\d{2}-\d{2}$/.test(input.goalDate || '') ? input.goalDate : null;
+  if (!out.isSavings) for (const k of ['isSavings', 'goal', 'purpose', 'goalDate']) delete out[k];
   if (type !== 'card') for (const k of ['limit', 'statementDay', 'cycleBudget']) delete out[k];
   if (!LIABILITY.includes(type)) delete out.dueDay;
   if (type !== 'loan') for (const k of ['principal', 'monthlyPayment', 'rate', 'installments', 'viaCard']) delete out[k];
@@ -599,7 +601,7 @@ export function updateAccount(user, id, input = {}, now = new Date()) {
   const plan = (input.type || a.type) === 'loan' ? installmentPlan({ ...a, ...input }) : null;
   const clean = cleanAccount({ ...input, ...(plan ? { principal: plan.principal } : {}) }, a);
   // ฟิลด์ที่ไม่ใช้แล้ว (เช่น ยกเลิกบัญชีเงินออม เปลี่ยนประเภทบัญชี) ต้องลบออกจริง ไม่ใช่แค่ไม่ทับ
-  for (const k of ['isSavings', 'goal', 'purpose', 'limit', 'statementDay', 'cycleBudget', 'dueDay', 'principal', 'monthlyPayment', 'rate', 'installments', 'viaCard']) if (k in a && !(k in clean)) delete a[k];
+  for (const k of ['isSavings', 'goal', 'purpose', 'goalDate', 'limit', 'statementDay', 'cycleBudget', 'dueDay', 'principal', 'monthlyPayment', 'rate', 'installments', 'viaCard']) if (k in a && !(k in clean)) delete a[k];
   Object.assign(a, clean, { updatedAt: now.toISOString() });
   checkViaCard(user, a);
   const bal = plan ? plan.balance : input.balance ?? input.used;
@@ -830,6 +832,26 @@ export function savingsInfo(user, id, now = new Date()) {
     .slice(0, 12)
     .map((m) => ({ ...m, deposit: round2(m.deposit), repay: round2(m.repay), spend: round2(m.spend), borrow: round2(m.borrow), withdraw: round2(m.withdraw), net: round2(m.deposit + m.repay - m.spend - m.borrow - m.withdraw) }));
   const balance = bal?.balance ?? 0;
+  // แผนออม: เหลือกี่เดือนถึงวันที่ต้องใช้เงิน → ต้องเก็บเดือนละเท่าไร (นับเดือนนี้ด้วย)
+  const left = a.goal ? round2(Math.max(0, a.goal - balance)) : null;
+  let plan = null;
+  if (a.goal && a.goalDate) {
+    const today = todayStr(now);
+    const monthsLeft = Math.max(1, (Number(a.goalDate.slice(0, 4)) - Number(today.slice(0, 4))) * 12 + Number(a.goalDate.slice(5, 7)) - Number(today.slice(5, 7)) + (a.goalDate.slice(8) >= today.slice(8) ? 1 : 0));
+    const cur = list.find((m) => m.month === thisMonth);
+    const savedThisMonth = cur ? round2(cur.deposit + cur.repay - cur.spend - cur.borrow - cur.withdraw) : 0;
+    // ต้องเก็บต่อเดือน คิดจากยอดที่ขาดตอนต้นเดือนนี้ (ยอดที่ฝากเดือนนี้ช่วยลดยอดที่ยังต้องเก็บ)
+    const perMonth = round2((left + Math.max(0, savedThisMonth)) / monthsLeft);
+    plan = {
+      goalDate: a.goalDate,
+      daysLeft: Math.max(0, diffDays(today, a.goalDate)),
+      monthsLeft,
+      perMonth: Math.ceil(perMonth),
+      savedThisMonth,
+      needThisMonth: Math.max(0, Math.ceil(perMonth - savedThisMonth)),
+      overdue: a.goalDate < today && left > 0,
+    };
+  }
   return {
     id,
     name: decorate(a).name,
@@ -839,7 +861,8 @@ export function savingsInfo(user, id, now = new Date()) {
     balance,
     known: !!bal?.known,
     pct: a.goal ? Math.max(0, Math.min(1, balance / a.goal)) : null,
-    left: a.goal ? round2(Math.max(0, a.goal - balance)) : null,
+    left,
+    plan,
     owed: round2(owed),
     months: list,
     month: list.find((m) => m.month === thisMonth) || { month: thisMonth, deposit: 0, repay: 0, spend: 0, borrow: 0, withdraw: 0, net: 0 },

@@ -51,6 +51,7 @@ export function seedDemo(user, now = new Date()) {
     { id: 'car', type: 'loan', name: 'ผ่อนรถ', provider: 'kbank', principal: 120000, monthlyPayment: 6500, rate: 3.5, dueDay: 5 },
     { id: 'ton', type: 'receivable', name: 'ต้น (ยืมไป)' },
   ];
+  user.accounts.find((a) => a.id === 'scb').goalDate = addDays(today, 190); // ต้องมีเงินออมครบภายใน ~6 เดือน
   user.settings.defaultWallet = 'cash';
   const DAYS = 184;
   const start = addDays(today, -DAYS);
