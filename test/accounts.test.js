@@ -318,3 +318,16 @@ test('pasting a multi-line list: date, amount, account and note per line; accoun
   );
   assert.deepEqual(u.transfers.map((x) => [x.amount, name(x.from), name(x.to)]), [[100, 'K+ PLUS', 'TrurMoney']]);
 });
+
+test('a transfer with the date on its own line, between accounts whose names start with K', async () => {
+  const store = memStore();
+  const bot = createBot({ store, now: () => new Date('2026-11-25T05:00:00Z'), links: {} });
+  await say(bot, 'เพิ่มบัญชี K+ PLUS Salary 2000');
+  await say(bot, 'เพิ่มวอลเล็ท TrueMoney 0');
+  await say(bot, 'เมื่อวันที่ 21/11/2569\nโอน 100 K+ PLUS Salary ไป TrueMoney');
+  const [x] = store.db.U1.transfers;
+  assert.equal(x.amount, 100);
+  assert.equal(x.date, '2026-11-21');
+  await say(bot, 'โอน 2k Salary ไป TrueMoney');
+  assert.equal(store.db.U1.transfers[1].amount, 2000);
+});

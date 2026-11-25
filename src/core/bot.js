@@ -1,5 +1,5 @@
 // สมองของบอท: รับ LINE event แล้วคืน array ของข้อความที่จะตอบ (ไม่ผูกกับ LINE API โดยตรง)
-import { parseEntries, looksLikeEntry } from './parser.js';
+import { parseEntries, looksLikeEntry, extractDate } from './parser.js';
 import { CATEGORIES, getCategory, guessCategory } from './categories.js';
 import { guessAccount, guessProvider, accountTotals, PROVIDER_MAP } from './accounts.js';
 import { todayStr, rangeFor, shiftCycle, timeStr, thaiDate } from './dates.js';
@@ -124,7 +124,7 @@ export function createBot(deps) {
   // ---------------- กระเป๋าเงิน: บัญชี / บัตร / โอน ----------------
   const ACCOUNT_WORDS = ['บัญชี', 'บัญชีของฉัน', 'บัญชีทั้งหมด', 'กระเป๋า', 'กระเป๋าเงิน', 'ยอดเงิน', 'เงินในบัญชี', 'ยอดในบัญชี', 'บัตร', 'บัตรเครดิต', 'วงเงิน', 'หนี้', 'หนี้สิน', 'ค้างรับ', 'ความมั่งคั่ง', 'ความมั่งคั่งสุทธิ', 'wallet', 'accounts'];
   const HEALTH_WORDS = ['สุขภาพการเงิน', 'คะแนนการเงิน', 'เช็คสุขภาพการเงิน', 'คะแนนสุขภาพการเงิน', 'health'];
-  const AMT = '([\\d,]+(?:\\.\\d+)?)\\s*(k|พัน)?';
+  const AMT = '([\\d,]+(?:\\.\\d+)?)\\s*(k(?![a-z+])|พัน)?'; // k = พัน แต่ไม่ใช่ K ของชื่อ เช่น "K+ PLUS" "KTC"
   const num = (v, k) => Number(String(v).replace(/,/g, '')) * (k ? 1000 : 1);
 
   function accountsReply(user, ctx, note) {
@@ -139,7 +139,11 @@ export function createBot(deps) {
     if (HEALTH_WORDS.includes(t)) return [ui.healthMessage(ops.insightsFor(user, now()), ctx)];
     const find = (s, o) => (s ? guessAccount(s, user.accounts, { strict: true, ...o }) : null);
     const accName = (id) => ops.accountName(user, id);
-    const line = raw.trim().replace(/\s+/g, ' ');
+    // วันที่ในข้อความ (เช่น "เมื่อวันที่ 21/11/2569" บรรทัดแรก) ใช้เป็นวันที่ของการโอน/จ่าย และตัดออกก่อนอ่านตัวเลข
+    // ไม่งั้นเลข 21 ของวันที่จะถูกอ่านเป็นจำนวนเงิน
+    const dated = extractDate(raw.trim().replace(/\s+/g, ' '), now());
+    const xDate = dated.date || undefined;
+    const line = (dated.date ? dated.rest.replace(/(?:เมื่อ)?\s*วันที่|เมื่อ(?=\s)/g, ' ') : raw).trim().replace(/\s+/g, ' ');
 
     // เพิ่มบัญชี / เพิ่มบัตร / เพิ่มวอลเล็ท
     let m = line.match(/^เพิ่ม\s*(บัญชี|บัตรเครดิต|บัตร|วอลเล็ท|วอลเลท|wallet|e-?wallet|อีวอลเล็ท|กระเป๋า|หนี้สิน|หนี้|ค้างรับ|ลูกหนี้)\s*(.*)$/i);
@@ -204,7 +208,7 @@ export function createBot(deps) {
       // ไม่ใส่ยอด = จ่ายเต็มบิล (ยอดรูด + ค่างวดผ่อนรอบนี้)
       const amount = m[2] ? num(m[2], m[3]) : cur.known ? cur.payNow : 0;
       if (!(amount > 0)) return [ui.textMsg(`ใส่ยอดที่จ่ายด้วยนะ เช่น "จ่ายบัตร ${card.name} 3000"`)];
-      ops.addTransfer(user, { from, to: card.id, amount }, now());
+      ops.addTransfer(user, { from, to: card.id, amount, date: xDate }, now());
       const after = ops.accountList(user, now()).find((x) => x.id === card.id);
       const paidInst = Math.round((cur.instOwed - after.instOwed) * 100) / 100;
       const inst = paidInst > 0 ? `\nรวมค่างวดผ่อน ${money(paidInst)} (${cur.installments.map((i) => i.name).join(', ')})` : '';
@@ -218,7 +222,7 @@ export function createBot(deps) {
       const from = find(`${m[1]} ${m[4]}`)?.id || user.accounts.find((a) => a.type === 'bank' && !a.archived)?.id;
       if (cash && from && from !== cash.id) {
         const amount = num(m[2], m[3]);
-        ops.addTransfer(user, { from, to: cash.id, amount, note: 'กดเงินสด' }, now());
+        ops.addTransfer(user, { from, to: cash.id, amount, note: 'กดเงินสด', date: xDate }, now());
         return accountsReply(user, ctx, `🏧 กดเงินสด ${money(amount)} จาก ${accName(from)} แล้ว`);
       }
     }
@@ -235,7 +239,7 @@ export function createBot(deps) {
       const to = find(m[3]);
       if (from && to && from.id !== to.id) {
         const amount = num(m[0], m[1]);
-        ops.addTransfer(user, { from: from.id, to: to.id, amount }, now());
+        ops.addTransfer(user, { from: from.id, to: to.id, amount, date: xDate }, now());
         return accountsReply(user, ctx, `🔁 โอน ${money(amount)} จาก ${accName(from.id)} ไป ${accName(to.id)} แล้ว\n(ย้ายเงินระหว่างบัญชี ไม่นับเป็นรายรับรายจ่าย)`);
       }
     }
@@ -250,7 +254,7 @@ export function createBot(deps) {
           const from = find(m[4])?.id || def?.id || user.accounts.find((a) => a.type === 'bank' && !a.archived)?.id;
           if (from && from !== to.id) {
             const amount = num(m[2], m[3]);
-            ops.addTransfer(user, { from, to: to.id, amount }, now());
+            ops.addTransfer(user, { from, to: to.id, amount, date: xDate }, now());
             return accountsReply(user, ctx, `📱 เติม ${accName(to.id)} ${money(amount)} จาก ${accName(from)} แล้ว`);
           }
         }
@@ -300,7 +304,7 @@ export function createBot(deps) {
             from = def?.id || user.accounts.find((a) => a.type === 'bank' && !a.archived && a.id !== to)?.id;
           }
           if (from && to && from !== to && amount > 0) {
-            ops.addTransfer(user, { from, to, amount }, now());
+            ops.addTransfer(user, { from, to, amount, date: xDate }, now());
             return accountsReply(user, ctx, `🔁 โอน ${money(amount)} จาก ${accName(from)} ไป ${accName(to)} แล้ว\n(ย้ายเงินระหว่างบัญชี ไม่นับเป็นรายรับรายจ่าย)`);
           }
         }
@@ -356,7 +360,7 @@ export function createBot(deps) {
       const to = spendFrom(m[4]);
       let loan = namedOf('loan', name);
       if (!loan) loan = ops.addAccount(user, { type: 'loan', name, balance: 0, principal: amount }, now());
-      ops.addTransfer(user, { from: loan.id, to, amount }, now());
+      ops.addTransfer(user, { from: loan.id, to, amount, date: xDate }, now());
       return accountsReply(user, ctx, `🧾 ยืม ${accName(loan.id)} ${money(amount)} เข้า ${accName(to)} แล้ว\nคืนเมื่อไรพิมพ์ "จ่ายหนี้ ${accName(loan.id)} ${amount}"`);
     }
     // จ่ายหนี้: "จ่ายหนี้ ผ่อนรถ 6500 จาก กสิกร" (ไม่ใส่ยอด = ค่างวด)
@@ -369,7 +373,7 @@ export function createBot(deps) {
         const amount = m[2] ? num(m[2], m[3]) : acc.monthlyPayment || 0;
         if (!(amount > 0)) return [ui.textMsg(`ใส่ยอดที่จ่ายด้วยนะ เช่น "จ่ายหนี้ ${acc.name} 3000"`)];
         const from = spendFrom(m[4], true);
-        ops.addTransfer(user, { from, to: loan.id, amount }, now());
+        ops.addTransfer(user, { from, to: loan.id, amount, date: xDate }, now());
         const w = ops.accountList(user, now()).find((x) => x.id === loan.id);
         return accountsReply(user, ctx, `✅ จ่ายหนี้ ${w.name} ${money(amount)} จาก ${accName(from)} แล้ว\nคงเหลือ ${money(w.used)}${w.monthsLeft ? ` · อีก ${w.monthsLeft} งวด` : w.used <= 0 ? ' 🎉 ปลดหนี้แล้ว!' : ''}`);
       }
@@ -382,7 +386,7 @@ export function createBot(deps) {
       const from = spendFrom(m[4]);
       let rec = namedOf('receivable', name);
       if (!rec) rec = ops.addAccount(user, { type: 'receivable', name, balance: 0 }, now());
-      ops.addTransfer(user, { from, to: rec.id, amount }, now());
+      ops.addTransfer(user, { from, to: rec.id, amount, date: xDate }, now());
       return accountsReply(user, ctx, `🤝 ให้ ${accName(rec.id)} ยืม ${money(amount)} จาก ${accName(from)} แล้ว\nได้คืนเมื่อไรพิมพ์ "รับคืน ${accName(rec.id)} ${amount}"`);
     }
     // ได้เงินคืน: "รับคืน ต้น 500 เข้า กสิกร" / "ต้น คืน 500"
@@ -392,7 +396,7 @@ export function createBot(deps) {
       if (rec) {
         const amount = num(m[2], m[3]);
         const to = spendFrom(m[4]);
-        ops.addTransfer(user, { from: rec.id, to, amount }, now());
+        ops.addTransfer(user, { from: rec.id, to, amount, date: xDate }, now());
         const w = ops.accountList(user, now()).find((x) => x.id === rec.id);
         return accountsReply(user, ctx, `💚 ${w.name} คืน ${money(amount)} เข้า ${accName(to)} แล้ว${w.balance > 0 ? `\nยังค้างอีก ${money(w.balance)}` : '\nคืนครบแล้ว 🎉'}`);
       }
@@ -1011,7 +1015,7 @@ export function reminderMessage(user, now = new Date()) {
 export function looksLikeGroupEntry(text) {
   const lines = String(text).split('\n').map((l) => l.trim()).filter(Boolean);
   if (!lines.length || lines.length > 10) return false;
-  const AMT = '[\\d,]+(?:\\.\\d{1,2})?\\s*(?:k|K|บาท|บ\\.|฿)?';
+  const AMT = '[\\d,]+(?:\\.\\d{1,2})?\\s*(?:[kK](?![a-zA-Z+])|บาท|บ\\.|฿)?';
   const a = new RegExp(`^[+\\-]?\\s*[^\\d\\n]{1,40}?\\s*${AMT}$`);
   const b = new RegExp(`^${AMT}\\s+[^\\d\\n]{1,40}$`);
   return lines.every((l) => a.test(l) || b.test(l));
