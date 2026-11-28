@@ -16,6 +16,8 @@ const SUMMARY_WORDS = {
   week: ['สรุปสัปดาห์', 'สรุปสัปดาห์นี้', 'สัปดาห์นี้', 'อาทิตย์นี้', 'week'],
   month: ['สรุปเดือน', 'สรุปเดือนนี้', 'เดือนนี้', 'ยอดเดือนนี้', 'month', 'คงเหลือ', 'ยอดคงเหลือ'],
   lastmonth: ['สรุปเดือนที่แล้ว', 'เดือนที่แล้ว', 'เดือนก่อน'],
+  year: ['สรุปปี', 'สรุปปีนี้', 'ปีนี้', 'สรุปทั้งปี', 'year'],
+  lastweek: ['สรุปสัปดาห์ที่แล้ว', 'สัปดาห์ที่แล้ว', 'อาทิตย์ที่แล้ว', 'สรุปอาทิตย์ที่แล้ว'],
 };
 
 /**
@@ -35,6 +37,9 @@ const SUMMARY_WORDS = {
  *   logoUrl?: string
  *   now?: () => Date
  */
+/** จดได้ทีละไม่เกินกี่รายการต่อข้อความ */
+const MAX_ITEMS = 50;
+
 export function createBot(deps) {
   const now = () => (deps.now ? deps.now() : new Date());
 
@@ -739,17 +744,23 @@ export function createBot(deps) {
       }
     }
     if (parsed.items.length) {
+      // จดทีละไม่เกิน 50 รายการต่อข้อความ (กันข้อความตอบกลับใหญ่เกินที่ LINE รับ)
+      const over = parsed.items.length - MAX_ITEMS;
+      if (over > 0) parsed.items = parsed.items.slice(0, MAX_ITEMS);
+      const batch = parsed.items.length > 1 ? { batch: ops.newId('b') } : {};
       // บรรทัดที่เป็นการโอนระหว่างบัญชีของเรา (เช่น "Plus ทรูมันนี่ 100") → บันทึกเป็นการโอน
       const moves = parsed.items.filter((it) => it.transfer);
       for (const x of moves) ops.addTransfer(user, { from: x.from, to: x.to, amount: x.amount, date: x.date }, now());
       const moveText = moves.length
         ? ui.textMsg(`🔁 บันทึกการโอน ${moves.length} รายการ (ไม่นับเป็นรายจ่าย)\n${moves.map((x) => `• ${thaiDate(x.date, { year: false })} ${ops.accountName(user, x.from)} → ${ops.accountName(user, x.to)} ${money(x.amount)}`).join('\n')}`)
         : null;
+      const overText = over > 0 ? ui.textMsg(`✋ จดได้ทีละไม่เกิน ${MAX_ITEMS} รายการต่อข้อความ บันทึก ${MAX_ITEMS} รายการแรกให้แล้ว อีก ${over} รายการที่เหลือส่งมาใหม่อีกข้อความนะ`) : null;
       const plain = parsed.items.filter((it) => !it.transfer);
-      if (!plain.length) return [moveText];
-      const txs = plain.map((it) => ops.addTx(user, { ...it, ...by, ...tripTag }, 'chat'));
+      if (!plain.length) return [moveText, overText].filter(Boolean);
+      const txs = plain.map((it) => ops.addTx(user, { ...it, ...by, ...tripTag, ...batch }, 'chat'));
       const out = afterRecord(user, txs, ctx);
       if (moveText) out.splice(1, 0, moveText);
+      if (overText) out.splice(1, 0, overText);
       return out;
     }
 
@@ -1070,8 +1081,12 @@ export function looksLikeGroupEntry(text) {
   const AMT = '[\\d,]+(?:\\.\\d{1,2})?\\s*(?:[kK](?![a-zA-Z+])|บาท|บ\\.|฿)?';
   const a = new RegExp(`^[+\\-]?\\s*[^\\d\\n]{1,40}?\\s*${AMT}$`);
   const b = new RegExp(`^${AMT}\\s+[^\\d\\n]{1,40}$`);
-  return lines.every((l) => a.test(l) || b.test(l));
+  return lines.every((l) => (a.test(l) || b.test(l)) && !notMoney(l));
 }
+
+// ตัวเลขที่ไม่ใช่เงิน (คุยกันในกลุ่ม เช่น "ห้อง 302" "ซอย 15" "น้ำหนัก 65") — แต่ "ค่าห้อง 4500" ยังจด
+const NOT_MONEY = /(?<!ค่า)(ห้อง|ชั้น|เกรด|เลขที่|ซอย|หมู่|น้ำหนัก|ส่วนสูง|อายุ|เบอร์|โทร|รหัส|คะแนน|ข้อที่|หน้าที่|ไซส์|size|องศา|กิโลเมตร|กม\.?|ครั้งที่|รอบที่|ที่นั่ง|โต๊ะ|ชานชาลา|ประตู|เลขบัญชี|otp|ปีที่|ตึก|อาคาร)/i;
+const notMoney = (line) => !/(บาท|บ\.|฿)/.test(line) && NOT_MONEY.test(line);
 
 /** ถึงเวลาส่งรายงานประจำรอบหรือยัง (วันแรกของรอบ หลัง 09:00 และยังไม่เคยส่งรอบนี้) */
 export function monthlyReportDue(user, now = new Date()) {

@@ -1414,6 +1414,7 @@ export function mountDashboard(root, backend, opts = {}) {
       <section class="mt-card">
         <div class="mt-card-h"><h3>ข้อมูลของฉัน</h3><span class="mt-sub num">${st.data.txs.length} รายการ</span></div>
         <button class="mt-btn is-ghost" data-act="export">ส่งออก CSV (เปิดด้วย Excel ได้)</button>
+        <a class="mt-btn is-ghost" href="/privacy/" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัวและข้อตกลง</a>
         ${backend.reset ? '<button class="mt-btn is-ghost" data-act="reset">รีเซ็ตข้อมูลเดโม</button>' : ''}
       </section>
       ${

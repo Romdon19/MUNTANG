@@ -30,7 +30,7 @@ const text = (t, o = {}) => ({ type: 'text', text: String(t === '' || t == null 
 const box = (layout, contents, o = {}) => ({ type: 'box', layout, contents, ...o });
 const sep = (o = {}) => ({ type: 'separator', color: C.line, margin: 'md', ...o });
 // ปุ่มหลัก: พื้นเหลือง ตัวหนังสือดำ (style secondary ใน LINE = ตัวหนังสือสีดำ)
-const btn = (label, action, o = {}) => ({ type: 'button', height: 'sm', style: 'secondary', color: C.gold, action: { label, ...action }, ...o });
+const btn = (label, action, o = {}) => ({ type: 'button', height: 'sm', style: 'secondary', color: C.gold, action: { label: truncate(label, 40), ...action }, ...o });
 const postback = (data, displayText) => ({ type: 'postback', data, ...(displayText ? { displayText } : {}) });
 const msg = (t) => ({ type: 'message', text: t });
 const uri = (u) => ({ type: 'uri', uri: u });
@@ -123,7 +123,8 @@ export function textMsg(t, quickReply) {
 /** items: { label, text } | { label, data, displayText } | { label, uri } | { label, camera: true } | { label, cameraRoll: true } */
 export function quickReplies(items) {
   return {
-    items: items.slice(0, 13).map((it) => ({
+    // LINE รับ data ของปุ่มได้ไม่เกิน 300 ตัวอักษร (เกินแล้วทั้งข้อความส่งไม่ได้) → ตัดปุ่มนั้นทิ้ง
+    items: items.filter((it) => !it.data || it.data.length <= 300).slice(0, 13).map((it) => ({
       type: 'action',
       action: it.camera
         ? { type: 'camera', label: truncate(it.label, 20) }
@@ -269,7 +270,11 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
     if (!g) groups.push((g = { key, type: t.type, categoryId: t.categoryId, txs: [] }));
     g.txs.push(t);
   }
+  // การ์ดใบเดียวมีขนาดจำกัด (~30KB) โชว์ไม่เกิน 10 แถว ที่เหลือสรุปเป็นบรรทัดเดียว
+  let shown = 0;
+  const MAX_ROWS = 10;
   groups.forEach((g, gi) => {
+    if (shown >= MAX_ROWS) return;
     const cat = getCategory(g.categoryId, ctx);
     const inc = g.type === 'income';
     body.push(
@@ -279,6 +284,7 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
       })
     );
     for (const t of g.txs) {
+      if (shown++ >= MAX_ROWS) break;
       const w = walletOf(t.wallet, info.accounts || ctx?.accounts);
       body.push(
         box(
@@ -313,6 +319,17 @@ function entryCard({ title, subtitle, txs, info, ctx, extra = [] }) {
       );
     }
   });
+
+  if (txs.length > MAX_ROWS) {
+    const rest = txs.slice(MAX_ROWS);
+    const sum = rest.reduce((a, t) => a + (t.type === 'income' ? t.amount : -t.amount), 0);
+    body.push(
+      box('horizontal', [text(`…และอีก ${rest.length} รายการ`, { size: 'sm', weight: 'bold', flex: 5 }), text(money(Math.abs(sum)), { size: 'sm', weight: 'bold', align: 'end', flex: 3, color: sum > 0 ? C.green : C.ink })], {
+        margin: 'lg',
+        ...(ctx?.links?.view ? { action: uri(ctx.links.view('list')) } : {}),
+      })
+    );
+  }
 
   body.push(...extra);
 
@@ -355,7 +372,11 @@ function entryQuickReplies(txs, ctx) {
   return quickReplies([
     ...(txs.length === 1 ? others.map((c) => ({ label: `${c.emoji} ${c.name}`, data: `action=cat&id=${t.id}&c=${c.id}`, displayText: `ย้ายไปหมวด ${c.name}` })) : []),
     ...(txs.some((x) => x.trip) ? [{ label: '🏠 ไม่ใช่ค่าทริป', data: `action=untrip&ids=${txs.filter((x) => x.trip).map((x) => x.id).join(',')}`, displayText: 'ไม่ใช่ค่าทริป (รายจ่ายประจำวัน)' }] : []),
-    { label: '🗑 ยกเลิกทั้งหมด', data: `action=undo&ids=${txs.map((x) => x.id).join(',')}`, displayText: 'ยกเลิกรายการที่เพิ่งจด' },
+    {
+      label: '🗑 ยกเลิกทั้งหมด',
+      data: txs.length > 1 && txs[0].batch && txs.every((x) => x.batch === txs[0].batch) ? `action=undobatch&b=${txs[0].batch}` : `action=undo&ids=${txs.map((x) => x.id).join(',')}`,
+      displayText: 'ยกเลิกรายการที่เพิ่งจด',
+    },
     { label: '📊 สรุปวันนี้', text: 'สรุปวันนี้' },
   ]);
 }
@@ -586,21 +607,33 @@ export function alertMessage(alerts) {
   return textMsg(lines.join('\n'));
 }
 
+/** บรรทัด "…และอีก N รายการ" (การ์ดใบเดียวมีขนาดจำกัด ~30KB) */
+function moreLine(n, unit, ctx, view) {
+  return text(`…และอีก ${n} ${unit} ดูทั้งหมดในแอป`, {
+    size: 'xs',
+    weight: 'bold',
+    color: C.goldText,
+    margin: 'lg',
+    ...(ctx?.links?.view && view ? { action: uri(ctx.links.view(view)) } : {}),
+  });
+}
+
 export function goalsMessage(goals, ctx) {
   const body = goals.length
-    ? goals.flatMap((g, i) => [
+    ? goals.slice(0, 15).flatMap((g, i) => [
         ...(i ? [sep()] : []),
         box('horizontal', [text(`${g.emoji} ${g.name}`, { weight: 'bold', flex: 5 }), text(pct(g.saved / g.target), { align: 'end', flex: 2, color: C.goldText, weight: 'bold' })], { margin: 'md' }),
         text(`${money(g.saved)} / ${money(g.target)}`, { size: 'xs', color: C.muted }),
         bar(g.saved / g.target),
       ])
     : [text('ยังไม่มีเป้าหมายการออม', { weight: 'bold' }), text('พิมพ์ "เป้า เที่ยวญี่ปุ่น 50000" เพื่อสร้าง\nแล้ว "ออม เที่ยวญี่ปุ่น 1000" เพื่อหยอดกระปุก', { size: 'xs', color: C.muted, margin: 'md' })];
+  if (goals.length > 15) body.push(moreLine(goals.length - 15, 'กระปุก', ctx, 'budget'));
   return flex('เป้าหมายการออม', bubble({ title: 'เป้าหมายการออม', subtitle: 'หมุนเงินเข้ากระปุก', body, ctx }));
 }
 
 export function recurringMessage(items, ctx) {
   const body = items.length
-    ? items.map((r, i) => {
+    ? items.slice(0, 20).map((r, i) => {
         const cat = getCategory(r.categoryId, ctx);
         return box(
           'horizontal',
@@ -613,6 +646,7 @@ export function recurringMessage(items, ctx) {
         );
       })
     : [text('ยังไม่มีรายการประจำ', { weight: 'bold' })];
+  if (items.length > 20) body.push(moreLine(items.length - 20, 'รายการ', ctx, 'budget'));
   body.push(text('เพิ่ม: "ประจำ ค่าเน็ต 599 ทุกวันที่ 5"\nลบ: "ลบประจำ 1"', { size: 'xs', color: C.muted, margin: 'lg' }));
   return flex('รายการประจำ', bubble({ title: 'รายการประจำเดือน', subtitle: 'บันทึกให้อัตโนมัติทุกเดือน', body, ctx }));
 }
@@ -755,7 +789,7 @@ export function helpMessage(ctx) {
       ctx,
       size: 'kilo',
       body: [...lines.map((l) => text(l, { size: 'sm', margin: 'sm' })), sep({ margin: 'lg' }), text('ลองแตะ 👇', { size: 'xxs', color: C.muted, margin: 'md' })],
-      footer: [btn(example, msg(example))],
+      footer: [btn(example.length > 30 ? 'ลองพิมพ์ประโยคยาวๆ' : example, msg(example))],
     });
   return flex(
     'วิธีใช้หมุนตังค์',
@@ -961,10 +995,14 @@ export function accountsMessage(accs, totals, ctx) {
       { margin: 'md', backgroundColor: C.chip, cornerRadius: '12px', paddingAll: 'md' }
     ),
   ];
+  let room = 18;
   for (const [k, list] of Object.entries(groups)) {
-    if (!list.length) continue;
-    body.push(sep({ margin: 'lg' }), text(SECTION_LABEL[k], { size: 'xs', weight: 'bold', color: C.goldText, margin: 'lg' }), ...list.flatMap((a) => accountRow(a, ctx)));
+    if (!list.length || room <= 0) continue;
+    const part = list.slice(0, room);
+    room -= part.length;
+    body.push(sep({ margin: 'lg' }), text(SECTION_LABEL[k], { size: 'xs', weight: 'bold', color: C.goldText, margin: 'lg' }), ...part.flatMap((a) => accountRow(a, ctx)));
   }
+  if (active.length > 18) body.push(moreLine(active.length - 18, 'บัญชี', ctx, 'wallets'));
   if (active.some((a) => !a.known)) {
     body.push(text('บัญชีที่ขึ้น "ตั้งยอด" พิมพ์ยอดปัจจุบันก่อน เช่น "ยอด กสิกร 12000" แล้วระบบจะคิดยอดคงเหลือให้ทุกครั้งที่จด', { size: 'xxs', color: C.muted, margin: 'lg' }));
   }

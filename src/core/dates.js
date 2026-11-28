@@ -114,6 +114,16 @@ export function rangeFor(name, now = new Date(), startDay = 1) {
       const from = addDays(today, -offset);
       return { from, to: today, label: `สัปดาห์นี้ · ${thaiDate(from, { year: false })} - ${thaiDate(today)}` };
     }
+    case 'lastweek': {
+      const offset = (weekday(today) + 6) % 7;
+      const from = addDays(today, -offset - 7);
+      const to = addDays(from, 6);
+      return { from, to, label: `สัปดาห์ที่แล้ว · ${thaiDate(from, { year: false })} - ${thaiDate(to)}` };
+    }
+    case 'year': {
+      const from = `${today.slice(0, 4)}-01-01`;
+      return { from, to: today, label: `ปี ${Number(today.slice(0, 4)) + 543}` };
+    }
     case 'lastmonth':
       return shiftCycle(cycleOf(today, startDay), -1, startDay);
     case 'month':
