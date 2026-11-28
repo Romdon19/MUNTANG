@@ -5,6 +5,7 @@ import { guessAccount, guessProvider, accountTotals, PROVIDER_MAP } from './acco
 import { todayStr, rangeFor, shiftCycle, timeStr, thaiDate } from './dates.js';
 import { money } from './format.js';
 import * as ops from './ops.js';
+import { retryOnConflict } from './conflict.js';
 import * as ui from './flex.js';
 
 const norm = (s) => s.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -36,6 +37,38 @@ const SUMMARY_WORDS = {
  */
 export function createBot(deps) {
   const now = () => (deps.now ? deps.now() : new Date());
+
+  // ผลจาก AI/LINE ที่จำไว้ เวลาบันทึกชนกับอีกคำขอแล้วต้องทำใหม่ จะได้ไม่เรียก AI ซ้ำ
+  const memo = new Map();
+  const objMemo = new WeakMap();
+  const keep = (key, fn) => {
+    if (!key) return fn();
+    if (!memo.has(key)) {
+      const p = Promise.resolve().then(fn);
+      memo.set(key, p);
+      p.catch(() => memo.delete(key));
+      if (memo.size > 40) memo.delete(memo.keys().next().value);
+    }
+    return memo.get(key);
+  };
+  const keepFor = (obj, tag, fn) => {
+    if (!obj || typeof obj !== 'object') return fn();
+    let m = objMemo.get(obj);
+    if (!m) objMemo.set(obj, (m = {}));
+    if (!m[tag]) {
+      m[tag] = Promise.resolve().then(fn);
+      m[tag].catch(() => delete m[tag]);
+    }
+    return m[tag];
+  };
+  const msgKey = (tag, event) => (event?.message?.id ? `${tag}|${event.message.id}` : null);
+  const io = {
+    parseText: (text, d) => keep(`t|${d}|${text}`, () => deps.ai.parseText(text, d)),
+    getImage: (event) => keep(msgKey('img', event), () => deps.getImage(event)),
+    readSlip: (img, d) => keepFor(img, 'slip', () => deps.ai.readSlip(img, d)),
+    readStatement: (pdf, d) => keepFor(pdf, 'stmt', () => deps.ai.readStatement(pdf, d)),
+    transcribe: (event) => keep(msgKey('aud', event), () => deps.transcribe(event)),
+  };
 
   /** โหลดสมุดบัญชี: id ของผู้ใช้ (U...) หรือของกลุ่ม (C.../R...) */
   async function loadUser(userId) {
@@ -694,7 +727,7 @@ export function createBot(deps) {
     const complex = text.length > 25 && !text.trim().includes('\n') && /(แล้ว|กับ|และ|ไป|มา|อีก)/.test(text);
     if (deps.ai && (complex || (!parsed.items.length && looksLikeEntry(text)) || parsed.unparsed.length)) {
       try {
-        const aiItems = await deps.ai.parseText(text, todayStr(now()));
+        const aiItems = await io.parseText(text, todayStr(now()));
         if (aiItems?.length) {
           // ชื่อบัญชีที่พิมพ์มา (เช่น "กสิกร") ชนะประเภทที่ AI เดา (cash/bank/card)
           const named = guessAccount(text, user.accounts, { strict: true })?.id;
@@ -767,10 +800,10 @@ export function createBot(deps) {
 
   async function handleImage(user, event, sess = {}) {
     const ctx = ctxFor(user);
-    const img = deps.getImage ? await deps.getImage(event) : null;
+    const img = deps.getImage ? await io.getImage(event) : null;
     let slip = null;
     if (deps.ai && img) {
-      slip = await deps.ai.readSlip(img, todayStr(now()));
+      slip = await io.readSlip(img, todayStr(now()));
     }
     if (!slip || !slip.isSlip || !(slip.amount > 0)) {
       // ไม่ใช่สลิป: แนบเป็นหลักฐานให้รายการล่าสุดแทน
@@ -818,7 +851,7 @@ export function createBot(deps) {
     if (!deps.transcribe) {
       return sess.isGroup ? [] : [ui.textMsg('ตอนนี้ยังฟังเสียงไม่ได้ 🙉 พิมพ์ข้อความหรือส่งรูปสลิปมาแทนนะ')];
     }
-    const heard = String((await deps.transcribe(event)) || '').trim();
+    const heard = String((await io.transcribe(event)) || '').trim();
     if (!heard) return sess.isGroup ? [] : [ui.textMsg('ฟังไม่ค่อยชัดเลย 🙉 ลองพูดใหม่อีกครั้ง หรือพิมพ์มาแทนนะ')];
     const out = await handleText(user, heard, sess);
     if (!out.length) return [];
@@ -831,8 +864,8 @@ export function createBot(deps) {
     if (!/\.pdf$/i.test(name)) return sess.isGroup ? [] : [ui.textMsg('ตอนนี้รับไฟล์ PDF Statement ธนาคารเท่านั้นนะ 📄')];
     if (!deps.ai?.readStatement) return [ui.textMsg('การนำเข้า PDF Statement ต้องใช้ AI ของ Claude (ตั้งค่า ANTHROPIC_API_KEY)\nAI ฟรีอ่านได้เฉพาะรูปสลิป/ใบเสร็จนะ')];
     if (event.message.fileSize > 15 * 1024 * 1024) return [ui.textMsg('ไฟล์ใหญ่เกินไป (เกิน 15MB) ลองส่งทีละเดือนนะ')];
-    const pdf = await deps.getImage(event);
-    const items = await deps.ai.readStatement(pdf, todayStr(now()));
+    const pdf = await io.getImage(event);
+    const items = await io.readStatement(pdf, todayStr(now()));
     if (!items?.length) {
       return [ui.textMsg('อ่าน PDF นี้ไม่ออก 😵‍💫 ถ้าไฟล์มีรหัสผ่าน (Statement ธนาคารส่วนใหญ่ล็อกด้วยวันเกิด) ให้ปลดล็อกก่อนส่งนะ')];
     }
@@ -948,8 +981,15 @@ export function createBot(deps) {
     }
   }
 
-  /** จุดเข้าหลัก: คืน { userId, messages } — ในกลุ่ม userId คือ id ของกลุ่ม (สมุดบัญชีร่วม) */
-  async function handleEvent(event) {
+  /**
+   * จุดเข้าหลัก: คืน { userId, messages } — ในกลุ่ม userId คือ id ของกลุ่ม (สมุดบัญชีร่วม)
+   * ถ้าบันทึกชนกับคำขออื่นที่แก้สมุดเล่มเดียวกันพร้อมกัน (เช่นส่งสลิปหลายรูปพร้อมกัน) โหลดใหม่แล้วทำซ้ำ
+   */
+  function handleEvent(event) {
+    return retryOnConflict(() => handleOnce(event));
+  }
+
+  async function handleOnce(event) {
     const src = event.source || {};
     const ledgerId = src.groupId || src.roomId || src.userId;
     if (!ledgerId) return { userId: null, messages: [] };

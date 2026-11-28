@@ -8,6 +8,7 @@ import { createBot } from './core/bot.js';
 import * as ops from './core/ops.js';
 import { seedDemo } from './core/demo.js';
 import { moodPics } from './core/mood.js';
+import { retryOnConflict } from './core/conflict.js';
 
 const DEMO_USER = 'demo-user';
 
@@ -85,15 +86,17 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
     return auth.readToken(token);
   }
 
-  /** โหลดผู้ใช้ -> ทำงาน -> บันทึก */
+  /** โหลดผู้ใช้ -> ทำงาน -> บันทึก (ถ้าชนกับคำขออื่นที่บันทึกไปก่อน โหลดใหม่แล้วทำซ้ำ) */
   async function withUser(userId, origin, fn) {
     const bot = await botFor(userId, origin);
-    const user = await bot.loadUser(userId);
-    const result = await fn(user);
-    // ตั้งค่าเสร็จในแอป (หน้า "ติดตั้งครั้งแรก") → เปลี่ยนเป็นริชเมนูฉบับใช้งาน
-    if (linkMenu && ops.readyForMainMenu(user)) await linkMenu(user).catch(() => false);
-    await store.save(user);
-    return result;
+    return retryOnConflict(async () => {
+      const user = await bot.loadUser(userId);
+      const result = await fn(user);
+      // ตั้งค่าเสร็จในแอป (หน้า "ติดตั้งครั้งแรก") → เปลี่ยนเป็นริชเมนูฉบับใช้งาน
+      if (linkMenu && ops.readyForMainMenu(user)) await linkMenu(user).catch(() => false);
+      await store.save(user);
+      return result;
+    });
   }
 
   const publicState = (u) => ops.publicState(u, { aiEnabled: !!ai });
@@ -157,8 +160,12 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
       return text('bad json', 400);
     }
     // ตอบ LINE ทันที แล้วค่อยประมวลผลเบื้องหลัง
+    // เหตุการณ์ของสมุดเล่มเดียวกันทำทีละอันตามลำดับ (ต่างเล่มทำพร้อมกันได้)
+    const chains = new Map();
     for (const event of body.events || []) {
-      waitUntil(
+      const key = event.source?.groupId || event.source?.roomId || event.source?.userId || '';
+      const prev = chains.get(key) || Promise.resolve();
+      const job = prev.then(() =>
         (async () => {
           const src = event.source || {};
           const ledgerId = src.groupId || src.roomId || src.userId;
@@ -171,6 +178,8 @@ export function createApp({ cfg, store, loadAsset, files, speechToText, freeAi }
           if (messages.length && event.replyToken) await line.reply(event.replyToken, messages);
         })().catch((e) => console.error('webhook event failed:', e.message))
       );
+      chains.set(key, job);
+      waitUntil(job);
     }
     return text('ok');
   }

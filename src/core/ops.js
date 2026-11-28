@@ -46,6 +46,27 @@ export function newUser(id, profile = {}) {
 }
 
 /** เติมฟิลด์ที่ขาดให้ user เก่า (เผื่อเพิ่มฟีเจอร์ภายหลัง) */
+
+/** ยอดเงินสูงสุดต่อรายการ (กันพิมพ์ผิด/ค่าแปลกๆ ทำให้ยอดรวมพัง) */
+export const MAX_AMOUNT = 999999999.99;
+
+/** วันที่ YYYY-MM-DD ที่มีอยู่จริง ปี 2000–2100 */
+export function isDate(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const y = Number(s.slice(0, 4));
+  if (y < 2000 || y > 2100) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+/** ยอดเงินจากผู้ใช้ → ตัวเลข 2 ตำแหน่ง (โยน error ถ้าไม่ใช่ยอดที่ใช้ได้) */
+export function cleanAmount(v) {
+  const n = Math.round(Number(String(v ?? '').replace(/,/g, '')) * 100) / 100;
+  if (!Number.isFinite(n) || !(n > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
+  if (n > MAX_AMOUNT) throw new Error('จำนวนเงินมากเกินไป (สูงสุด 999,999,999.99)');
+  return n;
+}
+
 export function normalizeUser(u) {
   const base = newUser(u.id);
   const out = { ...base, ...u, settings: { ...base.settings, ...(u.settings || {}) } };
@@ -56,12 +77,11 @@ export function normalizeUser(u) {
 }
 
 function sanitizeTx(input, user) {
-  const amount = Math.round(Number(input.amount) * 100) / 100;
-  if (!(amount > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
+  const amount = cleanAmount(input.amount);
   const type = input.type === 'income' ? 'income' : 'expense';
   let categoryId = hasCategory(input.categoryId, user) ? input.categoryId : FALLBACK[type];
   if (getCategory(categoryId, user).type !== type) categoryId = FALLBACK[type];
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(input.date || '') ? input.date : todayStr();
+  const date = isDate(input.date) ? input.date : todayStr();
   return {
     type,
     amount,
@@ -124,7 +144,11 @@ export function lastTx(user) {
 export function learnKeyword(user, note, categoryId) {
   const kw = String(note || '').trim().toLowerCase();
   if (!kw || kw.length > 30 || !hasCategory(categoryId, user)) return;
-  user.settings.customKeywords[kw] = categoryId;
+  const kws = user.settings.customKeywords;
+  delete kws[kw];
+  kws[kw] = categoryId;
+  const keys = Object.keys(kws);
+  for (const k of keys.slice(0, Math.max(0, keys.length - 300))) delete kws[k];
 }
 
 export function txInRange(user, from, to) {
@@ -261,12 +285,13 @@ export function streak(user, now = new Date()) {
 
 // ---------- เป้าหมายการออม ----------
 export function addGoal(user, { name, target, emoji }) {
+  if (user.goals.length >= 50) throw new Error('มีกระปุกออมได้สูงสุด 50 กระปุก');
   const goal = {
     id: newId('g'),
     name: String(name || 'เป้าหมาย').slice(0, 40),
-    target: Math.max(1, Number(target) || 0),
+    target: Math.max(1, money2(target)),
     saved: 0,
-    emoji: emoji || '🎯',
+    emoji: String(emoji || '🎯').slice(0, 8),
     history: [],
     createdAt: new Date().toISOString(),
   };
@@ -286,7 +311,7 @@ export function findGoal(user, nameOrId) {
 export function depositGoal(user, goalId, amount) {
   const g = user.goals.find((x) => x.id === goalId);
   if (!g) return null;
-  const n = Math.round(Number(amount) * 100) / 100;
+  const n = money2(amount);
   if (!n) return g;
   g.saved = Math.max(0, Math.round((g.saved + n) * 100) / 100);
   g.history.push({ amount: n, date: todayStr(), at: new Date().toISOString() });
@@ -300,6 +325,7 @@ export function deleteGoal(user, id) {
 
 // ---------- รายการประจำ (ค่าเน็ต ค่าห้อง เงินเดือน ฯลฯ) ----------
 export function addRecurring(user, { note, amount, type, categoryId, day, wallet }) {
+  if (user.recurring.length >= 100) throw new Error('มีรายการประจำได้สูงสุด 100 รายการ');
   const r = {
     id: newId('r'),
     ...sanitizeTx({ note, amount, type, categoryId, wallet }, user),
@@ -412,15 +438,15 @@ export function publicState(user, { aiEnabled = false, now = new Date() } = {}) 
 
 /** อัปเดตการตั้งค่าจากแดชบอร์ด */
 export function applySettings(user, b = {}) {
-  if (b.monthlyBudget !== undefined) user.settings.monthlyBudget = Math.max(0, Number(b.monthlyBudget) || 0);
+  if (b.monthlyBudget !== undefined) user.settings.monthlyBudget = Math.max(0, money2(b.monthlyBudget));
   if (b.catBudgets && typeof b.catBudgets === 'object') {
     user.settings.catBudgets = Object.fromEntries(
       Object.entries(b.catBudgets)
-        .filter(([k, v]) => hasCategory(k, user) && Number(v) > 0)
-        .map(([k, v]) => [k, Number(v)])
+        .filter(([k, v]) => hasCategory(k, user) && money2(v) > 0)
+        .map(([k, v]) => [k, money2(v)])
     );
   }
-  if (b.reminder !== undefined) user.settings.reminder = /^\d{2}:\d{2}$/.test(b.reminder || '') ? b.reminder : null;
+  if (b.reminder !== undefined) user.settings.reminder = /^([01]\d|2[0-3]):[0-5]\d$/.test(b.reminder || '') ? b.reminder : null;
   if (b.defaultWallet && activeAccounts(user).some((a) => a.id === b.defaultWallet && SPENDABLE.includes(a.type))) user.settings.defaultWallet = b.defaultWallet;
   if (b.name) user.name = String(b.name).slice(0, 40);
   if (b.cycleStartDay !== undefined) user.settings.cycleStartDay = Math.min(31, Math.max(1, Number(b.cycleStartDay) || 1));
@@ -477,7 +503,10 @@ export function setCategories(user, { enabled, custom } = {}) {
 
 // ---------------- กระเป๋าเงิน (บัญชีธนาคาร / e-Wallet / บัตรเครดิต / เงินสด) ----------------
 
-const money2 = (v) => Math.round((Number(String(v ?? '').replace(/,/g, '')) || 0) * 100) / 100;
+const money2 = (v) => {
+  const n = Math.round((Number(String(v ?? '').replace(/,/g, '')) || 0) * 100) / 100;
+  return Number.isFinite(n) ? Math.max(-MAX_AMOUNT, Math.min(MAX_AMOUNT, n)) : 0;
+};
 
 export function accountName(user, id) {
   const a = findAccount(user, id);
@@ -515,7 +544,7 @@ function cleanAccount(input, prev = {}) {
   if (input.goal !== undefined) out.goal = Math.max(0, money2(input.goal)) || null;
   if (input.purpose !== undefined) out.purpose = String(input.purpose || '').trim().slice(0, 40) || null;
   // ต้องมีเงินก้อนนี้ภายในวันที่ (เช่น วันจ่ายค่าเทอม) → คิดว่าต้องเก็บเดือนละเท่าไร
-  if (input.goalDate !== undefined) out.goalDate = /^\d{4}-\d{2}-\d{2}$/.test(input.goalDate || '') ? input.goalDate : null;
+  if (input.goalDate !== undefined) out.goalDate = isDate(input.goalDate) ? input.goalDate : null;
   if (!out.isSavings) for (const k of ['isSavings', 'goal', 'purpose', 'goalDate']) delete out[k];
   if (type !== 'card') for (const k of ['limit', 'statementDay', 'cycleBudget']) delete out[k];
   if (!LIABILITY.includes(type)) delete out.dueDay;
@@ -654,8 +683,7 @@ export function beforeSnapshot(user, tx) {
 
 /** โอนเงินระหว่างบัญชี / จ่ายบัตรเครดิต / เติม e-Wallet (ไม่นับเป็นรายรับรายจ่าย) */
 export function addTransfer(user, { from, to, amount, date, note, countIn, countOut, noRepay } = {}, now = new Date()) {
-  const amt = money2(amount);
-  if (!(amt > 0)) throw new Error('จำนวนเงินไม่ถูกต้อง');
+  const amt = cleanAmount(amount);
   if (!findAccount(user, from) || !findAccount(user, to)) throw new Error('ไม่พบบัญชี');
   if (from === to) throw new Error('เลือกบัญชีต้นทางและปลายทางต่างกัน');
   const toAcc = findAccount(user, to);
@@ -664,7 +692,7 @@ export function addTransfer(user, { from, to, amount, date, note, countIn, count
     from,
     to,
     amount: amt,
-    date: /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : todayStr(now),
+    date: isDate(date) ? date : todayStr(now),
     note: String(note || transferNote(findAccount(user, from), toAcc)).slice(0, 80),
     createdAt: now.toISOString(),
   };
@@ -732,8 +760,8 @@ export function addTrip(user, { name, emoji, start, end, budget } = {}, now = ne
     id: newId('trip'),
     name: n,
     emoji: [...String(emoji || '').trim()].slice(0, 2).join('') || '🧳',
-    start: /^\d{4}-\d{2}-\d{2}$/.test(start || '') ? start : today,
-    end: /^\d{4}-\d{2}-\d{2}$/.test(end || '') ? end : null,
+    start: isDate(start) ? start : today,
+    end: isDate(end) ? end : null,
     budget: Math.max(0, money2(budget)) || 0,
     createdAt: now.toISOString(),
   };
@@ -749,10 +777,10 @@ export function updateTrip(user, id, patch = {}, now = new Date()) {
   if (patch.name) t.name = String(patch.name).trim().slice(0, 30) || t.name;
   if (patch.emoji) t.emoji = [...String(patch.emoji).trim()].slice(0, 2).join('') || t.emoji;
   if (patch.budget !== undefined) t.budget = Math.max(0, money2(patch.budget)) || 0;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(patch.start || '')) t.start = patch.start;
+  if (isDate(patch.start)) t.start = patch.start;
   if (patch.end === null || patch.end === '') t.end = null;
   else if (patch.end === true || patch.end === 'today') t.end = todayStr(now);
-  else if (/^\d{4}-\d{2}-\d{2}$/.test(patch.end || '')) t.end = patch.end;
+  else if (isDate(patch.end)) t.end = patch.end;
   return t;
 }
 

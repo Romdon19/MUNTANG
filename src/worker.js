@@ -5,9 +5,8 @@
 import { makeConfig } from './settings.js';
 import { createD1Store } from './store-d1.js';
 import { createApp } from './app.js';
-import { runJobs, windowStart } from './jobs.js';
+import { runJobs, nextJobAt, jobClock } from './jobs.js';
 import { createWorkersAI } from './ai-workers.js';
-import { timeStr } from './core/dates.js';
 
 function r2Files(bucket) {
   if (!bucket) return undefined;
@@ -40,7 +39,7 @@ function whisper(ai) {
 function boot(env) {
   if (!env.DB) throw new Error('ยังไม่ได้ผูกฐานข้อมูล D1 ชื่อ DB (ดู wrangler.toml)');
   const cfg = makeConfig(env);
-  const store = createD1Store(env.DB);
+  const store = createD1Store(env.DB, { nextJob: (u) => nextJobAt(u) });
   const app = createApp({
     cfg,
     store,
@@ -67,13 +66,13 @@ export default {
     }
   },
 
-  // Cron ทุก 1 นาที: เตือนจดรายจ่าย · ต้นชั่วโมง: รายการประจำ · 09:00: ตรวจทุกคนเพื่อส่งรายงานประจำเดือน
+  // Cron ทุก 1 นาที: ตรวจผู้ใช้ที่ถึงเวลา (เตือนจดรายจ่าย · รายการประจำ · รายงานประจำเดือน) ตามคิว next_job
+  // ทีละไม่เกิน 12 คนต่อนาที เพื่อไม่ให้เกินโควตาคำขอต่อครั้งของ Workers (คนที่เหลือได้ในนาทีถัดไป)
   async scheduled(event, env, ctx) {
     const { store, app } = boot(env);
     if (!app.hasLine) return;
     const now = new Date(event.scheduledTime);
-    const hhmm = timeStr(now);
-    const ids = hhmm === '09:00' ? await store.allIds() : await store.dueIds(hhmm, windowStart(hhmm), hhmm.endsWith(':00'));
+    const ids = await store.nextJobs(jobClock(now), 12);
     if (ids.length) ctx.waitUntil(runJobs({ store, ids, push: app.push, ctxFor: (id) => app.ctxFor(id), now }));
   },
 };
